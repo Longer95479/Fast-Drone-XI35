@@ -1,0 +1,36 @@
+<launch>
+
+  <!-- GsCam -->
+  <node ns="frontal" name="gscam_driver_frontal" pkg="gscam" type="gscam" output="screen">
+    <param name="camera_name" value="default"/>
+    <param name="camera_info_url" value="package://gscam/examples/uncalibrated_parameters.ini"/>
+    <param name="gscam_config" value="udpsrc address=192.168.123.162 port=9201 ! application/x-rtp,media=video,encoding-name=H264 ! rtph264depay name=hoge ! h264parse ! queue ! avdec_h264 ! videoconvert ! videoflip method=rotate-180"/>
+    <param name="frame_id" value="/camera_face"/>
+    <param name="sync_sink" value="false"/>
+  </node>
+
+<node ns="right" name="gscam_driver_right" pkg="gscam" type="gscam" output="screen">
+    <param name="camera_name" value="default"/>
+    <param name="camera_info_url" value="package://gscam/examples/uncalibrated_parameters.ini"/>
+    <param name="gscam_config" value="udpsrc address=192.168.123.162 port=9204 ! application/x-rtp,media=video,encoding-name=H264 ! rtph264depay name=hoge ! h264parse ! queue ! avdec_h264 ! videoconvert ! videoflip method=rotate-180"/>
+    <param name="frame_id" value="/camera_right"/>
+    <param name="sync_sink" value="false"/>
+  </node>
+
+  <node ns="left" name="gscam_driver_left" pkg="gscam" type="gscam" output="screen">
+    <param name="camera_name" value="default"/>
+    <param name="camera_info_url" value="package://gscam/examples/uncalibrated_parameters.ini"/>
+    <param name="gscam_config" value="udpsrc address=192.168.123.162 port=9203 ! application/x-rtp,media=video,encoding-name=H264 ! rtph264depay name=hoge ! h264parse ! queue ! avdec_h264 ! videoconvert ! videoflip method=rotate-180"/>
+    <param name="frame_id" value="/camera_left"/>
+    <param name="sync_sink" value="false"/>
+  </node> 
+
+    <!-- RVIZ -->    
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find gscam)/rviz/real_firulais.rviz" output="log"/>
+
+  <!-- <node if="$(arg PUBLISH_FRAME)" name="frontal_camera_transform" pkg="tf" type="static_transform_publisher" args="1 2 3 0 -3.141 0 /odom /frontal_frame 10"/>
+
+  <node if="$(arg PUBLISH_FRAME)" name="right_camera_transform" pkg="tf" type="static_transform_publisher" args="1 2 3 0 -3.141 0 /odom /right_frame 10"/>
+
+  <node if="$(arg PUBLISH_FRAME)" name="left_camera_transform" pkg="tf" type="static_transform_publisher" args="1 2 3 0 -3.141 0 /odom /left_frame 10"/> -->
+</launch>

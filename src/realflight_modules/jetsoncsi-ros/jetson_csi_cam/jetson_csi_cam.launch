@@ -1,0 +1,43 @@
+<launch>
+  <!-- Command Line Arguments -->
+  <arg name="sensor_id" default="0" />                       <!-- The sensor id of the camera -->
+  <arg name="cam_name" default="csi_cam_$(arg sensor_id)" /> <!-- The name of the camera (corrsponding to the camera info) -->
+  <arg name="frame_id" default="/$(arg cam_name)_link" />    <!-- The TF frame ID. -->
+  <arg name="sync_sink" default="true" />                    <!-- Synchronize the app sink. Setting this to false may resolve problems with sub-par framerates. -->
+  <arg name="capture_width" default="1280" />                <!-- Capture Image Width -->
+  <arg name="capture_height" default="720" />               <!-- Capture Image Height -->
+  <arg name="display_width" default="1280" />                 <!-- Display Image Width -->
+  <arg name="display_height" default="720" />                <!-- Display Image Height -->
+
+  <!-- <arg name="capture_width" default="1640" />                
+  <arg name="capture_height" default="1232" />               
+  <arg name="display_width" default="640" />                 
+  <arg name="display_height" default="480" />                 -->
+
+  <arg name="fps" default="30" />                            <!-- Desired framerate. True framerate may not reach this if set too high. -->
+
+  <!-- Make arguments available to parameter server -->
+  <param name="$(arg cam_name)/camera_id" type="int" value="$(arg sensor_id)" />
+  <param name="$(arg cam_name)/image_width" type="int" value="$(arg display_width)" />
+  <param name="$(arg cam_name)/image_height" type="int" value="$(arg display_height)" />
+  <param name="$(arg cam_name)/target_fps" type="int" value="$(arg fps)" />
+
+  <!-- Define the GSCAM pipeline -->
+  <!-- <env name="GSCAM_CONFIG" value="nvcamerasrc sensor-id=$(arg sensor_id) ! video/x-raw(memory:NVMM),
+    width=(int)$(arg width), height=(int)$(arg height), format=(string)I420, framerate=(fraction)$(arg fps)/1 ! 
+    nvvidconv flip-method=2 ! video/x-raw, format=(string)BGRx ! videoconvert ! video/x-raw, format=(string)BGR" /> -->
+
+  <env name="GSCAM_CONFIG" value="nvarguscamerasrc ! video/x-raw(memory:NVMM),
+    width=(int)$(arg capture_width), height=(int)$(arg capture_height), framerate=(fraction)$(arg fps)/1 ! 
+    nvvidconv flip-method=0 ! video/x-raw, width=(int)$(arg display_width), height=(int)$(arg display_height), 
+    format=(string)BGRx ! videoconvert ! video/x-raw, format=(string)BGR" />
+
+  <!-- Start the GSCAM node -->
+  <node pkg="gscam" type="gscam" name="$(arg cam_name)">
+    <param name="camera_name" value="$(arg cam_name)" />
+    <param name="frame_id" value="$(arg frame_id)" />
+    <param name="sync_sink" value="$(arg sync_sink)" />
+    <remap from="camera/image_raw" to="$(arg cam_name)/image_raw" />
+    <remap from="/set_camera_info" to="$(arg cam_name)/set_camera_info" />
+  </node>
+</launch>

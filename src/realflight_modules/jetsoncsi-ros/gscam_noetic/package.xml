@@ -1,0 +1,43 @@
+<package>
+  <name>gscam</name>
+  <version>1.0.1</version>
+  <description>
+    A ROS camera driver that uses gstreamer to connect to
+    devices such as webcams.
+  </description>
+  <maintainer email="jbo@jhu.edu">Jonathan Bohren</maintainer>
+  <maintainer email="ros-orphaned-packages@googlegroups.com">ROS Orphaned Package Maintainers</maintainer>
+  <license>BSD</license>
+
+  <author email="jbo@jhu.edu">Jonathan Bohren</author>
+  <author email="tjay@cs.brown.edu">Graylin Trevor Jay</author>
+  <author email="chriscrick@cs.brown.edu">Christopher Crick</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>libgstreamer1.0-dev</build_depend>
+  <build_depend>libgstreamer-plugins-base1.0-dev</build_depend>
+
+  <build_depend>nodelet</build_depend>
+  <build_depend>cv_bridge</build_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>image_transport</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>camera_calibration_parsers</build_depend>
+  <build_depend>camera_info_manager</build_depend>
+
+  <run_depend>nodelet</run_depend>
+  <run_depend>cv_bridge</run_depend>
+  <run_depend>roscpp</run_depend>
+  <run_depend>image_transport</run_depend>
+  <run_depend>sensor_msgs</run_depend>
+  <run_depend>camera_calibration_parsers</run_depend>
+  <run_depend>camera_info_manager</run_depend>
+  
+  <export>
+      <nodelet plugin="${prefix}/nodelet_plugins.xml"/>
+  </export>
+
+
+</package>
+
