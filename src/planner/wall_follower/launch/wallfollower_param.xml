@@ -1,0 +1,58 @@
+<launch>
+
+    <arg name="wall_follower_node_name"/>
+
+    <arg name="wall_follower_enable" default="false"/>
+    <arg name="dist_from_wall" default="0.5"/>
+    <arg name="have_plane_threshold" default="20"/>
+    <arg name="reach_waypoint_threshold" default="0.5"/>
+    <arg name="max_planned_waypoints_num" default="10"/>
+
+    <arg name="f" default="30.0"/>
+    <arg name="deltaY" default="4.0"/>
+    <arg name="deltaZ" default="2.0"/>
+    <arg name="X" default="3.0"/>
+
+    <!-- <arg name="R_turn_round_00" default=""/>
+    <arg name="R_turn_round_01" default=""/>
+    <arg name="R_turn_round_02" default=""/>
+    <arg name="R_turn_round_10" default=""/>
+    <arg name="R_turn_round_11" default=""/>
+    <arg name="R_turn_round_12" default=""/>
+    <arg name="R_turn_round_20" default=""/>
+    <arg name="R_turn_round_21" default=""/>
+    <arg name="R_turn_round_22" default=""/> -->
+
+    <arg name="plan_fitter/iters" default="1000"/>
+    <arg name="plan_fitter/sigma" default="0.05"/>
+    <arg name="plan_fitter/p" default="0.99"/>
+
+
+    <param name="/$(arg wall_follower_node_name)/wall_follower/wall_follower_enable" value="$(arg wall_follower_enable)" type="bool"/>
+    <param name="/$(arg wall_follower_node_name)/wall_follower/dist_from_wall" value="$(arg dist_from_wall)" type="double"/>
+    <param name="/$(arg wall_follower_node_name)/wall_follower/have_plane_threshold" value="$(arg have_plane_threshold)" type="int"/>
+    <param name="/$(arg wall_follower_node_name)/wall_follower/reach_waypoint_threshold" value="$(arg reach_waypoint_threshold)" type="double"/>
+    <param name="/$(arg wall_follower_node_name)/wall_follower/max_planned_waypoints_num" value="$(arg max_planned_waypoints_num)" type="int"/>
+
+    <param name="/$(arg wall_follower_node_name)/wall_follower/f" value="$(arg f)" type="double"/>
+    <param name="/$(arg wall_follower_node_name)/wall_follower/deltaY" value="$(arg deltaY)" type="double"/>
+    <param name="/$(arg wall_follower_node_name)/wall_follower/deltaZ" value="$(arg deltaZ)" type="double"/>
+    <param name="/$(arg wall_follower_node_name)/wall_follower/X" value="$(arg X)" type="double"/>
+
+    <!-- <param name="wall_follower/R_turn_round_00" value="$(arg R_turn_round_00)" type="double"/>
+    <param name="wall_follower/R_turn_round_01" value="$(arg R_turn_round_01)" type="double"/>
+    <param name="wall_follower/R_turn_round_02" value="$(arg R_turn_round_02)" type="double"/>
+    <param name="wall_follower/R_turn_round_10" value="$(arg R_turn_round_10)" type="double"/>
+    <param name="wall_follower/R_turn_round_11" value="$(arg R_turn_round_11)" type="double"/>
+    <param name="wall_follower/R_turn_round_12" value="$(arg R_turn_round_12)" type="double"/>
+    <param name="wall_follower/R_turn_round_20" value="$(arg R_turn_round_20)" type="double"/>
+    <param name="wall_follower/R_turn_round_21" value="$(arg R_turn_round_21)" type="double"/>
+    <param name="wall_follower/R_turn_round_22" value="$(arg R_turn_round_22)" type="double"/> -->
+
+    <param name="/$(arg wall_follower_node_name)/wall_follower/plan_fitter/iters" value="$(arg plan_fitter/iters)" type="int"/>
+    <param name="/$(arg wall_follower_node_name)/wall_follower/plan_fitter/sigma" value="$(arg plan_fitter/sigma)" type="double"/>
+    <param name="/$(arg wall_follower_node_name)/wall_follower/plan_fitter/p" value="$(arg plan_fitter/p)" type="double"/>
+
+
+
+</launch>

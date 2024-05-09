@@ -188,9 +188,10 @@ public:
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-private:
   MappingParameters mp_;
   MappingData md_;
+
+  private:
 
   // get depth image and camera pose
   void depthPoseCallback(const sensor_msgs::ImageConstPtr& img,

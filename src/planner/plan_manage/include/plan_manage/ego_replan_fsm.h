@@ -19,6 +19,7 @@
 #include <traj_utils/DataDisp.h>
 #include <plan_manage/planner_manager.h>
 #include <traj_utils/planning_visualization.h>
+#include <wall_follower/wall_follower.h>
 
 using std::vector;
 
@@ -52,6 +53,7 @@ namespace ego_planner
     PlanningVisualization::Ptr visualization_;
     traj_utils::DataDisp data_disp_;
     traj_utils::MultiBsplines multi_bspline_msgs_buf_;
+    WallFollower::Ptr wall_follower_;
 
     /* parameters */
     int target_type_; // 1 mannual select, 2 hard code

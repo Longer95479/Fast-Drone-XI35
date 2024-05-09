@@ -38,6 +38,7 @@ namespace ego_planner
     planner_manager_->initPlanModules(nh, visualization_);
     planner_manager_->deliverTrajToOptimizer(); // store trajectories
     planner_manager_->setDroneIdtoOpt();
+    wall_follower_.reset(new WallFollower(nh, planner_manager_->grid_map_));
 
     /* callback */
     exec_timer_ = nh.createTimer(ros::Duration(0.01), &EGOReplanFSM::execFSMCallback, this);

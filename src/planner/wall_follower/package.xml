@@ -1,13 +1,13 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>ego_planner</name>
+  <name>wall_follower</name>
   <version>0.0.0</version>
-  <description>The ego_planner package</description>
+  <description>The wall_follower package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
   <!-- <maintainer email="jane.doe@example.com">Jane Doe</maintainer> -->
-  <maintainer email="iszhouxin@zju.edu.cn">iszhouxin</maintainer>
+  <maintainer email="longer95479@todo.todo">longer95479</maintainer>
 
 
   <!-- One license tag required, multiple allowed, one license per tag -->
@@ -19,7 +19,7 @@
   <!-- Url tags are optional, but multiple are allowed, one per tag -->
   <!-- Optional attribute type can be: website, bugtracker, or repository -->
   <!-- Example: -->
-  <!-- <url type="website">http://wiki.ros.org/ego_planner</url> -->
+  <!-- <url type="website">http://wiki.ros.org/wall_follower</url> -->
 
 
   <!-- Author tags are optional, multiple are allowed, one per tag -->
@@ -49,28 +49,18 @@
   <!-- Use doc_depend for packages you need only for building documentation: -->
   <!--   <doc_depend>doxygen</doc_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>roscpp</build_depend>
-  <build_depend>std_msgs</build_depend>
-  
   <build_depend>plan_env</build_depend>
-  <build_depend>path_searching</build_depend>
-  <build_depend>bspline_opt</build_depend>
-  <build_depend>traj_utils</build_depend>
-  <build_depend>wall_follower</build_depend>
-
+  <build_depend>roscpp</build_depend>
+  <build_depend>rospy</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_export_depend>plan_env</build_export_depend>
   <build_export_depend>roscpp</build_export_depend>
+  <build_export_depend>rospy</build_export_depend>
   <build_export_depend>std_msgs</build_export_depend>
-
-  <exec_depend>roscpp</exec_depend>
-  <exec_depend>std_msgs</exec_depend>
-  <exec_depend>message_runtime</exec_depend>
-
   <exec_depend>plan_env</exec_depend>
-  <exec_depend>path_searching</exec_depend>
-  <exec_depend>bspline_opt</exec_depend>
-  <exec_depend>traj_utils</exec_depend>
-  <exec_depend>wall_follower</exec_depend>
-  
+  <exec_depend>roscpp</exec_depend>
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
@@ -79,6 +69,3 @@
 
   </export>
 </package>
-
-
-<!-- catkin_make -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=Yes -->

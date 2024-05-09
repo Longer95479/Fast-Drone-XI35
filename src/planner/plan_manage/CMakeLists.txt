@@ -5,7 +5,6 @@ set(CMAKE_BUILD_TYPE "Release")
 ADD_COMPILE_OPTIONS(-std=c++11 )
 ADD_COMPILE_OPTIONS(-std=c++14 )
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
-set(cv_bridge_DIR /home/nx01/cv_bridge/devel/share/cv_bridge/cmake)
 
 find_package(Eigen3 REQUIRED)
 find_package(PCL 1.7 REQUIRED)
@@ -19,6 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   path_searching
   bspline_opt
   traj_utils
+  wall_follower
   message_generation
   cv_bridge
 )
@@ -27,7 +27,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
  INCLUDE_DIRS include
  LIBRARIES ego_planner
- CATKIN_DEPENDS plan_env path_searching bspline_opt traj_utils 
+ CATKIN_DEPENDS plan_env path_searching bspline_opt traj_utils wall_follower
 #  DEPENDS system_lib
 )
 
