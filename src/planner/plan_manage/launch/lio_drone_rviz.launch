@@ -1,0 +1,6 @@
+<launch>    
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find ego_planner)/launch/default.rviz" required="true">
+        <remap from="/vins_fusion/odometry" to="/fast_lio/odometry"/>
+        <remap from="/vins_fusion/path" to="/fast_lio/path"/>
+    </node>
+</launch>
