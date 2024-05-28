@@ -3,9 +3,11 @@ project(wall_follower)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 set(CMAKE_BUILD_TYPE "Release")
+##set(CMAKE_BUILD_TYPE "Debug")
 add_compile_options(-std=c++11)
 add_compile_options(-std=c++14)
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
+set(CMAKE_CXX_FLAGS_RELEASE "-O0 -Wall -g")
+##set(CMAKE_CXX_FLAGS_DEBUG "-O0 -Wall -g -ggdb")
 
 find_package(Eigen3 REQUIRED)   
 find_package(PCL 1.7 REQUIRED)

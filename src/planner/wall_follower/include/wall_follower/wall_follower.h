@@ -7,6 +7,7 @@
 
 #include <ros/ros.h>
 #include <ros/console.h>
+#include <ros/time.h>
 #include <Eigen/Eigen>
 #include <plan_env/grid_map.h>
 #include <queue>
@@ -87,6 +88,7 @@ private:
     double reach_waypoint_threshold_;
     int max_planned_waypoints_num_;
     bool wall_follower_enable_;
+    double run_interval;
 
     /* data */
     Eigen::Vector3d body_pos_, next_way_point_;

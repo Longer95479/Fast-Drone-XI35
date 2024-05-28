@@ -17,6 +17,7 @@ WallFollower::WallFollower(ros::NodeHandle& nh, GridMap::Ptr& grid_map_ptr)
         nh.param("wall_follower/have_plane_threshold", have_plane_threshold_, 20);
         nh.param("wall_follower/reach_waypoint_threshold", reach_waypoint_threshold_, 0.5);
         nh.param("wall_follower/max_planned_waypoints_num", max_planned_waypoints_num_, 10);
+        nh.param("wall_follower/run_interval", run_interval, 0.5);
 
         grid_map_ptr_ = grid_map_ptr;
 
@@ -31,7 +32,7 @@ WallFollower::WallFollower(ros::NodeHandle& nh, GridMap::Ptr& grid_map_ptr)
         waypoint_sub_ = nh.subscribe("/move_base_simple/goal", 1, &WallFollower::waypointCallback, this);
         waypoint_pub_ = nh.advertise<geometry_msgs::PoseStamped>("/move_base_simple/goal", 10);
 
-        find_waypoint_timer_ = nh.createTimer(ros::Duration(0.5), &WallFollower::findWayPointCallback, this);
+        find_waypoint_timer_ = nh.createTimer(ros::Duration(run_interval), &WallFollower::findWayPointCallback, this);
         vis_timer_ = nh.createTimer(ros::Duration(0.2), &WallFollower::visCallback, this); 
     }   
 }
@@ -52,13 +53,16 @@ void WallFollower::findWayPointCallback(const ros::TimerEvent& /*event*/)
             next_way_point_ = body_pos_;
             is_next_waypoint_initialized_ = true;
             planned_waypoints_count_ = 1;
-            ros::Duration(2.0).sleep();
+            ros::Duration(3.0).sleep();
+            std::cout << "MY_DEBUG: planned_waypoints_count_ = " << planned_waypoints_count_ << std::endl;
         }
         // std::cout << "MY_DEBUG: dist = " << (body_pos_-next_way_point_).norm() << std::endl;
         if (planned_waypoints_count_ < max_planned_waypoints_num_) {
             if ((body_pos_-next_way_point_).norm() < reach_waypoint_threshold_) {
                 findNextWayPoint();
+                // std::cout << "MY_DEBUG: findNextWayPoint finish. = " << planned_waypoints_count_ << std::endl;
                 planned_waypoints_count_++;
+                std::cout << "MY_DEBUG: planned_waypoints_count_ = " << planned_waypoints_count_ << std::endl;
             }
         }
     }
@@ -89,6 +93,9 @@ void WallFollower::waypointCallback(const geometry_msgs::PoseStampedPtr &msg)
 
 bool WallFollower::findNextWayPoint()
 {
+    /* MU_DEBUG */
+    double t1 = ros::Time::now().toSec();
+
     std::vector<Eigen::Vector3d> pts_end, occupied_pts;
     Eigen::Matrix3d body_r_m;
     Eigen::Vector3d body_pos, ray_pt;
@@ -106,6 +113,7 @@ bool WallFollower::findNextWayPoint()
     map_resolution = grid_map_ptr_->mp_.resolution_;
 
     /* raycasting */
+    // std::cout << "MY_DEBUG: [1]start raycasting." << std::endl;
     for (auto& pt_end: pts_end) {
         pt_end = body_r_m * pt_end + body_pos;
 
@@ -125,6 +133,7 @@ bool WallFollower::findNextWayPoint()
     pts_end_fov_ptr_->pts_end_world_ = pts_end;
     
     /* wall existing */
+    // std::cout << "MY_DEBUG: [2]wall detection start." << std::endl;
     if (plane_fitter_ptr_->occupied_pts_.size() > (std::size_t)have_plane_threshold_) {
         plane_fitter_ptr_->last_best_plane_ = planeFitting();
         /* make arrow always point to agent's side */
@@ -140,6 +149,7 @@ bool WallFollower::findNextWayPoint()
     }
 
     /* generate next waypoint and pub */
+    // std::cout << "MY_DEBUG: [3]generate next waypoint and pub." << std::endl;
     if (plane_fitter_ptr_->have_plane_) {
         next_way_point_ = plane_fitter_ptr_->last_best_plane_.p_ + 
                             dist_from_wall_ * plane_fitter_ptr_->last_best_plane_.v_;
@@ -160,11 +170,16 @@ bool WallFollower::findNextWayPoint()
                 }
             }
         }
-        std::cout << "MY_DEBUG: next_way_point_ = " << next_way_point_.transpose() << std::endl;
-        std::cout << "MY_DEBUG: publicWayPoint(next_way_point_) start" << std::endl;
+        // std::cout << "MY_DEBUG: [4]next_way_point_ = " << next_way_point_.transpose() << std::endl;
+        // std::cout << "MY_DEBUG: [5]publicWayPoint(next_way_point_) start" << std::endl;
         publicWayPoint(next_way_point_);
-        std::cout << "MY_DEBUG: publicWayPoint(next_way_point_) end" << std::endl;
+        // std::cout << "MY_DEBUG: [6]publicWayPoint(next_way_point_) end" << std::endl;
     }
+
+    /* MU_DEBUG */
+    double t2 = ros::Time::now().toSec();
+    std::cout << "MY_DEBUG: [7]findNextWayPoint running time = " << (t2-t1) << std::endl;
+
 }
 
 
