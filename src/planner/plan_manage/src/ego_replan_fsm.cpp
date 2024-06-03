@@ -38,7 +38,6 @@ namespace ego_planner
     planner_manager_->initPlanModules(nh, visualization_);
     planner_manager_->deliverTrajToOptimizer(); // store trajectories
     planner_manager_->setDroneIdtoOpt();
-    wall_follower_.reset(new WallFollower(nh, planner_manager_->grid_map_));
 
     /* callback */
     exec_timer_ = nh.createTimer(ros::Duration(0.01), &EGOReplanFSM::execFSMCallback, this);
@@ -59,6 +58,9 @@ namespace ego_planner
 
     bspline_pub_ = nh.advertise<traj_utils::Bspline>("planning/bspline", 10);
     data_disp_pub_ = nh.advertise<traj_utils::DataDisp>("planning/data_display", 100);
+
+    //紧急进入Hover
+    Emergency_Hover = nh.advertise<std_msgs::Bool>("/planning/Emergency_hover", 1);
 
     if (target_type_ == TARGET_TYPE::MANUAL_TARGET)
     {
@@ -88,6 +90,13 @@ namespace ego_planner
     }
     else
       cout << "Wrong target_type_ value! target_type_=" << target_type_ << endl;
+  }
+
+  void EGOReplanFSM::Emergency_Stop()
+  {
+    std_msgs::Bool emergency_hover;
+    emergency_hover.data = true;
+    Emergency_Hover.publish(emergency_hover);
   }
 
   void EGOReplanFSM::readGivenWps()
@@ -601,7 +610,7 @@ namespace ego_planner
       else
       {
         if (enable_fail_safe_ && odom_vel_.norm() < 0.1)
-          changeFSMExecState(GEN_NEW_TRAJ, "FSM");
+          changeFSMExecState(GEN_NEW_TRAJ, "FSM");//退出紧急
       }
 
       flag_escape_emergency_ = false;
@@ -740,6 +749,8 @@ namespace ego_planner
           {
             ROS_WARN("Suddenly discovered obstacles. emergency stop! time=%f", t - t_cur);
             changeFSMExecState(EMERGENCY_STOP, "SAFETY");
+            //add by bkb 
+            Emergency_Stop();
           }
           else
           {

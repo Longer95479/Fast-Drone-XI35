@@ -7,6 +7,7 @@
 #include <plan_env/grid_map.h>
 #include <plan_env/obj_predictor.h>
 #include <ros/ros.h>
+#include <std_msgs/Bool.h>
 #include "bspline_opt/lbfgs.hpp"
 #include <traj_utils/plan_container.hpp>
 
@@ -86,13 +87,19 @@ namespace ego_planner
   {
 
   public:
-    BsplineOptimizer() {}
-    ~BsplineOptimizer() {}
+    BsplineOptimizer() 
+    {
 
+    }
+    ~BsplineOptimizer() {}
+    //add by bkb for emergency stop
+    ros::Publisher Emergency_Hover;
+    void Emergency_Stop();//add by bkb, check to hover when have an emergency
+    
     /* main API */
     void setEnvironment(const GridMap::Ptr &map);
     void setEnvironment(const GridMap::Ptr &map, const fast_planner::ObjPredictor::Ptr mov_obj);
-    void setParam(ros::NodeHandle &nh);
+    void setParam(ros::NodeHandle &nh);//add init Emergency_Hover
     Eigen::MatrixXd BsplineOptimizeTraj(const Eigen::MatrixXd &points, const double &ts,
                                         const int &cost_function, int max_num_id, int max_time_id);
 

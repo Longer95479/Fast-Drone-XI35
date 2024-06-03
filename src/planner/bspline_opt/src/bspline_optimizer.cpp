@@ -18,6 +18,8 @@ namespace ego_planner
     nh.param("optimization/max_acc", max_acc_, -1.0);
 
     nh.param("optimization/order", order_, 3);
+    //add by bkb 紧急进入Hover
+    Emergency_Hover = nh.advertise<std_msgs::Bool>("/planning/Emergency_hover", 1);
   }
 
   void BsplineOptimizer::setEnvironment(const GridMap::Ptr &map)
@@ -1194,13 +1196,21 @@ namespace ego_planner
 
 #endif
   }
-
+  //add by bkb
+  void BsplineOptimizer::Emergency_Stop()
+  {
+    std_msgs::Bool emergency_hover;
+    emergency_hover.data = true;
+    Emergency_Hover.publish(emergency_hover);
+  }
+  //根据障碍物检查并分段初始轨迹
   bool BsplineOptimizer::check_collision_and_rebound(void)
   {
 
     int end_idx = cps_.size - order_;
 
     /*** Check and segment the initial trajectory according to obstacles ***/
+    /**根据障碍物检查分段初始轨迹**/
     int in_id, out_id;
     vector<std::pair<int, int>> segment_ids;
     bool flag_new_obs_valid = false;
@@ -1238,10 +1248,22 @@ namespace ego_planner
             break;
           }
         }
+        static int emergency_counts = 0;
         if (j < 0) // fail to get the obs free point
-        {
+        {//如果持续陷进障碍物，会以0.2s的频率执行此句
           ROS_ERROR("ERROR! the drone is in obstacle. This should not happen.");
           in_id = 0;
+          //add by bkb
+
+          emergency_counts++;
+          if(emergency_counts >= 10) //2s
+          {
+            Emergency_Stop();
+          }
+        }
+        else
+        {
+          emergency_counts = 0;
         }
 
         for (j = i + 1; j < cps_.size; ++j)

@@ -9,6 +9,7 @@
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/CommandLong.h>
 #include <mavros_msgs/CommandBool.h>
+#include <std_msgs/Bool.h>
 
 #include "input.h"
 // #include "ThrustCurve.h"
@@ -73,6 +74,13 @@ public:
 	State_t get_state() { return state; }
 	bool get_landed() { return takeoff_land.landed; }
 
+	//add by bk
+	bool emergency_hover = false;
+	void emergency_callback(const std_msgs::BoolConstPtr &msg)
+	{
+		if(msg->data == true)
+			emergency_hover = true;
+	}
 private:
 	State_t state; // Should only be changed in PX4CtrlFSM::process() function!
 	AutoTakeoffLand_t takeoff_land;
