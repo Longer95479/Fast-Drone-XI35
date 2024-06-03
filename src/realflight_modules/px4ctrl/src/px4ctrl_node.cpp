@@ -85,6 +85,9 @@ int main(int argc, char *argv[])
     fsm.arming_client_srv = nh.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
     fsm.reboot_FCU_srv = nh.serviceClient<mavros_msgs::CommandLong>("/mavros/cmd/command");
 
+    //add by bk
+    ros::Subscriber emergency_sub = nh.subscribe<std_msgs::Bool>("/planning/Emergency_hover",1, boost::bind(&PX4CtrlFSM::emergency_callback, &fsm, _1));
+
     ros::Duration(0.5).sleep();
 
     if (param.takeoff_land.no_RC)
