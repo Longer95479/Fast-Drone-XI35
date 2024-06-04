@@ -154,7 +154,7 @@ void PX4CtrlFSM::process()
 
 			ROS_WARN("[px4ctrl] AUTO_HOVER(L2) --> MANUAL_CTRL(L1)");
 		}
-		else if (rc_data.is_command_mode && cmd_is_received(now_time))
+		else if (rc_data.is_command_mode && cmd_is_received(now_time) && !emergency_hover)
 		{
 			if (state_data.current_state.mode == "OFFBOARD")
 			{
@@ -163,13 +163,15 @@ void PX4CtrlFSM::process()
 				ROS_INFO("\033[32m[px4ctrl] AUTO_HOVER(L2) --> CMD_CTRL(L3)\033[32m");
 			}
 		}
-		else if (takeoff_land_data.triggered && takeoff_land_data.takeoff_land_cmd == quadrotor_msgs::TakeoffLand::LAND)
-		{
+		else if ((takeoff_land_data.triggered && takeoff_land_data.takeoff_land_cmd == quadrotor_msgs::TakeoffLand::LAND )|| emergency_hover)
+		{//加上进入紧急状态直接land
 
 			state = AUTO_LAND;
 			set_start_pose_for_takeoff_land(odom_data);
 
 			ROS_INFO("\033[32m[px4ctrl] AUTO_HOVER(L2) --> AUTO_LAND\033[32m");
+			if(emergency_hover)
+				ROS_WARN("Switch to AUTO_LAND due to Emergency!");
 		}
 		else
 		{
@@ -190,7 +192,7 @@ void PX4CtrlFSM::process()
 	}
 
 	case CMD_CTRL:
-	{
+	{//offboard模式
 		if (!rc_data.is_hover_mode || !odom_is_received(now_time))
 		{
 			state = MANUAL_CTRL;
@@ -198,12 +200,14 @@ void PX4CtrlFSM::process()
 
 			ROS_WARN("[px4ctrl] From CMD_CTRL(L3) to MANUAL_CTRL(L1)!");
 		}
-		else if (!rc_data.is_command_mode || !cmd_is_received(now_time))
+		else if (!rc_data.is_command_mode || !cmd_is_received(now_time) || emergency_hover)
 		{
 			state = AUTO_HOVER;
 			set_hov_with_odom();
 			des = get_hover_des();
 			ROS_INFO("[px4ctrl] From CMD_CTRL(L3) to AUTO_HOVER(L2)!");
+			if(emergency_hover)
+				ROS_WARN("Switch to AUTO_HOVER due to Emergency!");
 		}
 		else
 		{
