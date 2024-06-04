@@ -26,7 +26,9 @@ WallFollower::WallFollower(ros::NodeHandle& nh, GridMap::Ptr& grid_map_ptr)
         plane_fitter_ptr_.reset(new PlaneFitter(nh));
 
         odom_sub_ = nh.subscribe<nav_msgs::Odometry>("grid_map/odom", 10, &WallFollower::odomCallback, this);
+        trigger_sub_ = nh.subscribe("/traj_start_trigger", 1, &WallFollower::triggerCallback, this);
         have_odom_ = false;
+        have_trigger_ = false;
         is_next_waypoint_initialized_ = false;
 
         waypoint_sub_ = nh.subscribe("/move_base_simple/goal", 1, &WallFollower::waypointCallback, this);
@@ -45,10 +47,16 @@ void WallFollower::visCallback(const ros::TimerEvent& /*event*/)
     plane_fitter_ptr_->publicPlaneFittingArrow();
 }
 
+void WallFollower::triggerCallback(const geometry_msgs::PoseStampedPtr &msg)
+{
+    have_trigger_ = true;
+    std::cout << "Wall Follower are triggered!" << std::endl;
+}
+
 
 void WallFollower::findWayPointCallback(const ros::TimerEvent& /*event*/)
 {
-    if (have_odom_) {
+    if (have_odom_ && have_trigger_) {
         if (!is_next_waypoint_initialized_) {
             next_way_point_ = body_pos_;
             is_next_waypoint_initialized_ = true;

@@ -79,10 +79,10 @@ private:
     GridMap::Ptr grid_map_ptr_;
 
     ros::Timer vis_timer_, find_waypoint_timer_;
-    ros::Subscriber odom_sub_, waypoint_sub_;
+    ros::Subscriber odom_sub_, waypoint_sub_, trigger_sub_;
     ros::Publisher waypoint_pub_;
 
-    bool have_odom_, is_next_waypoint_initialized_;
+    bool have_odom_, have_trigger_, is_next_waypoint_initialized_;
     double dist_from_wall_;
     int have_plane_threshold_;
     double reach_waypoint_threshold_;
@@ -103,6 +103,7 @@ private:
     void odomCallback(const nav_msgs::OdometryConstPtr& odom);
     void waypointCallback(const geometry_msgs::PoseStampedPtr &msg);
     void publicWayPoint(Eigen::Vector3d waypoint);
+    void triggerCallback(const geometry_msgs::PoseStampedPtr &msg);
 
 };
 
