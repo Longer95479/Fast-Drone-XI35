@@ -7,7 +7,12 @@ option(SET_USER_BREAK_AT_STARTUP "Set user wait point in startup (for debug)" OF
 
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-set(cv_bridge_DIR /home/nx01/cv_bridge/devel/share/cv_bridge/cmake)
+
+find_package(OpenCV REQUIRED
+NO_MODULE
+PATHS /usr/local
+NO_DEFAULT_PATH
+)
 
 find_package(catkin REQUIRED COMPONENTS
     message_generation
@@ -22,6 +27,7 @@ find_package(catkin REQUIRED COMPONENTS
     tf
     ddynamic_reconfigure
     diagnostic_updater
+    OpenCV REQUIRED
     )
 
 if(BUILD_WITH_OPENMP)
@@ -89,6 +95,7 @@ include_directories(
     include
     ${realsense2_INCLUDE_DIR}
     ${catkin_INCLUDE_DIRS}
+    ${OpenCV_INCLUDE_DIRS}
     )
 
 # RealSense ROS Node
@@ -122,6 +129,7 @@ target_link_libraries(${PROJECT_NAME}
     ${realsense2_LIBRARY}
     ${catkin_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
+    ${OpenCV_LIBRARIES}
     )
 
 if(WIN32)

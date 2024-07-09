@@ -11,9 +11,9 @@
 
 #pragma once
 
-#include "/home/nx01/Fast-Drone-250/src/realflight_modules/VINS-Fusion-gpu/camera_models/include/camodocal/camera_models/CameraFactory.h"
-#include "/home/nx01/Fast-Drone-250/src/realflight_modules/VINS-Fusion-gpu/camera_models/include/camodocal/camera_models/CataCamera.h"
-#include "/home/nx01/Fast-Drone-250/src/realflight_modules/VINS-Fusion-gpu/camera_models/include/camodocal/camera_models/PinholeCamera.h"
+#include "camodocal/camera_models/CameraFactory.h"
+#include "camodocal/camera_models/CataCamera.h"
+#include "camodocal/camera_models/PinholeCamera.h"
 #include <eigen3/Eigen/Dense>
 #include <ros/ros.h>
 #include <sensor_msgs/Image.h>

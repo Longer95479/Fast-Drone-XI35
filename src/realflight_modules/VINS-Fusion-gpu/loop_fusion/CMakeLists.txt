@@ -2,11 +2,12 @@ cmake_minimum_required(VERSION 2.8.3)
 project(loop_fusion)
 
 set(CMAKE_BUILD_TYPE "Release")
-set(CMAKE_CXX_FLAGS "-std=c++11")
+set(CMAKE_CXX_STANDARD 14)
+#set(CMAKE_CXX_FLAGS "-std=c++11")
 #-DEIGEN_USE_MKL_ALL")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
 
-set(cv_bridge_DIR /home/nx01/cv_bridge/devel/share/cv_bridge/cmake)
+set(cv_bridge_DIR /home/orin01/catkin_pkg/devel/share/cv_bridge/cmake)
 
 find_package(catkin REQUIRED COMPONENTS
     roscpp
@@ -18,7 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
     )
 
 #find_package(OpenCV)
-#include(/home/dji/opencv/build/OpenCVConfig.cmake)
+include(/home/orin01/opencv-4.5.4/build/OpenCVConfig.cmake)
 
 
 find_package(OpenCV REQUIRED

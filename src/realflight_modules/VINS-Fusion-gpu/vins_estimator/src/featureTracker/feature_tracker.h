@@ -22,9 +22,9 @@
 #include <opencv2/cudaimgproc.hpp>
 #include <opencv2/cudaarithm.hpp>
 
-#include "/home/nx01/Fast-Drone-250/src/realflight_modules/VINS-Fusion-gpu/camera_models/include/camodocal/camera_models/CameraFactory.h"
-#include "/home/nx01/Fast-Drone-250/src/realflight_modules/VINS-Fusion-gpu/camera_models/include/camodocal/camera_models/CataCamera.h"
-#include "/home/nx01/Fast-Drone-250/src/realflight_modules/VINS-Fusion-gpu/camera_models/include/camodocal/camera_models/PinholeCamera.h"
+#include "camodocal/camera_models/CameraFactory.h"
+#include "camodocal/camera_models/CataCamera.h"
+#include "camodocal/camera_models/PinholeCamera.h"
 #include "../estimator/parameters.h"
 #include "../utility/tic_toc.h"
 

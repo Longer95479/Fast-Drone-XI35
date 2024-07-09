@@ -4,7 +4,8 @@
 #include <boost/shared_ptr.hpp>
 #include <opencv2/core/core.hpp>
 
-#include "/home/nx01/Fast-Drone-250/src/realflight_modules/VINS-Fusion-gpu/camera_models/include/camodocal/camera_models/Camera.h"
+//#include "/home/nx01/Fast-Drone-250/src/realflight_modules/VINS-Fusion-gpu/camera_models/include/camodocal/camera_models/Camera.h"
+#include "camodocal/camera_models/Camera.h"
 
 namespace camodocal
 {
