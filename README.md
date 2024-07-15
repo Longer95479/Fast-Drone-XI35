@@ -237,15 +237,15 @@ after these settings you will have 250Hz /imu/data_raw /imu/data
 
 解决办法：下载 cv_bridge 的源码，然后指定 4.5 版本的opencv进行编译，编译完成后将其路径添加到 ~/.bashrc 文件中，并刷新环境变量，具体参考 [Jetson Orin NX 开发指南（5）: 安装 OpenCV 4.6.0 并配置 CUDA 以支持 GPU 加速](https://blog.csdn.net/qq_44998513/article/details/133778446)
 
-### 3.8 下载并编译 Fast-drone-250
+### 3.8 下载并编译 Fast-drone-XI35
 
 原本需要分成两部：
 
 - clone 浙大官方的 Fast-drone-250 的仓库
 - 将其中的 vins-fusion 替换成 fins-fusion-gpu 版本
 
-为了简化操作： (TODO)
-- [ ] 把替换成 gpu 版本的 fast-drone-250 push 到 [wall-follower-fastdrone-250](https://github.com/Longer95479/wall-follower-fastdrone-250/)，**直接 clone 该仓库即可，之后进行编译**。
+为了简化操作：
+- [x] 把替换成 gpu 版本的 fast-drone-250 push 到 [Fast-Drone-XI35](https://github.com/Longer95479/Fast-Drone-XI35)，**直接 clone 该仓库即可，之后进行编译**。
 
 其中所作的修改均是针对的 vins-fusion-gpu，包括：
 
