@@ -5,14 +5,10 @@ set(CMAKE_BUILD_TYPE "Release")
 ADD_COMPILE_OPTIONS(-std=c++11 )
 ADD_COMPILE_OPTIONS(-std=c++14 )
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
-set(cv_bridge_DIR /home/nx01/cv_bridge/devel/share/cv_bridge/cmake)
+#set(cv_bridge_DIR /home/nx01/cv_bridge/devel/share/cv_bridge/cmake)
 
-#find_package(OpenCV REQUIRED)
-find_package(OpenCV REQUIRED
-NO_MODULE
-PATHS /usr/local
-NO_DEFAULT_PATH
-)
+set(OpenCV_DIR /usr/local/opencv-4.5.4/lib/cmake/opencv4)
+find_package(OpenCV REQUIRED)
 
 
 find_package(catkin REQUIRED COMPONENTS
@@ -20,7 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   visualization_msgs
-  cv_bridge
+  cv_bridge_454
   message_filters
 )
 

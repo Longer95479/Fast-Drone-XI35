@@ -7,7 +7,7 @@ ADD_COMPILE_OPTIONS(-std=c++14 )
 ## By adding -Wall and -Werror, the compiler does not ignore warnings anymore,
 ## enforcing cleaner code.
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
-set(cv_bridge_DIR /home/nx01/cv_bridge/devel/share/cv_bridge/cmake)
+#set(cv_bridge_DIR /home/nx01/cv_bridge/devel/share/cv_bridge/cmake)
 
 ## Find catkin macros and libraries
 find_package(catkin REQUIRED
@@ -15,18 +15,17 @@ find_package(catkin REQUIRED
     roscpp
     sensor_msgs
     roslint
-    cv_bridge
+    #cv_bridge
+    cv_bridge_454
     message_filters
 )
 
 ## Find system libraries
 find_package(Eigen3 REQUIRED)
-#find_package(OpenCV REQUIRED)
-find_package(OpenCV REQUIRED
-NO_MODULE
-PATHS /usr/local
-NO_DEFAULT_PATH
-)
+
+set(OpenCV_DIR /usr/local/opencv-4.5.4/lib/cmake/opencv4)
+find_package(OpenCV REQUIRED)
+
 find_package(Boost REQUIRED)
 
 ###################################

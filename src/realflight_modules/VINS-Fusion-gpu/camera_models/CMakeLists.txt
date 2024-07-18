@@ -22,7 +22,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 #PATHS /usr/local
 #NO_DEFAULT_PATH
 #)
-
+set(OpenCV_DIR /usr/local/opencv-4.5.4/lib/cmake/opencv4)
 find_package(OpenCV REQUIRED)
 
 # set(EIGEN_INCLUDE_DIR "/usr/local/include/eigen3")
