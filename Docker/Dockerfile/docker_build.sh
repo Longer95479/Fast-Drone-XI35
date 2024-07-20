@@ -1,0 +1,1 @@
+docker build -t fastdronexi35:orin_base_35.3.1 -f ./Dockerfile.jetson_base --build-arg USE_PROC=8 .. 
