@@ -1,0 +1,48 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/bkbk_b/ROSPackages/Fast-Drone-XI35/devel/include/**",
+        "/home/bkbk_b/ROSPackages/Fast-Drone-250/devel/include/**",
+        "/home/bkbk_b/ROSPackages/FAST_LIO_ws/devel/include/**",
+        "/home/bkbk_b/ROSPackages/ws_livox2/devel/include/**",
+        "/home/bkbk_b/ROSPackages/ws_livox/devel/include/**",
+        "/opt/ros/noetic/include/**",
+        "/home/bkbk_b/ROSPackages/Fast-Drone-XI35/src/planner/bspline_opt/include/**",
+        "/home/bkbk_b/ROSPackages/Fast-Drone-XI35/src/realflight_modules/VINS-Fusion-gpu/camera_models/include/**",
+        "/home/bkbk_b/ROSPackages/cv_bridge454_ws/src/cv_bridge454/include/**",
+        "/home/bkbk_b/ROSPackages/Fast-Drone-250/src/utils/data_check/include/**",
+        "/home/bkbk_b/ROSPackages/Fast-Drone-XI35/src/utils/DecompROS/decomp_ros_utils/include/**",
+        "/home/bkbk_b/ROSPackages/Fast-Drone-XI35/src/planner/drone_detect/include/**",
+        "/home/bkbk_b/ROSPackages/Fast-Drone-XI35/src/planner/plan_manage/include/**",
+        "/home/bkbk_b/ROSPackages/FAST_LIO_ws/src/FAST_LIO/include/**",
+        "/home/bkbk_b/ROSPackages/ws_mvs/src/HIKROBOT-MVS-CAMERA-ROS/include/**",
+        "/home/bkbk_b/ROSPackages/Fast-Drone-XI35/src/uav_simulator/mockamap/include/**",
+        "/home/bkbk_b/ROSPackages/Fast-Drone-XI35/src/planner/path_searching/include/**",
+        "/home/bkbk_b/ROSPackages/Cloud_Process/src/pcl_process/include/**",
+        "/home/bkbk_b/ROSPackages/Fast-Drone-XI35/src/planner/plan_env/include/**",
+        "/home/bkbk_b/ROSPackages/Fast-Drone-XI35/src/utils/pose_utils/include/**",
+        "/home/bkbk_b/ROSPackages/Fast-Drone-XI35/src/utils/quadrotor_msgs/include/**",
+        "/home/bkbk_b/ROSPackages/Fast-Drone-XI35/src/realflight_modules/realsense-ros/realsense2_camera/include/**",
+        "/home/bkbk_b/Iridium_ws/src/serial_AT/include/**",
+        "/home/bkbk_b/ROSPackages/Fast-Drone-XI35/src/uav_simulator/so3_control/include/**",
+        "/home/bkbk_b/ROSPackages/Fast-Drone-XI35/src/uav_simulator/so3_quadrotor_simulator/include/**",
+        "/home/bkbk_b/ROSPackages/FAST_LIO_ws/src/STD/include/**",
+        "/home/bkbk_b/ROSPackages/Fast-Drone-XI35/src/planner/traj_utils/include/**",
+        "/home/bkbk_b/ROSPackages/Fast-Drone-XI35/src/utils/uav_utils/include/**",
+        "/home/bkbk_b/ROSPackages/Fast-Drone-XI35/src/planner/wall_follower/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}

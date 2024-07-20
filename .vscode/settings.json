@@ -1,0 +1,22 @@
+{
+    "python.autoComplete.extraPaths": [
+        "/home/bkbk_b/ROSPackages/Fast-Drone-XI35/devel/lib/python3/dist-packages",
+        "/home/bkbk_b/ROSPackages/cv_bridge454_ws/devel/lib/python3/dist-packages",
+        "/home/bkbk_b/ROSPackages/R3Live/devel/lib/python3/dist-packages",
+        "/home/bkbk_b/ROSPackages/Fast-Drone-250/devel/lib/python3/dist-packages",
+        "/home/bkbk_b/ROSPackages/FAST_LIO_ws/devel/lib/python3/dist-packages",
+        "/home/bkbk_b/ROSPackages/ws_livox2/devel/lib/python3/dist-packages",
+        "/home/bkbk_b/ROSPackages/ws_livox/devel/lib/python3/dist-packages",
+        "/opt/ros/noetic/lib/python3/dist-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/bkbk_b/ROSPackages/Fast-Drone-XI35/devel/lib/python3/dist-packages",
+        "/home/bkbk_b/ROSPackages/cv_bridge454_ws/devel/lib/python3/dist-packages",
+        "/home/bkbk_b/ROSPackages/R3Live/devel/lib/python3/dist-packages",
+        "/home/bkbk_b/ROSPackages/Fast-Drone-250/devel/lib/python3/dist-packages",
+        "/home/bkbk_b/ROSPackages/FAST_LIO_ws/devel/lib/python3/dist-packages",
+        "/home/bkbk_b/ROSPackages/ws_livox2/devel/lib/python3/dist-packages",
+        "/home/bkbk_b/ROSPackages/ws_livox/devel/lib/python3/dist-packages",
+        "/opt/ros/noetic/lib/python3/dist-packages"
+    ]
+}
