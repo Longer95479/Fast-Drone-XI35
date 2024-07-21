@@ -47,6 +47,7 @@ RUN   sh -c 'echo "deb http://mirrors.ustc.edu.cn/ros/ubuntu/ `lsb_release -cs` 
       ros-${ROS_VERSION}-message-filters \
       ros-${ROS_VERSION}-tf \
       ros-${ROS_VERSION}-catkin \
+      ros-${ROS_VERSION}-roslint \
       ros-${ROS_VERSION}-ddynamic-reconfigure && \
       echo "source /opt/ros/${ROS_VERSION}/setup.bash" >> /root/.bashrc
 
@@ -138,6 +139,13 @@ RUN   cd /root && git clone https://github.com/lcm-proj/lcm && \
       mkdir build && cd build && \
       cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF -DBUILD_BENCHMARKS=OFF .. && \
       make -j${USE_PROC} && make install
+
+#Config SSH
+RUN  mkdir /var/run/sshd && \
+echo 'root:123456' | chpasswd && \
+sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+
+EXPOSE 22
 
 # Clean up all temp files
 RUN apt clean && rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/* /var/cache/apt/*
