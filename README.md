@@ -259,8 +259,89 @@ after these settings you will have 250Hz /imu/data_raw /imu/data
 
 
 ## 4 Docker 配置与使用
+底层基础镜像：NVIDIA L4T JetPack r35.3.1
+官方镜像地址：https://catalog.ngc.nvidia.com/orgs/nvidia/containers/l4t-jetpack
+### 4.1 构建基础环境镜像Dockerfile.jetson_base
+基础环境镜像包含了运行Fast-Drone-XI35所需要的各种软件库。
+- ros-noetic-base及其部分功能包
+- OpenCV4.5.4-cuda版本
+- cv_bridge4.5.4，适配的opencv4.5.4，已添加进ros环境，功能包名称cv_bridge_454
+- realsense2驱动库
+- mavros功能包
+- glog-0.5
+- ceres-2.0.0
+- lcm
 
-TODO
+部分软件库（ceres、glog和cv_bridge）和编译一些软件库所需要的额外的文件（比如编译opencv_contrib需要一些额外文件）打包进一个压缩包3rd_party.zip，放在docker执行的上下文目录，供构建镜像时解压使用。
+构建环境基础镜像，在终端执行：
+```shell
+make jetson_base 
+```
+### 4.2 构建Fast-Drone-XI35工程镜像Dockerfile.jetson
+在Dockerfile.jetson_base的基础上构建，从github上拉取最新的Fast-Drone-XI35并进行编译，加入容器初始化脚本。
+由于dockerhub在国内无法访问，基础环境镜像暂时没有push到远程仓库，通过docker save打包成.tar文件，借助u盘拷贝至宿主机，再通过docker load解压得到基础环境镜像local/fastdronexi35:orin_base_35.3.1。
+要构建Fast-Drone-XI35镜像，在终端执行:
+```shell
+make jetson 
+```
+初始化脚本"container_init.sh"说明：
+初始化脚本也放在构建镜像的上下文目录，构建阶段拷贝至镜像/root目录下，用于执行启动容器时的一些初始化操作，目前的初始化操作比较简单，主要是启动ssh服务，还有一个操作是改变mavros的px4.launch中的参数用于设配实际硬件，这样避免了重新构建基础镜像。
+### 4.3 容器启动脚本说明
+容器启动脚本“container_run.sh”用于对Fast-Drone-XI35工程镜像执行docker run操作，并实现必要的自定义配置，后续可根据需求进行修改，下面对目前容器启动配置进行详细介绍。
+```shell
+docker run -itd --privileged=true --network host \
+        --mount type=bind,source=${HOME}/Docker_Data,target=/root/data \
+        --mount type=bind,source=/dev,target=/dev \
+        --mount source=Fast-Drone-XI35,target=/root/Fast-Drone-XI35 \
+        --runtime=nvidia --gpus all \
+        --name fd_runtime \
+        fastdronexi35:orin /bin/bash
+```
+- 通过“--privileged=true”赋予容器对宿主机全面的访问权限，再通过“--mount type=bind,source=/dev,target=/dev”挂载宿主机的/dev实现容器对宿主机设备资源的无障碍访问。
+- “--network host”配置容器的网络模式为host主机模式，容器和宿主机共享ip和端口号，相比于需要进行端口映射bridge模式，host模式下更方便远程主机与容器实现双向通信，比如ros多机的场景。但要注意与宿主机端口冲突的问题。
+- “--mount type=bind,source=${HOME}/Docker_Data,target=/root/data”通过bind mounts将宿主机指定目录挂载至容器内。宿主机目录需要提前建立，并且宿主机目录不管是否为空都会覆盖容器目录（相当于在容器内创建了指向宿主机目录的软连接），主要用于共享宿主机数据以及永久性存储容器的数据。
+- “--mount source=Fast-Drone-XI35,target=/root/Fast-Drone-XI35”通过数据卷（volumes）挂载方式，实现Fast-Drone-XI35工程目录在宿主机和容器之间的双向互通，此操作会在宿主机docker目录下创建数据卷，并在启动容器时将容器内的Fast-Drone-XI35挂载到数据卷，类似于软连接，在数据卷中的修改会同步到容器，从而便于在宿主机直接修改代码。注意启动容器时若数据卷不为空，则数据卷会覆盖容器目录。
+- “--runtime=nvidia  --gpus all”使容器能访问gpu，前提是已经装好NVIDIA Container Toolkit，官方安装教程：https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+### 4.4 VSCode SSH配置
+通过vscode的Remote SSH插件远程连接至宿主机，在资源管理器打开挂载Fast-Drone-XI的数据卷，即可实现代码开发（前提是容器内Fast-Drone-XI正确挂载到宿主机数据卷）。实现步骤如下：
+1. 安装remote-ssh插件
+![alt text](images/image.png)
+2. 点击左侧的远程资源管理器，点击“+”新建远程，输入宿主机的用户名和ip，由于访问docker的数据卷需要root权限，所以需要以root身份登录，即用户名为root。
+![alt text](images/image-1.png)
+如果无法登录，检查宿主机的root密码是否正确，一般情况下ubuntu的root没有初始密码，这种情况下无法以root登录的，需要通过“sudo passwd root”重新设置root密码。
+3. 登录成功后即可编辑代码，并且修改会同步至容器。
+![alt text](images/image-2.png)
+### 4.5 Fast-Drone-XI35远程同步更新
+需求场景：github远程仓库有更新，需要更新容器内的Fast-Drone-XI35。
+目前有两种更新方式，宿主机更新和工程镜像更新。
+- 宿主机更新：
+容器内Fast-Drone-XI35已挂载到宿主机的docker数据卷，对数据卷的任何操作都会同步到容器内，因此可以对宿主机的Fast-Drone-XI35数据卷使用git pull更新工程。这种更新方式效率高，但是更新发生在宿主机数据卷，没有更新镜像，若要形成新的镜像，需要对容器进行commit。
+- 工程镜像更新：
+重新构建工程镜像，构建时会拉取远程仓库最新的版本，最后生成带有Fast-Drone-XI35最新版本的镜像。主要流程如下：
+①停止并删除正在运行的容器（fd_runtime）
+②删除工程镜像（fastdronexi35:orin）
+③删除宿主机Fast-Drone-XI35数据卷
+④运行make jetson构建新的工程镜像
+上述操作已集成在"update_jetson.sh"脚本中，当需要进行镜像更新时，直接运行该脚本即可，注意需要宿主机有基础环境镜像（tag为"local/fastdronexi35:orin_base_35.3.1"），否则无法构建。
+### 4.6 容器部署简要流程
+从构建基础环境镜像到运行容器的整个流程，所有命令在/Docker/Dockerfile目录下执行。
+- 构建基础环境镜像: local/fastdronexi35:orin_base_35.3.1
+```shell
+make jetson_base
+docker tag fastdronexi35:orin_base_35.3.1 local/fastdronexi35:orin_base_35.3.1
+```
+- 构建工程镜像: fastdronexi35:orin
+```shell
+make jetson
+```
+- 执行容器启动脚本
+```shell
+./container_run.sh
+```
+- 更新工程镜像
+```shell
+./update_jetson.sh
+```
 
 ## 5 需要注意的问题
 
