@@ -7,20 +7,15 @@ ENV FDRONE_WS=/root/Fast-Drone-XI35
 SHELL ["bash", "-c", "-l"]
 
 #Build Fast-Drone-XI35
-RUN apt-get update && apt-get -y install ros-${ROS_VERSION}-roslint
-RUN cd /root && git clone https://github.com/Longer95479/Fast-Drone-XI35.git -b board
+RUN  git config --global http.lowSpeedLimit 0 && \
+     git config --global http.lowSpeedTime 999999 && \
+     git config --global http.postBuffer 1024288000 && \
+     cd /root && git clone https://github.com/Longer95479/Fast-Drone-XI35.git -b board
 WORKDIR ${FDRONE_WS}
 RUN  source /opt/ros/${ROS_VERSION}/setup.bash && \
      source /root/cv_bridge${OPENCV_VERSION}_ws/devel/setup.bash && \
      catkin_make && \
      echo "source ${FDRONE_WS}/devel/setup.bash" >> /root/.bashrc
-
-#SSH
-RUN  mkdir /var/run/sshd && \
-echo 'root:123456' | chpasswd && \
-sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
-
-EXPOSE 22
 
 #container init
 COPY ./container_init.sh /

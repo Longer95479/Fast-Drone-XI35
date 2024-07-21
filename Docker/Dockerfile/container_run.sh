@@ -1,3 +1,4 @@
+mkdir -p ${HOME}/Docker_Data
 docker run -itd --privileged=true --network host \
         --mount type=bind,source=${HOME}/Docker_Data,target=/root/data \
         --mount type=bind,source=/dev,target=/dev \
