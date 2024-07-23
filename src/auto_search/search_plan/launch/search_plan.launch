@@ -1,0 +1,6 @@
+<launch>    
+    <node name="search_plan" pkg="auto_search" type="search_node">
+        <param name="odom_topic" value="/vins/imu_prepagate" type="string"/>
+        <param name="exec_frequency" value="100" type="double"/>
+    </node>
+</launch>

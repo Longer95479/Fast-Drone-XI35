@@ -304,16 +304,26 @@ docker run -itd --privileged=true --network host \
 - “--runtime=nvidia  --gpus all”使容器能访问gpu，前提是已经装好NVIDIA Container Toolkit，官方安装教程：https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
 ### 4.4 VSCode SSH配置
 通过vscode的Remote SSH插件远程连接至宿主机，在资源管理器打开挂载Fast-Drone-XI的数据卷，即可实现代码开发（前提是容器内Fast-Drone-XI正确挂载到宿主机数据卷）。实现步骤如下：
-1. 安装remote-ssh插件
+- 安装remote-ssh插件
 
-![alt text](images/image.png)
-2. 点击左侧的远程资源管理器，点击“+”新建远程，输入宿主机的用户名和ip，由于访问docker的数据卷需要root权限，所以需要以root身份登录，即用户名为root。
+<p align="center">
+  <img src="images/image.png" width="50%">
+</p>
 
-![alt text](images/image-1.png)
+- 点击左侧的远程资源管理器，点击“+”新建远程，输入宿主机的用户名和ip，由于访问docker的数据卷需要root权限，所以需要以root身份登录，即用户名为root。
+
+<p align="center">
+  <img src="images/image-1.png" width="40%">
+</p>
+
 如果无法登录，检查宿主机的root密码是否正确，一般情况下ubuntu的root没有初始密码，这种情况下无法以root登录的，需要通过“sudo passwd root”重新设置root密码。
-3. 登录成功后即可编辑代码，并且修改会同步至容器。
 
-![alt text](images/image-2.png)
+- 登录成功后即可编辑代码，并且修改会同步至容器。
+
+<p align="center">
+  <img src="images/image-2.png" width="40%">
+</p>
+
 ### 4.5 Fast-Drone-XI35远程同步更新
 需求场景：github远程仓库有更新，需要更新容器内的Fast-Drone-XI35。
 目前有两种更新方式，宿主机更新和工程镜像更新。
