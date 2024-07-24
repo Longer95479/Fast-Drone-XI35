@@ -1,6 +1,11 @@
 <launch>    
-    <node name="search_plan" pkg="auto_search" type="search_node">
-        <param name="odom_topic" value="/vins/imu_prepagate" type="string"/>
+    <node pkg="auto_search" name="search_plan" type="search_node" output="screen">
+        <param name="odom_topic" value="/vins_fusion/imu_propagate" type="string"/>
         <param name="exec_frequency" value="100" type="double"/>
+        <param name="arrive_threshold" value="0.3" type="double"/>
+
+        <param name="search_startpoint_x" value="2" type="double"/>
+        <param name="search_startpoint_y" value="0.5" type="double"/>
+        <param name="search_startpoint_z" value="2" type="double"/>
     </node>
 </launch>
