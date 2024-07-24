@@ -20,7 +20,7 @@ void Search_Plan_FSM::execSearchStage()
 //执行降落阶段状态机
 void Search_Plan_FSM::execLandStage()
 {
-
+  
 }
 //状态机执行函数
 void Search_Plan_FSM::execFSMCallback(const ros::TimerEvent &e)
