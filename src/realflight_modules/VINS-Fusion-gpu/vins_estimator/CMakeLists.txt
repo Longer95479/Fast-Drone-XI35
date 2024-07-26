@@ -7,21 +7,20 @@ set(CMAKE_CXX_STANDARD 14)
 #-DEIGEN_USE_MKL_ALL")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
 
-set(cv_bridge_DIR /home/orin01/catkin_pkg/devel/share/cv_bridge/cmake)
-
+#set(cv_bridge_DIR /home/orin01/catkin_pkg/devel/share/cv_bridge/cmake)
 find_package(catkin REQUIRED COMPONENTS
     roscpp
     std_msgs
     geometry_msgs
     nav_msgs
     tf
-    cv_bridge
+    cv_bridge_454
     camera_models
     image_transport)
 
-#find_package(OpenCV REQUIRED)
-include(/home/orin01/opencv-4.5.4/build/OpenCVConfig.cmake)
-#message(WARNING "OpenCV_VERSION: ${OpenCV_VERSION}")
+set(OpenCV_DIR /usr/local/opencv-4.5.4/lib/cmake/opencv4)
+find_package(OpenCV REQUIRED)
+message(WARNING "OpenCV_VERSION: ${OpenCV_VERSION}")
 
 
 #find_package(OpenCV REQUIRED

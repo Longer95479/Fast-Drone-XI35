@@ -20,7 +20,7 @@ find_package(catkin REQUIRED COMPONENTS
   traj_utils
   wall_follower
   message_generation
-  cv_bridge
+  cv_bridge_454
 )
 
 # catkin_package(CATKIN_DEPENDS message_runtime)
