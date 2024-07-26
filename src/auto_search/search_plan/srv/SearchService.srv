@@ -1,0 +1,3 @@
+int8 req_type #0为恢复正常 1为请求悬停或减速
+---
+bool success

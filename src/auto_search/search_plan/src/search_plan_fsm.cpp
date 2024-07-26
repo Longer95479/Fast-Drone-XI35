@@ -98,7 +98,7 @@ void Search_Plan_FSM::publishTarget()
     msg.pose.position.y = current_Position.y();
     msg.pose.position.z = current_Position.z();
     pub_Target.publish(msg);
-    
+
     last_Target = current_Target;
   }
 }
