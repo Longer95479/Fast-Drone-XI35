@@ -1,0 +1,72 @@
+<launch>
+
+  <!--<param name="/use_sim_time" value="true"/>-->
+
+  <arg name="node_start_delay" default="5.0" /> 
+  <arg name="image_proc_start_delay" default="10.0" />
+  <arg name="viso2_start_delay" default="10.0" />
+  <arg name = "camera" default = "/frontal"/>
+
+
+  <!-- Transforms -->
+  <node name="frontal_camera_transform" pkg="tf" type="static_transform_publisher" args="0.279 0.0 0.017 -1.571 0.0 -1.571 /base_link /camera_frontal 30"/>
+  <node name="right_camera_transform" pkg="tf" type="static_transform_publisher" args="-0.041 -0.082 -0.018 -1.571 1.833 0.0 /base_link /camera_right 30"/> <!-- Have to change frame to set X horizontal and Y vertical(down)-->
+  <node name="left_camera_transform" pkg="tf" type="static_transform_publisher" args="-0.066 0.082 -0.018 1.571 1.833 0.0 /base_link /camera_left 30"/> <!-- Have to change frame to set X horizontal and Y vertical(down)-->
+
+  <!-- GsCam -->
+  <node ns="frontal" name="gscam_driver_frontal" pkg="gscam" type="gscam" output="screen">
+    <param name="camera_name" value="default"/>
+    <param name="camera_info_url" value="package://gscam/examples/uncalibrated_parameters.ini"/>
+    <param name="gscam_config" value="udpsrc address=192.168.123.162 port=9201 ! application/x-rtp,media=video,encoding-name=H264 ! rtph264depay name=hoge ! h264parse ! queue ! avdec_h264 ! videoconvert ! videoflip method=rotate-180"/>    
+    <param name="frame_id" value="camera_frontal"/>
+    <param name="sync_sink" value="false"/>
+  </node>
+
+  <node ns="right" name="gscam_driver_right" pkg="gscam" type="gscam" output="screen">
+    <param name="camera_name" value="default"/>
+    <param name="camera_info_url" value="package://gscam/examples/uncalibrated_parameters.ini"/>
+    <param name="gscam_config" value="udpsrc address=192.168.123.162 port=9204 ! application/x-rtp,media=video,encoding-name=H264 ! rtph264depay name=hoge ! h264parse ! queue ! avdec_h264 ! videoconvert ! videoflip method=rotate-180"/>
+    <param name="frame_id" value="camera_right"/>
+    <param name="sync_sink" value="false"/>
+  </node>
+
+  <node ns="left" name="gscam_driver_left" pkg="gscam" type="gscam" output="screen">
+    <param name="camera_name" value="default"/>
+    <param name="camera_info_url" value="package://gscam/examples/uncalibrated_parameters.ini"/>
+    <param name="gscam_config" value="udpsrc address=192.168.123.162 port=9203 ! application/x-rtp,media=video,encoding-name=H264 ! rtph264depay name=hoge ! h264parse ! queue ! avdec_h264 ! videoconvert ! videoflip method=rotate-180"/>
+    <param name="frame_id" value="camera_left"/>
+    <param name="sync_sink" value="false"/>
+  </node> 
+
+  <!-- Split Camera -->
+  <node name="sxs_stereo" pkg="side_x_side_stereo" type="side_x_side_stereo_node" output="screen" launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
+    <param name="input_image_topic" type="str" value="/frontal/camera/image_raw"/>
+    <param name="left_output_image_topic" type="str" value="/frontal/left/image_raw"/>
+    <param name="right_output_image_topic" type="str" value="/frontal/right/image_raw"/>
+    <param name="left_camera_info_topic" type="str" value="/frontal/left/camera_info"/>
+    <param name="right_camera_info_topic" type="str" value="/frontal/right/camera_info"/>
+  </node> 
+
+  <!-- Viso2 
+    <node pkg = "viso2_ros" type = "stereo_odometer" name = "stereo_odometer" output = "screen" launch-prefix="bash -c 'sleep $(arg viso2_start_delay); $0 $@' ">
+        <remap from = "stereo" to = "$(arg camera)"/>
+        <remap from = "/frontal/left/image_rect" to = "/frontal/left/image_raw"/>
+        <remap from = "/frontal/right/image_rect" to = "/frontal/right/image_raw"/> 
+        <remap from = "image" to = "image_rect"/>
+	<param name = "base_link_frame_id" value = "/trunk"/>
+	<param name = "sensor_frame_id" value = "/camera_face"/>
+	<param name = "approximate_sync" value = "False"/>
+	<param name = "queue_size" value = "5"/>
+	<param name = "publish_tf" value = "True"/>
+    </node>  -->
+
+  <!-- Image Stereo Proc -->
+  <node ns="stereo" pkg="stereo_image_proc" type="stereo_image_proc" name="stereo_image_proc" output="screen">
+    <remap from="left/image_raw" to="/frontal/left/image_raw"/>
+    <remap from="right/image_raw" to="/frontal/right/image_raw"/>
+    <remap from="left/camera_info" to="/frontal/left/camera_info"/>
+    <remap from="right/camera_info" to="/frontal/right/camera_info"/>
+  </node> 
+
+
+</launch>

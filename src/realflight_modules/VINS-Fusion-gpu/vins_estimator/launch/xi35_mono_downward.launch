@@ -1,0 +1,11 @@
+<launch>
+	<node name="vins_fusion" pkg="vins"  type="vins_node" output="screen" args="$(find vins)/../config/xi35_mono_downward.yaml"/>
+
+	<!-- <node name="loop_fusion" pkg="loop_fusion"  type="loop_fusion_node" args="$(find vins)/../config/fast_drone_250.yaml" output="screen"/> -->
+
+	<!-- <node name="globalEstimator" pkg="global_fusion" type="global_fusion_node" output="screen">
+		<remap from="/vins_estimator/odometry" to="/vins_fusion/odometry"/>
+		<remap from="/gps" to="/mavros/global_position/raw/fix"/>
+	</node> -->
+
+</launch> 

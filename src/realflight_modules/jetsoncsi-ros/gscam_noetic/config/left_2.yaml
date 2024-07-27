@@ -1,0 +1,26 @@
+image_width: 928
+image_height: 800
+camera_name: frontal/left
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [467.96475,   0.     , 466.50198,
+           0.     , 474.07358, 402.93052,
+           0.     ,   0.     ,   1.     ]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [0.023093, -0.005348, -0.002756, 0.002428, 0.000000]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [ 0.99887377, -0.00155197, -0.04742131,
+          0.00154324,  0.99999878, -0.0002208 ,
+          0.0474216 ,  0.00014737,  0.99887495]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [513.42677,   0.     , 512.87244,   0.     ,
+           0.     , 513.42677, 399.75872,   0.     ,
+           0.     ,   0.     ,   1.     ,   0.     ]

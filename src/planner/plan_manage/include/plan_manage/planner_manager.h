@@ -14,10 +14,9 @@
 
 namespace ego_planner
 {
-
   // Fast Planner Manager
   // Key algorithms of mapping and planning are called
-
+  
   class EGOPlannerManager
   {
     // SECTION stable

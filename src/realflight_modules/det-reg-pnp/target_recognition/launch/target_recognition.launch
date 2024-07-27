@@ -1,0 +1,6 @@
+<launch>
+	
+	<node pkg="target_recognition" type="target_recognition_node.py" name="target_recognition" output="screen">
+	</node>
+	
+</launch>

@@ -68,6 +68,9 @@ void pubLatestOdometry(const Eigen::Vector3d &P, const Eigen::Quaterniond &Q, co
     odometry.twist.twist.linear.x = V.x();
     odometry.twist.twist.linear.y = V.y();
     odometry.twist.twist.linear.z = V.z();
+    //add
+     
+    //
     pub_latest_odometry.publish(odometry);
 }
 
