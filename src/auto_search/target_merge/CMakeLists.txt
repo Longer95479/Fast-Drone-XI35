@@ -56,3 +56,8 @@ target_link_libraries(target_merge_lib ${catkin_LIBRARIES})
 add_executable(target_merge_node src/target_merge_node.cpp)
 target_link_libraries(target_merge_node target_merge_lib)
 add_dependencies(target_merge_node search_plan_generate_messages_cpp)
+
+add_dependencies(target_merge_lib 
+  ${${PROJECT_NAME}_EXPORTED_TARGETS} 
+  ${catkin_EXPORTED_TARGETS}
+)
