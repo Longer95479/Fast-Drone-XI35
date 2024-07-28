@@ -1,11 +1,8 @@
 <launch>
 	
 	<node pkg="detect_box_pnp" type="detect_box_pnp" name="detect_box_pnp" output="screen">
-		<param name="camera_offset_x"  value="0.0" />
-		<param name="camera_offset_y"  value="0.0" />
-		<param name="camera_offset_z"  value="0.0" />
+		<param name="config_file" type="string" value="$(find detect_box_pnp)/yaml/camera_param.yaml"/>
 		<param name="camera_topic" type="string" value="/csi_cam_0/image_raw" />
-		<param name="camera_info" type="string" value="$(find detect_box_pnp)/yaml/camera_param.yaml" />
 		<param name="detect_hz"  value="10" />
 	</node>
 

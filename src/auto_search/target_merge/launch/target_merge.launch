@@ -1,14 +1,14 @@
 <launch>    
     <node pkg="target_merge" name="target_merge_node" type="target_merge_node" output="screen">
         <param name="single_merged_threshold" value="20" type="int"/>
-        <param name="drone_id" value="0" type="int"/>
-        <param name="target_PubDuration" value="2" type="double"/>
+        <param name="drone_id" value="1" type="int"/>
+        <param name="target_PubDuration" value="1" type="double"/>
         <param name="open_visualization" value="true" type="bool"/>
 
         <param name="pub_target_merged_topic" value="/target_merge/pub_target_merged" type="string"/>
         <param name="pub_target_to_search_topic" value = "/target_merge/target_to_search" type="string"/>
         <param name="sub_target_merged_topic" value="/communication/sub_target_merged" type="string"/>
-        <param name="sub_pnp_topic" value="/pnp/target" type="string"/>
+        <param name="sub_pnp_topic" value="/detect_box_pnp/target" type="string"/>
         <param name="search_service_name" value="/search_plan/notify" type="string"/>
     </node>
 </launch>

@@ -75,9 +75,11 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
 )
+add_library(bottom_camera_lib src/bottom_camera.cpp)
+target_link_libraries(bottom_camera_lib ${OpenCV_LIBS})
 
 add_executable(detect_box_pnp
     src/detect_box_pnp_node.cpp
 )
 
-target_link_libraries(detect_box_pnp ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OpenCV_LIBS} yaml-cpp)
+target_link_libraries(detect_box_pnp bottom_camera_lib ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OpenCV_LIBS} yaml-cpp)

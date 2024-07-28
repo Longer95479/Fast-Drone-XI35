@@ -25,8 +25,8 @@ void Target_Merge::updateSingleTarget(const SingleTargetPtr &target)
     st.cov = Matrix2d::Zero();//协方差初始化为0
     st.observed_Counts++;
     //请求悬停或减速
-    if(callSearchService(Target_Merge::Slow_Down))
-      search_state = 1;
+    // if(callSearchService(Target_Merge::Slow_Down))
+    //   search_state = 1;
   }
   else
   {//更新均值和协方差
@@ -44,8 +44,8 @@ void Target_Merge::updateSingleTarget(const SingleTargetPtr &target)
     //如果处于减速或悬停，请求正常
     if(search_state == 1)
     {
-      if(callSearchService(Target_Merge::Normal))
-        search_state = 0;
+      // if(callSearchService(Target_Merge::Normal))
+      //   search_state = 0;
     }
   }
 }
@@ -185,14 +185,14 @@ void Target_Merge::init(ros::NodeHandle &nh)
 {
   //ros
   nh.param<int>("single_merged_threshold", single_merged_threshold, 20);
-  nh.param<int>("drone_id", drone_id, 0);
+  nh.param<int>("drone_id", drone_id, 1);
   nh.param<double>("target_PubDuration", target_PubDuration, 2);
   nh.param<bool>("open_visualization", open_visualization, false);
 
   nh.param<std::string>("pub_target_merged_topic", PUB_TARGET_TOPIC, "/target_merge/pub_target_merged");
   nh.param<std::string>("pub_target_to_search_topic", PUB_TARGET_SEARCH_TOPIC, "/target_merge/target_to_search");
   nh.param<std::string>("sub_target_merged_topic", SUB_TARGET_TOPIC, "/communication/sub_target_merged");
-  nh.param<std::string>("sub_pnp_topic", SUB_PNP_TOPIC, "/pnp/target");
+  nh.param<std::string>("sub_pnp_topic", SUB_PNP_TOPIC, "/detect_box_pnp/target");
   nh.param<std::string>("search_service_name", SEARCH_SERVICE_NAME, "/search_plan/notify");
 
   pub_TargetMerged = nh.advertise<target_merge::TargetMerged_Message>(PUB_TARGET_TOPIC, 10);
@@ -201,7 +201,7 @@ void Target_Merge::init(ros::NodeHandle &nh)
   sub_TargetSingle = nh.subscribe(SUB_PNP_TOPIC, 100, &Target_Merge::singleTargetCallback, this);
   sub_TargetMerged = nh.subscribe(SUB_TARGET_TOPIC, 100, &Target_Merge::targetMergedCallback, this);
   client_Search = nh.serviceClient<search_plan::SearchService>(SEARCH_SERVICE_NAME);
-  client_Search.waitForExistence();
+  //client_Search.waitForExistence();
   timer_PubTarget = nh.createTimer(ros::Duration(target_PubDuration), &Target_Merge::targetPubCallback, this);
 }
 } // namespace target_merge

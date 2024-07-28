@@ -27,6 +27,7 @@
 #include <opencv2/aruco/charuco.hpp>
 #include <opencv2/calib3d.hpp>
 #include <opencv2/core/eigen.hpp>
+#include <fstream>
 
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -37,6 +38,7 @@
 #include <detect_box_pnp/ProcessImage.h>
 
 #include "detect_box_pnp/printf_utils.h"
+#include "detect_box_pnp/bottom_camera.h"
 
 
 using namespace std;
@@ -46,16 +48,16 @@ detect_box_pnp::ProcessImage target_recognition_srv;
 image_transport::Subscriber image_sub;
 // 发布目标在相机系下位置
 ros::Publisher target_position_pub;
+ros::Publisher targetInWorld_pub;
 // 发布识别后的图像
 image_transport::Publisher detect_result_image_pub;
 
 ros::Subscriber drone_position_world_frame_sub;
 
-nav_msgs::Odometry _DroneState;
-
 Mat img;
-detect_box_pnp::DetectInfo target_position_camera_frame;
-detect_box_pnp::DetectInfo target_position_world_frame;
+
+geometry_msgs::PoseStamped target_position_world_frame_msg;
+
 sensor_msgs::ImagePtr detect_result_image;
 
 float camera_offset[3];
@@ -68,6 +70,8 @@ cv::Mat cam_image_copy;
 boost::shared_mutex mutex_image_callback;
 bool image_status = false;
 boost::shared_mutex mutex_image_status;
+
+Bottom_Camera bt_Camera;
 
 
 // 图像接收回调函数，接收cam的话题，并将图像保存在cam_image_copy中
@@ -103,7 +107,7 @@ void cameraCallback(const sensor_msgs::ImageConstPtr &msg)
 
 void drone_position_cb(const nav_msgs::Odometry::ConstPtr& msg)
 {
-    _DroneState = *msg;
+    bt_Camera.updateCameraPose(*msg);
 }
 
 // 用此函数查看是否收到图像话题
@@ -119,20 +123,21 @@ int main(int argc, char **argv)
     ros::NodeHandle nh("~");
     image_transport::ImageTransport it(nh);
 
-    std::string camera_topic, camera_info;
+    std::string config_file;
+    nh.getParam("config_file", config_file);
+    bt_Camera.readParamFile(config_file);
+
+    std::string camera_topic;
     int detect_hz;
-
-    // 相机安装偏移：相机在机体系的位置，前方x为正，左方y为正，上方z为正
-    nh.param<float>("camera_offset_x", camera_offset[0], 0.0);
-    nh.param<float>("camera_offset_y", camera_offset[1], 0.0);
-    //nh.param<float>("camera_offset_z", camera_offset[2], 0.0);
-
     nh.getParam("camera_topic", camera_topic);
-    nh.getParam("camera_info", camera_info);
     nh.getParam("detect_hz", detect_hz);
+    YAML::Node camera_config = YAML::LoadFile(config_file);
+    //方形目标边长
+    double target_len = camera_config["target_len"].as<double>();
 
     // 目标位置
-    target_position_pub = nh.advertise<detect_box_pnp::DetectInfo>("/target_position", 10);
+    //target_position_pub = nh.advertise<detect_box_pnp::DetectInfo>("/target_position", 10);
+    targetInWorld_pub = nh.advertise<geometry_msgs::PoseStamped>("/detect_box_pnp/target", 10);
     // 相机图像
     image_sub = it.subscribe(camera_topic.c_str(), 1, cameraCallback);
     // 检测结果图像
@@ -141,39 +146,23 @@ int main(int argc, char **argv)
     // 目标识别
     ros::ServiceClient client = nh.serviceClient<detect_box_pnp::ProcessImage>("/process_image");
     
-    YAML::Node camera_config = YAML::LoadFile(camera_info);
 
-    //相机内参
-    double fx = camera_config["fx"].as<double>();
-    double fy = camera_config["fy"].as<double>();
-    double cx = camera_config["x0"].as<double>();
-    double cy = camera_config["y0"].as<double>();
-
-    //相机畸变参数
-    double k1 = camera_config["k1"].as<double>();
-    double k2 = camera_config["k2"].as<double>();
-    double p1 = camera_config["p1"].as<double>();
-    double p2 = camera_config["p2"].as<double>();
-    double k3 = camera_config["k3"].as<double>();
-    
-    //方形目标边长
-    double target_len = camera_config["target_len"].as<double>();
 
     Mat camera_matrix;
     camera_matrix = cv::Mat(3, 3, CV_64FC1, cv::Scalar::all(0));
-    camera_matrix.ptr<double>(0)[0] = fx;
-    camera_matrix.ptr<double>(0)[2] = cx;
-    camera_matrix.ptr<double>(1)[1] = fy;
-    camera_matrix.ptr<double>(1)[2] = cy;
+    camera_matrix.ptr<double>(0)[0] = bt_Camera.fx;
+    camera_matrix.ptr<double>(0)[2] = bt_Camera.cx;
+    camera_matrix.ptr<double>(1)[1] = bt_Camera.fy;
+    camera_matrix.ptr<double>(1)[2] = bt_Camera.cy;
     camera_matrix.ptr<double>(2)[2] = 1.0f;
 
     Mat distortion_coefficients;
     distortion_coefficients = cv::Mat(5, 1, CV_64FC1, cv::Scalar::all(0));
-    distortion_coefficients.ptr<double>(0)[0] = k1;
-    distortion_coefficients.ptr<double>(1)[0] = k2;
-    distortion_coefficients.ptr<double>(2)[0] = p1;
-    distortion_coefficients.ptr<double>(3)[0] = p2;
-    distortion_coefficients.ptr<double>(4)[0] = k3;
+    distortion_coefficients.ptr<double>(0)[0] = bt_Camera.k1;
+    distortion_coefficients.ptr<double>(1)[0] = bt_Camera.k2;
+    distortion_coefficients.ptr<double>(2)[0] = bt_Camera.p1;
+    distortion_coefficients.ptr<double>(3)[0] = bt_Camera.p2;
+    distortion_coefficients.ptr<double>(4)[0] = bt_Camera.k3;
 
     // ArUco Marker字典选择
     Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_250);
@@ -297,20 +286,15 @@ int main(int argc, char **argv)
             float o_tx = id_8_t.at<float>(0);
             float o_ty = id_8_t.at<float>(1);
             float o_tz = id_8_t.at<float>(2);
-           
-            // 相机坐标系下：右方x为正，下方y为正，前方z为正
-            target_position_camera_frame.header.stamp = ros::Time::now();
-            target_position_camera_frame.target_category = 1;
-            target_position_camera_frame.position[0] = o_tx;
-            target_position_camera_frame.position[1] = o_ty;
-            //target_position_camera_frame.position[2] = o_tz;
-            
-            // 世界坐标系下：前方x为正，左方y为正，上方z为正
-            target_position_world_frame.position[0] = _DroneState.pose.pose.position.x - target_position_camera_frame.position[1] + camera_offset[0];
-            target_position_world_frame.position[1] = _DroneState.pose.pose.position.y - target_position_camera_frame.position[0] + camera_offset[1];
-            //target_position_world_frame.position[2] = _DroneState.pose.pose.position.z - target_position_camera_frame.position[2] + camera_offset[2];
+            Eigen::Vector3d target_inCamera(o_tx, o_ty, o_tz);
+            Eigen::Vector3d target_inWorld;
+            bt_Camera.camera2World(target_inCamera, target_inWorld);
 
-            target_position_pub.publish(target_position_world_frame);
+            target_position_world_frame_msg.header.stamp = ros::Time::now();
+            target_position_world_frame_msg.header.seq = 1;
+            target_position_world_frame_msg.pose.position.x = target_inWorld.x();
+            target_position_world_frame_msg.pose.position.y = target_inWorld.y();
+            targetInWorld_pub.publish(target_position_world_frame_msg);
         }
         if (!markerids2.empty())
         {
@@ -352,18 +336,15 @@ int main(int argc, char **argv)
             float o_tx = id_8_t.at<float>(0);
             float o_ty = id_8_t.at<float>(1);
             float o_tz = id_8_t.at<float>(2);
+            Eigen::Vector3d target_inCamera(o_tx, o_ty, o_tz);
+            Eigen::Vector3d target_inWorld;
+            bt_Camera.camera2World(target_inCamera, target_inWorld);
 
-            target_position_camera_frame.header.stamp = ros::Time::now();
-            target_position_camera_frame.target_category = 2;
-            target_position_camera_frame.position[0] = o_tx;
-            target_position_camera_frame.position[1] = o_ty;
-            //target_position_camera_frame.position[2] = o_tz;
-
-            target_position_world_frame.position[0] = _DroneState.pose.pose.position.x - target_position_camera_frame.position[1] + camera_offset[0];
-            target_position_world_frame.position[1] = _DroneState.pose.pose.position.y - target_position_camera_frame.position[0] + camera_offset[1];
-            //target_position_world_frame.position[2] = _DroneState.pose.pose.position.z - target_position_camera_frame.position[2] + camera_offset[2];
-
-            target_position_pub.publish(target_position_world_frame);
+            target_position_world_frame_msg.header.stamp = ros::Time::now();
+            target_position_world_frame_msg.header.seq = 2;
+            target_position_world_frame_msg.pose.position.x = target_inWorld.x();
+            target_position_world_frame_msg.pose.position.y = target_inWorld.y();
+            targetInWorld_pub.publish(target_position_world_frame_msg);
         }
         if (!markerids3.empty())
         {
@@ -405,18 +386,15 @@ int main(int argc, char **argv)
             float o_tx = id_8_t.at<float>(0);
             float o_ty = id_8_t.at<float>(1);
             float o_tz = id_8_t.at<float>(2);
+            Eigen::Vector3d target_inCamera(o_tx, o_ty, o_tz);
+            Eigen::Vector3d target_inWorld;
+            bt_Camera.camera2World(target_inCamera, target_inWorld);
 
-            target_position_camera_frame.header.stamp = ros::Time::now();
-            target_position_camera_frame.target_category = 3;
-            target_position_camera_frame.position[0] = o_tx;
-            target_position_camera_frame.position[1] = o_ty;
-            //target_position_camera_frame.position[2] = o_tz;
-
-            target_position_world_frame.position[0] = _DroneState.pose.pose.position.x - target_position_camera_frame.position[1] + camera_offset[0];
-            target_position_world_frame.position[1] = _DroneState.pose.pose.position.y - target_position_camera_frame.position[0] + camera_offset[1];
-            //target_position_world_frame.position[2] = _DroneState.pose.pose.position.z - target_position_camera_frame.position[2] + camera_offset[2];
-
-            target_position_pub.publish(target_position_world_frame);
+            target_position_world_frame_msg.header.stamp = ros::Time::now();
+            target_position_world_frame_msg.header.seq = 3;
+            target_position_world_frame_msg.pose.position.x = target_inWorld.x();
+            target_position_world_frame_msg.pose.position.y = target_inWorld.y();
+            targetInWorld_pub.publish(target_position_world_frame_msg);
         }
 
         detect_result_image = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img).toImageMsg();
