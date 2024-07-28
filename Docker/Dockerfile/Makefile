@@ -6,6 +6,9 @@ jetson_base:
 jetson:
 	@docker build -t fastdronexi35:orin -f ./Dockerfile.jetson --build-arg USE_PROC=$(SPEED) ..
 
+jetson_rebuild:
+	@docker build --no-cache -t fastdronexi35:orin -f ./Dockerfile.jetson --build-arg USE_PROC=$(SPEED) ..
+
 pc:
 	@docker build -t fastdronexi35:pc -f ./Dockerfile --build-arg USE_PROC=$(SPEED) ../..
 
