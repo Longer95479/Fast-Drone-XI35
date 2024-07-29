@@ -146,6 +146,32 @@ RUN   apt install python3-pip -y && \
 RUN   apt update && apt install -y gstreamer1.0-tools libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-good1.0-dev && \
       apt install -y ros-${ROS_VERSION}-camera-calibration-parsers \
       ros-${ROS_VERSION}-camera-info-manager
+#BUild OpenCV3.4.16
+COPY  ./opencv-3.4.16.zip /root
+COPY  ./opencv_contrib-3.4.16.zip /root
+RUN   cd /root && unzip opencv-3.4.16.zip && unzip opencv_contrib-3.4.16.zip && \
+      cd /root/opencv-3.4.16 && mkdir build && cd build && \
+      cmake -D CMAKE_BUILD_TYPE=RELEASE \
+      -D CMAKE_INSTALL_PREFIX=/usr/local/opencv-3.4.16 \
+      -D OPENCV_EXTRA_MODULES_PATH=../../opencv_contrib-3.4.16/modules \
+      -D WITH_CUDA=ON \
+      -D CUDA_ARCH_BIN=8.7 \
+      -D CUDNN_VERSION='8.6' \
+      -D CUDNN_INCLUDE_DIR=/usr/include/ \
+      -D CUDA_ARCH_PTX="" \
+      -D ENABLE_FAST_MATH=ON \
+      -D CUDA_FAST_MATH=ON \
+      -D WITH_CUBLAS=ON \
+      -D WITH_LIBV4L=ON \
+      -D WITH_GSTREAMER=ON \
+      -D WITH_GSTREAMER_0_10=OFF \
+      -D WITH_QT=ON \
+      -D WITH_OPENGL=ON \
+      -D CUDA_NVCC_FLAGS="--expt-relaxed-constexpr" \
+      -D WITH_TBB=ON \
+      .. && \
+      make -j${USE_PROC} && \
+      make install
 #Config SSH
 RUN  mkdir /var/run/sshd && \
 echo 'root:123456' | chpasswd && \

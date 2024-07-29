@@ -51,8 +51,13 @@ find_package(Boost REQUIRED COMPONENTS
 #                   NO_MODULE
 #                   PATHS /usr/local/opencv3.4.16 
 #                   NO_DEFAULT_PATH)
-#include("~/pnp_det_package/opencv-3.4.16/build/OpenCVConfig.cmake")
-include("${CMAKE_SOURCE_DIR}/realflight_modules/det-reg-pnp/opencv3416_aruco_modified_install/share/OpenCV/OpenCVConfig.cmake")
+#include("${CMAKE_SOURCE_DIR}/realflight_modules/det-reg-pnp/opencv3416_aruco_modified_install/share/OpenCV/OpenCVConfig.cmake")
+
+set(OpenCV_DIR /usr/local/opencv-3.4.16/share/OpenCV)
+find_package(OpenCV 3 REQUIRED)
+message(WARNING "Find OpenCV, the version is: ${OpenCV_VERSION}")
+message(WARNING "Find OpenCV, the path is: ${OpenCV_INSTALL_PATH}")
+
 find_package(Eigen3 REQUIRED)
 
 add_definitions(-DOPENCV)
@@ -75,11 +80,11 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
 )
-add_library(bottom_camera_lib src/bottom_camera.cpp)
-target_link_libraries(bottom_camera_lib ${OpenCV_LIBS})
+add_library(bottom_camera_lib SHARED src/bottom_camera.cpp)
+target_link_libraries(bottom_camera_lib ${OpenCV_LIBS} ${catkin_LIBRARIES} ${Boost_LIBRARIES} yaml-cpp)
 
 add_executable(detect_box_pnp
     src/detect_box_pnp_node.cpp
 )
 
-target_link_libraries(detect_box_pnp bottom_camera_lib ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OpenCV_LIBS} yaml-cpp)
+target_link_libraries(detect_box_pnp bottom_camera_lib)
