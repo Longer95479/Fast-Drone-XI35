@@ -51,7 +51,7 @@ void Search_Plan_FSM::execSearchStage()
     if (has_found_my_target_) {
       changeSearchSubState(FLY_TO_MY_TAEGET);
     }
-    else if (has_slow_down_req_) {
+    else if (has_slow_down_req_) {    // TODO: add a server
       changeSearchSubState(SLOWDOWN_FOR_RECOG);
     }
     else if (haveArrivedTarget()) {
@@ -64,6 +64,25 @@ void Search_Plan_FSM::execSearchStage()
   case SLOWDOWN_FOR_RECOG:
   {
     /* TODO: stop for a while */
+    static bool start_the_clock = true;
+    static ros::Time start_time;
+    
+    if (start_the_clock) {
+      start_the_clock = false;
+      start_time = ros::Time::now();
+    }
+    else {
+      // Now just stopping
+      // TODO: slowing down instead of stopping
+      current_Target = current_Position;
+
+      ros::Time now_time = ros::Time::now();
+      if ((now_time - start_time).toSec() > slow_down_time_duration_) {
+        start_the_clock = true;
+        changeSearchSubState(SEARCH_NUMS);
+      }
+    }
+
     break;
   }
 
@@ -120,7 +139,7 @@ void Search_Plan_FSM::execLandStage()
             has_found_my_target_ = false;
             break;
           }
-          // travel throughout queue and error converged
+          // has traveled throughout queue and error converged
           else if (my_target_stamped_queue.size() == 1 ) {
             target_average = target_average + my_target_stamped_queue.front().second;
             target_average = target_average / (double)(my_target_stamped_queue_.size());
@@ -331,6 +350,7 @@ void Search_Plan_FSM::init(ros::NodeHandle& nh)
   nh.param<double>("arrive_threshold", arrive_Threshold, 0.3);
   nh.param<double>("target_msg_timeout", target_msg_timeout_, 2.0);
   nh.param<double>("target_converge_th", target_converge_th_, 0.05);
+  nh.param<double>("slow_down_time_duration", slow_down_time_duration_, 2.0);
   
   nh.param<double>("search_startpoint_x", search_StartPoint.x(), 2);
   nh.param<double>("search_startpoint_y", search_StartPoint.y(), 0.5);

@@ -24,6 +24,7 @@
         <param name="arrive_threshold" value="0.3" type="double"/>
         <param name="target_msg_timeout" value="2.0" type="double"/>
         <param name="target_converge_th" value="0.05" type="double"/>
+        <param name="slow_down_time_duration" value="2.0" type="double"/>
 
         <param name="search_startpoint_x" value="2" type="double"/>
         <param name="search_startpoint_y" value="0.5" type="double"/>

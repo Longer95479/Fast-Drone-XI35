@@ -70,6 +70,7 @@ namespace auto_search
 		std::queue<std::pair<double, Eigen::Vector3d>> my_target_stamped_queue_;
 		double target_msg_timeout_;
 		double target_converge_th_;
+		double slow_down_time_duration_;	// unit: sec
 
 
 		//callback
