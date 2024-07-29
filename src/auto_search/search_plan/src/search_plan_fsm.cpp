@@ -13,7 +13,7 @@ void Search_Plan_FSM::execStartStage()
   {
     if(have_trigger)
     {
-      changeStartSubState(FLY_TO_START);
+      changeStartSubState(FLY_TO_START, "execStartStage()");
       ROS_INFO("Start substate switch: TAKEOFF ======> FLY_TO_START");
     }
     break;
@@ -23,7 +23,7 @@ void Search_Plan_FSM::execStartStage()
     current_Target = search_StartPoint;
     if(haveArrivedTarget())
     {
-      changeStartSubState(WAIT_FOR_START);
+      changeStartSubState(WAIT_FOR_START, "execStartStage()");
       ROS_INFO("Start substate switch: FLY_TO_START ======> WAIT_FOR_START");
     }
     break;
@@ -31,7 +31,7 @@ void Search_Plan_FSM::execStartStage()
   case WAIT_FOR_START:
   {
     //todo 所有无人机就绪后再进入搜索阶段
-    changeMainState(SEARCH_STAGE);
+    changeMainState(SEARCH_STAGE, "execStartStage()");
     ROS_INFO("Main state switch: STARTING_AREA_STAGE ======> SEARCH_STAGE");
     break;
   }
@@ -49,10 +49,10 @@ void Search_Plan_FSM::execSearchStage()
     // TODO: or generate wp in runtime based on search strategy
 
     if (has_found_my_target_) {
-      changeSearchSubState(FLY_TO_MY_TAEGET);
+      changeSearchSubState(FLY_TO_MY_TARGET, "execSearchStage()");
     }
     else if (has_slow_down_req_) {    // TODO: add a server
-      changeSearchSubState(SLOWDOWN_FOR_RECOG);
+      changeSearchSubState(SLOWDOWN_FOR_RECOG, "execSearchStage()");
     }
     else if (haveArrivedTarget()) {
       wp_id_++;
@@ -79,7 +79,7 @@ void Search_Plan_FSM::execSearchStage()
       ros::Time now_time = ros::Time::now();
       if ((now_time - start_time).toSec() > slow_down_time_duration_) {
         start_the_clock = true;
-        changeSearchSubState(SEARCH_NUMS);
+        changeSearchSubState(SEARCH_NUMS, "execSearchStage()");
       }
     }
 
@@ -91,7 +91,7 @@ void Search_Plan_FSM::execSearchStage()
     current_Target = my_target_stamped_queue_.back().second;
 
     if (haveArrivedTarget()) {
-      changeSearchSubState(WAIT_FOR_LAND);
+      changeSearchSubState(WAIT_FOR_LAND, "execSearchStage()");
     }
 
     break;
@@ -101,7 +101,7 @@ void Search_Plan_FSM::execSearchStage()
   {
     /* TODO: stop for a while */
 
-    changeMainState(LAND_STAGE);
+    changeMainState(LAND_STAGE, "execSearchStage()");
 
     break;
   }
@@ -144,7 +144,7 @@ void Search_Plan_FSM::execLandStage()
             target_average = target_average + my_target_stamped_queue.front().second;
             target_average = target_average / (double)(my_target_stamped_queue_.size());
             current_Target = target_average;
-            changeLandSubState(FINE_TUNE);
+            changeLandSubState(FINE_TUNE, "execLandStage()");
           }
         }
 
@@ -152,7 +152,7 @@ void Search_Plan_FSM::execLandStage()
 
     }
     else {
-      changeLandSubState(SEARCH_NEAR_NUM);
+      changeLandSubState(SEARCH_NEAR_NUM, "execLandStage()");
     }
 
     break;
@@ -169,7 +169,7 @@ void Search_Plan_FSM::execLandStage()
   case FINE_TUNE:
   {
     if (haveArrivedTarget()) {
-      changeLandSubState(TAKE_LAND);
+      changeLandSubState(TAKE_LAND, "execLandStage()");
     }
     break;
   }
@@ -189,6 +189,17 @@ void Search_Plan_FSM::execLandStage()
 //状态机执行函数
 void Search_Plan_FSM::execFSMCallback(const ros::TimerEvent &e)
 {
+
+  static int fsm_num = 0;
+  fsm_num++;
+  if (fsm_num == 100)
+  {
+    printFSMExecState();
+    fsm_num = 0;
+  }
+
+  continously_called_times_++;
+
   timer_FSM.stop();
   switch (main_State)
   {
@@ -229,22 +240,22 @@ void Search_Plan_FSM::triggerCallback(const geometry_msgs::PoseStampedPtr &msg)
   std::cout << "Triggered!" << std::endl;
 }
 
-void targetToSearchCallBack(const geometry_msgs::PoseStampedPtr &msg)
+void Search_Plan_FSM::targetToSearchCallBack(const geometry_msgs::PoseStampedPtr &msg)
 {
   has_found_my_target_ = true;
 
   std::pair<double, Eigen::Vector3d> my_target_stamped;
 
-  my_target_stamped.first = msg.header.stamp.toSec();
+  my_target_stamped.first = msg->header.stamp.toSec();
 
-  my_target_stamped.second(0) = msg.pose.position.x;
-  my_target_stamped.second(1) = msg.pose.position.y;
-  my_target_stamped.second(2) = msg.pose.position.z;
+  my_target_stamped.second(0) = msg->pose.position.x;
+  my_target_stamped.second(1) = msg->pose.position.y;
+  my_target_stamped.second(2) = msg->pose.position.z;
 
   if (my_target_stamped_queue_.size() > 5)
     my_target_stamped_queue_.pop();
 
-  my_target_stamped_queue_.push(my_target);
+  my_target_stamped_queue_.push(my_target_stamped);
 
 }
 
@@ -265,24 +276,97 @@ void Search_Plan_FSM::publishTarget()
   }
 }
 
-void Search_Plan_FSM::changeMainState(MAIN_STATE next_state)
+
+// todo for substate
+// std::pair<int, Search_Plan_FSM::FSM_EXEC_STATE> Search_Plan_FSM::timesOfConsecutiveStateCalls()
+// {
+//   return std::pair<int, FSM_EXEC_STATE>(continously_called_times_, exec_state_);
+// }
+
+
+// todo
+void Search_Plan_FSM::printFSMExecState()
 {
+  static std::string main_state_str[3] = {"STARTING_AREA_STAGE", "SEARCH_STAGE", "LAND_STAGE"};
+  static std::string start_substate_str[3] = {"TAKE_OFF", "FLY_TO_START", "WAIT_FOR_START"};
+  static std::string search_substate_str[4] = {"SEARCH_NUMS", "SLOWDOWN_FOR_RECOG", "FLY_TO_MY_TARGET", "WAIT_FOR_LAND"};
+  static std::string land_substate_str[4] = {"CHECK_NUM_BE_SEEN", "SEARCH_NEAR_NUM", "FINE_TUNE", "TAKE_LAND"};
+
+  std::cout << "[Search FSM]: main state: " + main_state_str[int(main_State)] << std::endl;
+
+  switch (main_State)
+  {
+  case STARTING_AREA_STAGE:
+  {
+    std::cout << "               sub state: " + start_substate_str[int(start_SubState)] << std::endl;
+    break;
+  }
+
+  case SEARCH_STAGE:
+  {
+    std::cout << "               sub state: " + search_substate_str[int(search_SubState)] << std::endl;
+    break;
+  }
+
+  case LAND_STAGE:
+  {
+    std::cout << "               sub state: " + land_substate_str[int(land_SubState)] << std::endl;
+    break;
+  }
+  
+  default:
+    break;
+  }
+}
+
+
+void Search_Plan_FSM::changeMainState(MAIN_STATE next_state, std::string pos_call)
+{
+  if (next_state != main_State)
+    continously_called_times_ = 0;
+
+  int pre_state = int(main_State);
   main_State = next_state;
+
+  static std::string state_str[3] = {"STARTING_AREA_STAGE", "SEARCH_STAGE", "LAND_STAGE"};
+  std::cout << "[" + pos_call + "]: from " + state_str[pre_state] + " to " + state_str[int(next_state)] << std::endl;
+
 }
 
-void Search_Plan_FSM::changeStartSubState(START_SUB_STATE next_state)
+void Search_Plan_FSM::changeStartSubState(START_SUB_STATE next_state, std::string pos_call)
 {
+  if (next_state != start_SubState)
+    continously_called_times_ = 0;
+
+  int pre_state = int(start_SubState);
   start_SubState = next_state;
+
+  static std::string state_str[3] = {"TAKE_OFF", "FLY_TO_START", "WAIT_FOR_START"};
+  std::cout << "[" + pos_call + "]: from " + state_str[pre_state] + " to " + state_str[int(next_state)] << std::endl;
 }
 
-void Search_Plan_FSM::changeSearchSubState(SEARCH_SUB_STATE next_state)
+void Search_Plan_FSM::changeSearchSubState(SEARCH_SUB_STATE next_state, std::string pos_call)
 {
+  if (next_state != search_SubState)
+    continously_called_times_ = 0;
+
+  int pre_state = int(search_SubState);
   search_SubState = next_state;
+
+  static std::string state_str[4] = {"SEARCH_NUMS", "SLOWDOWN_FOR_RECOG", "FLY_TO_MY_TARGET", "WAIT_FOR_LAND"};
+  std::cout << "[" + pos_call + "]: from " + state_str[pre_state] + " to " + state_str[int(next_state)] << std::endl;
 }
 
-void Search_Plan_FSM::changeLandSubState(LAND_SUB_STATE next_state)
+void Search_Plan_FSM::changeLandSubState(LAND_SUB_STATE next_state, std::string pos_call)
 {
+  if (next_state != land_SubState)
+    continously_called_times_ = 0;
+
+  int pre_state = int(land_SubState);
   land_SubState = next_state;
+
+  static std::string state_str[4] = {"CHECK_NUM_BE_SEEN", "SEARCH_NEAR_NUM", "FINE_TUNE", "TAKE_LAND"};
+  std::cout << "[" + pos_call + "]: from " + state_str[pre_state] + " to " + state_str[int(next_state)] << std::endl;
 }
 
 
@@ -318,7 +402,7 @@ void Search_Plan_FSM::readGivenWps()
     wp_id_ = 0;
 }
 
-bool targetBeSeenByMyself(const ros::Time &now_time)
+bool Search_Plan_FSM::targetBeSeenByMyself(const ros::Time &now_time)
 {
   return (now_time.toSec() - my_target_stamped_queue_.back().first) < target_msg_timeout_;
 }
@@ -329,7 +413,7 @@ void Search_Plan_FSM::initState()
   main_State = STARTING_AREA_STAGE;
   start_SubState = TAKE_OFF;
   search_SubState = SEARCH_NUMS;
-  land_SubState = FLY_TO_NUMS;
+  land_SubState = CHECK_NUM_BE_SEEN;
   ROS_INFO("Initail State: STARTING_AREA_STAGE<TAKE_OFF>");
 }
 
@@ -359,9 +443,9 @@ void Search_Plan_FSM::init(ros::NodeHandle& nh)
   nh.param("fsm/waypoint_num", waypoint_num_, -1);
   for (int i = 0; i < waypoint_num_; i++)
   {
-    nh.param("fsm/waypoint" + to_string(i) + "_x", waypoints_[i][0], -1.0);
-    nh.param("fsm/waypoint" + to_string(i) + "_y", waypoints_[i][1], -1.0);
-    nh.param("fsm/waypoint" + to_string(i) + "_z", waypoints_[i][2], -1.0);
+    nh.param("fsm/waypoint" + std::to_string(i) + "_x", waypoints_[i][0], -1.0);
+    nh.param("fsm/waypoint" + std::to_string(i) + "_y", waypoints_[i][1], -1.0);
+    nh.param("fsm/waypoint" + std::to_string(i) + "_z", waypoints_[i][2], -1.0);
   }
 
   //sub
