@@ -1,4 +1,3 @@
-#include <string>
 #include "search_plan_fsm.h"
 
 namespace auto_search
@@ -77,7 +76,8 @@ void Search_Plan_FSM::execSearchStage()
       current_Target = current_Position;
 
       ros::Time now_time = ros::Time::now();
-      if ((now_time - start_time).toSec() > slow_down_time_duration_) {
+      if ((now_time - start_time).toSec() > slow_down_time_duration_ || 
+          !has_slow_down_req_) {
         start_the_clock = true;
         changeSearchSubState(SEARCH_NUMS, "execSearchStage()");
       }
@@ -260,6 +260,23 @@ void Search_Plan_FSM::targetToSearchCallBack(const geometry_msgs::PoseStampedPtr
 }
 
 
+bool Search_Plan_FSM::slowDownServiceCallBack(search_plan::SearchService::Request  &req,
+                                              search_plan::SearchService::Response &res)
+{
+  if (req.req_type == 0)
+    has_slow_down_req_ = false;
+  else if (req.req_type == 1)
+    has_slow_down_req_ = true;
+  else {
+    ROS_ERROR("slow_down_req_ is wrong");
+    return false;
+  }
+
+  res.success = true;
+  return true;
+}
+
+
 void Search_Plan_FSM::publishTarget()
 {
   double dis = (current_Target - last_Target).norm();
@@ -420,7 +437,7 @@ void Search_Plan_FSM::initState()
 
 void Search_Plan_FSM::init(ros::NodeHandle& nh)
 {
-  //var init
+  // var init
   initState();
   current_Target << 0.0, 0.0, 0.0;
   last_Target << 0.0, 0.0, 0.0;
@@ -428,7 +445,7 @@ void Search_Plan_FSM::init(ros::NodeHandle& nh)
   has_found_my_target_ = false;
   has_slow_down_req_ = false;
 
-  //param
+  // param
   nh.param<std::string>("odom_topic", odom_Topic, "/vins_fusion/imu_propagate");
   nh.param<double>("exec_frequency", exec_Frequency, 100);
   nh.param<double>("arrive_threshold", arrive_Threshold, 0.3);
@@ -448,15 +465,18 @@ void Search_Plan_FSM::init(ros::NodeHandle& nh)
     nh.param("fsm/waypoint" + std::to_string(i) + "_z", waypoints_[i][2], -1.0);
   }
 
-  //sub
+  // sub
   sub_Odom = nh.subscribe(odom_Topic, 1, &Search_Plan_FSM::updateOdomCallback, this);
   sub_Trigger = nh.subscribe("/traj_start_trigger", 1, &Search_Plan_FSM::triggerCallback, this);
   sub_target_merged = nh.subscribe("/target_merge/target_to_search", 1, &Search_Plan_FSM::targetToSearchCallBack, this);
 
-  //pub
+  // pub
   pub_Target = nh.advertise<geometry_msgs::PoseStamped>("/search_plan/pos_cmd", 50);
 
-  //timer
+  // srv
+  srv_slowdown = nh.advertiseService("slowdown_for_reg", &Search_Plan_FSM::slowDownServiceCallBack, this);
+
+  // timer
   timer_FSM = nh.createTimer(ros::Duration(1/exec_Frequency), &Search_Plan_FSM::execFSMCallback, this);
 }
 //

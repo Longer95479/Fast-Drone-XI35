@@ -1,12 +1,17 @@
 #ifndef SEARCH_PLAN_FSM
 #define SEARCH_PLAN_FSM
+
 #include <mutex>
 #include <queue>
+#include <string>
+
 #include <eigen3/Eigen/Dense>
+
 #include <ros/ros.h>
 #include <ros/timer.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Odometry.h>
+#include <search_plan/SearchService.h>
 
 namespace auto_search
 {
@@ -14,12 +19,12 @@ namespace auto_search
 	class Search_Plan_FSM
 	{
 	private:
-    enum MAIN_STATE
-    {
-      STARTING_AREA_STAGE,
-      SEARCH_STAGE,
-      LAND_STAGE
-    };
+		enum MAIN_STATE
+		{
+		STARTING_AREA_STAGE,
+		SEARCH_STAGE,
+		LAND_STAGE
+		};
 		enum START_SUB_STATE
 		{
 			TAKE_OFF,
@@ -40,7 +45,7 @@ namespace auto_search
 			FINE_TUNE,
 			TAKE_LAND
 		};
-		//state
+		// state
 		MAIN_STATE main_State;
 		START_SUB_STATE start_SubState;
 		SEARCH_SUB_STATE search_SubState;
@@ -49,16 +54,22 @@ namespace auto_search
 		// statistic
 		int continously_called_times_{0};
 		
-		//ros
+		// ros
 		ros::Publisher pub_Target;
+
 		ros::Subscriber sub_Odom;
 		ros::Subscriber sub_Trigger;
 		ros::Subscriber sub_target_merged;
+
+		ros::ServiceServer srv_slowdown;
+
 		ros::Timer timer_FSM;
-		//param
+
+
+		// param
 		std::string odom_Topic;
 		double exec_Frequency, arrive_Threshold;
-		//main var
+		// main var
 		bool have_trigger  = false;
 		Eigen::Vector3d current_Target;
 		Eigen::Vector3d last_Target;
@@ -78,12 +89,14 @@ namespace auto_search
 		double slow_down_time_duration_;	// unit: sec
 
 
-		//callback
+		// callback
 		void execFSMCallback(const ros::TimerEvent &e);
 		void updateOdomCallback(const nav_msgs::OdometryConstPtr &msg);
 		void triggerCallback(const geometry_msgs::PoseStampedPtr &msg);
 		void targetToSearchCallBack(const geometry_msgs::PoseStampedPtr &msg);
-		//function
+		bool slowDownServiceCallBack(search_plan::SearchService::Request  &req,
+                             		 search_plan::SearchService::Response &res);
+		// function
 		void publishTarget();		// 发布飞行目标点,只有目标点跟上次不一样时才发布
 		void execStartStage();		// 执行起始阶段状态机
 		void execSearchStage();		// 执行搜索阶段状态机
