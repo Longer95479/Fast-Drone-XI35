@@ -474,7 +474,7 @@ void Search_Plan_FSM::init(ros::NodeHandle& nh)
   pub_Target = nh.advertise<geometry_msgs::PoseStamped>("/search_plan/pos_cmd", 50);
 
   // srv
-  srv_slowdown = nh.advertiseService("slowdown_for_reg", &Search_Plan_FSM::slowDownServiceCallBack, this);
+  srv_slowdown = nh.advertiseService("/search_plan/slowdown_for_reg", &Search_Plan_FSM::slowDownServiceCallBack, this);
 
   // timer
   timer_FSM = nh.createTimer(ros::Duration(1/exec_Frequency), &Search_Plan_FSM::execFSMCallback, this);
