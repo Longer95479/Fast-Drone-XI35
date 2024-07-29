@@ -51,6 +51,8 @@ double F_THRESHOLD;
 int SHOW_TRACK;
 int FLOW_BACK;
 
+int DRONE_ID;
+double SINGLE_OFFSET;
 
 template <typename T>
 T readParam(ros::NodeHandle &n, std::string name)
@@ -214,6 +216,7 @@ void readParameters(std::string config_file)
         cv::cv2eigen(rectify_right, rectify_R_right);
 
     }
-
+    DRONE_ID = fsSettings["drone_id"];
+    SINGLE_OFFSET = fsSettings["single_offset"];
     fsSettings.release();
 }

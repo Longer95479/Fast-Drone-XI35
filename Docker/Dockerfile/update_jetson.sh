@@ -21,7 +21,7 @@ if [ -n "$base_image_exists" ]; then
         #rm the fd volumes
         docker volume rm $volume_name
         #rebuild the image
-        make jetson
+        make jetson_rebuild
     else
         echo "Operation terminated!."
         exit 1

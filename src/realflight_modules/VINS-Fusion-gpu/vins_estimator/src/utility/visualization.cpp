@@ -11,7 +11,7 @@
 
 using namespace ros;
 using namespace Eigen;
-ros::Publisher pub_odometry, pub_latest_odometry;
+ros::Publisher pub_odometry, pub_latest_odometry, pub_offset_odometry;
 ros::Publisher pub_path;
 ros::Publisher pub_point_cloud, pub_margin_cloud;
 ros::Publisher pub_key_poses;
@@ -35,6 +35,7 @@ size_t pub_counter = 0;
 void registerPub(ros::NodeHandle &n)
 {
     pub_latest_odometry = n.advertise<nav_msgs::Odometry>("imu_propagate", 1000);
+    pub_offset_odometry = n.advertise<nav_msgs::Odometry>("imu_propagate_offest", 1000);
     pub_path = n.advertise<nav_msgs::Path>("path", 1000);
     pub_odometry = n.advertise<nav_msgs::Odometry>("odometry", 1000);
     pub_point_cloud = n.advertise<sensor_msgs::PointCloud>("point_cloud", 1000);
@@ -72,7 +73,12 @@ void pubLatestOdometry(const Eigen::Vector3d &P, const Eigen::Quaterniond &Q, co
      
     //
     pub_latest_odometry.publish(odometry);
-}
+    //根据drone-id进行odom偏移并发布
+    nav_msgs::Odometry offset_odom;
+    offset_odom = odometry;
+    offset_odom.pose.pose.position.y -= (DRONE_ID - 1.0) * SINGLE_OFFSET;
+    pub_offset_odometry.publish(offset_odom);
+ }
 
 void printStatistics(const Estimator &estimator, double t)
 {
