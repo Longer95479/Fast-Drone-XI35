@@ -1,6 +1,6 @@
 base_image_name="local/fastdronexi35:orin_base_35.3.1"
 fd_image_name="fastdronexi35:orin"
-container_id=$(docker ps -q --filter "name=fd_runtime")
+container_id=$(docker ps -aq --filter "name=fd_runtime")
 volume_name="Fast-Drone-XI35"
 
 #check base image

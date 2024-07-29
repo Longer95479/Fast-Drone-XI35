@@ -1,4 +1,4 @@
-#include "search_plan_fsm.h"
+#include "search_plan/search_plan_fsm.h"
 
 namespace auto_search
 {

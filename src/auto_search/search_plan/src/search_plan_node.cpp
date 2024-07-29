@@ -1,5 +1,5 @@
 #include <ros/ros.h>
-#include "search_plan_fsm.h"
+#include "search_plan/search_plan_fsm.h"
 using namespace auto_search;
 int main(int argc, char** argv)
 {
