@@ -13,7 +13,7 @@ void Search_Plan_FSM::execStartStage()
     if(have_trigger)
     {
       changeStartSubState(FLY_TO_START, "execStartStage()");
-      ROS_INFO("Start substate switch: TAKEOFF ======> FLY_TO_START");
+      // ROS_INFO("Start substate switch: TAKEOFF ======> FLY_TO_START");
     }
     break;
   }
@@ -23,7 +23,7 @@ void Search_Plan_FSM::execStartStage()
     if(haveArrivedTarget())
     {
       changeStartSubState(WAIT_FOR_START, "execStartStage()");
-      ROS_INFO("Start substate switch: FLY_TO_START ======> WAIT_FOR_START");
+      // ROS_INFO("Start substate switch: FLY_TO_START ======> WAIT_FOR_START");
     }
     break;
   }
@@ -31,7 +31,7 @@ void Search_Plan_FSM::execStartStage()
   {
     //todo 所有无人机就绪后再进入搜索阶段
     changeMainState(SEARCH_STAGE, "execStartStage()");
-    ROS_INFO("Main state switch: STARTING_AREA_STAGE ======> SEARCH_STAGE");
+    // ROS_INFO("Main state switch: STARTING_AREA_STAGE ======> SEARCH_STAGE");
     break;
   }
   }
@@ -89,6 +89,9 @@ void Search_Plan_FSM::execSearchStage()
   case FLY_TO_MY_TARGET:
   {
     current_Target = my_target_stamped_queue_.back().second;
+    
+    //TODO: need to modify to get better land
+    current_Target.z() = current_Position.z();
 
     if (haveArrivedTarget()) {
       changeSearchSubState(WAIT_FOR_LAND, "execSearchStage()");
@@ -144,6 +147,10 @@ void Search_Plan_FSM::execLandStage()
             target_average = target_average + my_target_stamped_queue.front().second;
             target_average = target_average / (double)(my_target_stamped_queue_.size());
             current_Target = target_average;
+
+            //TODO: need to modify to get better land
+            current_Target.z() = current_Position.z();
+            
             changeLandSubState(FINE_TUNE, "execLandStage()");
           }
         }
@@ -195,6 +202,24 @@ void Search_Plan_FSM::execFSMCallback(const ros::TimerEvent &e)
   if (fsm_num == 100)
   {
     printFSMExecState();
+
+    if (!has_odom_)
+      std::cout << "no odom." << std::endl;
+    else {
+      std::cout << "= = = = = = = = = = = =" << std::endl;
+
+      std::cout << "current_Position" << std::endl;
+      std::cout << current_Position << std::endl;
+
+      std::cout << "* * * *" << std::endl;
+
+      std::cout << "current_Target" << std::endl;
+      std::cout << current_Target << std::endl;
+
+      getDistanceToTarget();
+      std::cout << "dist_to_target: " << distance_to_target_ << std::endl;  
+    }
+    
     fsm_num = 0;
   }
 
@@ -231,6 +256,7 @@ void Search_Plan_FSM::updateOdomCallback(const nav_msgs::OdometryConstPtr &msg)
   current_Position[0] = msg->pose.pose.position.x;
   current_Position[1] = msg->pose.pose.position.y;
   current_Position[2] = msg->pose.pose.position.z;
+  has_odom_ = true;
 }
 
 
@@ -252,7 +278,7 @@ void Search_Plan_FSM::targetToSearchCallBack(const geometry_msgs::PoseStampedPtr
   my_target_stamped.second(1) = msg->pose.position.y;
   my_target_stamped.second(2) = msg->pose.position.z;
 
-  if (my_target_stamped_queue_.size() > 5)
+  if (my_target_stamped_queue_.size() > 3)
     my_target_stamped_queue_.pop();
 
   my_target_stamped_queue_.push(my_target_stamped);
@@ -263,6 +289,8 @@ void Search_Plan_FSM::targetToSearchCallBack(const geometry_msgs::PoseStampedPtr
 bool Search_Plan_FSM::slowDownServiceCallBack(search_plan::SearchService::Request  &req,
                                               search_plan::SearchService::Response &res)
 {
+  ROS_WARN("recieved req, %d", req.req_type);
+
   if (req.req_type == 0)
     has_slow_down_req_ = false;
   else if (req.req_type == 1)
@@ -424,6 +452,11 @@ bool Search_Plan_FSM::targetBeSeenByMyself(const ros::Time &now_time)
   return (now_time.toSec() - my_target_stamped_queue_.back().first) < target_msg_timeout_;
 }
 
+void Search_Plan_FSM::getDistanceToTarget()
+{
+  distance_to_target_ = (current_Target - current_Position).norm();
+}
+
 //初始化各状态
 void Search_Plan_FSM::initState()
 {
@@ -442,28 +475,31 @@ void Search_Plan_FSM::init(ros::NodeHandle& nh)
   current_Target << 0.0, 0.0, 0.0;
   last_Target << 0.0, 0.0, 0.0;
 
+  has_odom_ = false;
   has_found_my_target_ = false;
   has_slow_down_req_ = false;
 
   // param
-  nh.param<std::string>("odom_topic", odom_Topic, "/vins_fusion/imu_propagate");
-  nh.param<double>("exec_frequency", exec_Frequency, 100);
-  nh.param<double>("arrive_threshold", arrive_Threshold, 0.3);
-  nh.param<double>("target_msg_timeout", target_msg_timeout_, 2.0);
-  nh.param<double>("target_converge_th", target_converge_th_, 0.05);
-  nh.param<double>("slow_down_time_duration", slow_down_time_duration_, 2.0);
-  
-  nh.param<double>("search_startpoint_x", search_StartPoint.x(), 2);
-  nh.param<double>("search_startpoint_y", search_StartPoint.y(), 0.5);
-  nh.param<double>("search_startpoint_z", search_StartPoint.z(), 2);
+  nh.param<std::string>("/search_plan_node/odom_topic", odom_Topic, "/vins_fusion/imu_propagate");
+  nh.param<double>("/search_plan_node/exec_frequency", exec_Frequency, 100);
+  nh.param<double>("/search_plan_node/arrive_threshold", arrive_Threshold, 0.3);
+  nh.param<double>("/search_plan_node/target_msg_timeout", target_msg_timeout_, 2.0);
+  nh.param<double>("/search_plan_node/target_converge_th", target_converge_th_, 0.10);
+  nh.param<double>("/search_plan_node/slow_down_time_duration", slow_down_time_duration_, 2.0);
 
-  nh.param("fsm/waypoint_num", waypoint_num_, -1);
+  nh.param<double>("/search_plan_node/search_startpoint_x", search_StartPoint.x(), 2.0);
+  nh.param<double>("/search_plan_node/search_startpoint_y", search_StartPoint.y(), 0.5);
+  nh.param<double>("/search_plan_node/search_startpoint_z", search_StartPoint.z(), 2.0);
+
+  nh.param("/search_plan_node/fsm/waypoint_num", waypoint_num_, -1);
   for (int i = 0; i < waypoint_num_; i++)
   {
-    nh.param("fsm/waypoint" + std::to_string(i) + "_x", waypoints_[i][0], -1.0);
-    nh.param("fsm/waypoint" + std::to_string(i) + "_y", waypoints_[i][1], -1.0);
-    nh.param("fsm/waypoint" + std::to_string(i) + "_z", waypoints_[i][2], -1.0);
+    nh.param("/search_plan_node/fsm/waypoint" + std::to_string(i) + "_x", waypoints_[i][0], -1.0);
+    nh.param("/search_plan_node/fsm/waypoint" + std::to_string(i) + "_y", waypoints_[i][1], -1.0);
+    nh.param("/search_plan_node/fsm/waypoint" + std::to_string(i) + "_z", waypoints_[i][2], -1.0);
   }
+
+  readGivenWps();
 
   // sub
   sub_Odom = nh.subscribe(odom_Topic, 1, &Search_Plan_FSM::updateOdomCallback, this);

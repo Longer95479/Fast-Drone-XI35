@@ -81,12 +81,14 @@ namespace auto_search
 		int waypoint_num_, wp_id_;
 		std::vector<Eigen::Vector3d> wps_;
 
+		bool has_odom_;
 		bool has_found_my_target_;
 		bool has_slow_down_req_;
 		std::queue<std::pair<double, Eigen::Vector3d>> my_target_stamped_queue_;
 		double target_msg_timeout_;
 		double target_converge_th_;
 		double slow_down_time_duration_;	// unit: sec
+		double distance_to_target_;
 
 
 		// callback
@@ -104,6 +106,7 @@ namespace auto_search
 		bool haveArrivedTarget();	// 是否到达当前目标点
 		void readGivenWps();		// 初始化读取给定的一系列搜索策略目标点
 		bool targetBeSeenByMyself(const ros::Time &now_time);
+		void getDistanceToTarget();
 
 		void printFSMExecState();
 		void changeMainState(MAIN_STATE next_state, std::string pos_call);
