@@ -318,17 +318,19 @@ bool Search_Plan_FSM::slowDownServiceCallBack(search_plan::SearchService::Reques
 
 void Search_Plan_FSM::publishTarget()
 {
-  double dis = (current_Target - last_Target).norm();
-  if( dis >= 0.2)//新的目标点距离之前的目标点大于0.2m才发布新的目标点
-  {
-    geometry_msgs::PoseStamped msg;
-    msg.header.stamp = ros::Time::now();
-    msg.pose.position.x = current_Target.x();
-    msg.pose.position.y = current_Target.y();
-    msg.pose.position.z = current_Target.z();
-    pub_Target.publish(msg);
+  if (have_trigger) {
+    double dis = (current_Target - last_Target).norm();
+    if( dis >= 0.2)//新的目标点距离之前的目标点大于0.2m才发布新的目标点
+    {
+      geometry_msgs::PoseStamped msg;
+      msg.header.stamp = ros::Time::now();
+      msg.pose.position.x = current_Target.x();
+      msg.pose.position.y = current_Target.y();
+      msg.pose.position.z = current_Target.z();
+      pub_Target.publish(msg);
 
-    last_Target = current_Target;
+      last_Target = current_Target;
+    }
   }
 }
 
