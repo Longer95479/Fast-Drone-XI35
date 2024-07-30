@@ -8,16 +8,17 @@ bool open_visualization = false;
 //自身目标识别回调
 void Target_Merge::singleTargetCallback(const geometry_msgs::PoseStampedConstPtr &msg)
 {
-  if(msg->header.seq < 1  || msg->header.seq > 3)
-    return;
   double time = msg->header.stamp.toSec();
   uint8_t type = msg->pose.position.z;
+  if(type >= 4 || type <= 0)
+    return;
   SingleTargetPtr st_p = std::make_shared<SingleTarget_Type>(time, type, msg->pose.position.x, msg->pose.position.y);
   updateSingleTarget(st_p);
 }
 //基于Welford更新均值和方差
 void Target_Merge::updateSingleTarget(const SingleTargetPtr &target)
 {
+  ROS_INFO("RECEIVE Single target: %d", target->type);
   int index = target->type-1;
   auto& st = single_Merged[index];
   if(st.observed_Counts == 0)
@@ -121,6 +122,7 @@ void Target_Merge::updateTargetMerged(const TargetMergedPtr &target)
     //rviz显示
     if(open_visualization)
       targetVisualization(tm);
+    ROS_INFO("[1]Merged ok! type :%d", drone_id);
   }
 }
 //发布融合信息
@@ -153,6 +155,7 @@ void Target_Merge::pubTargetToSearch(int drone_id)
   msg.pose.position.y = tm.position.y();
   msg.pose.position.z = 0.0;
   pub_TargetToSearch.publish(msg);
+  ROS_INFO("Send msg to search_plan:%d", drone_id);
 }
 //定期广播所有融合信息
 void Target_Merge::targetPubCallback(const ros::TimerEvent &e)
@@ -228,7 +231,7 @@ void Target_Merge::init(ros::NodeHandle &nh)
   nh.param<std::string>("/target_merge_node/pub_target_to_search_topic", PUB_TARGET_SEARCH_TOPIC, "/target_merge/target_to_search");
   nh.param<std::string>("/target_merge_node/sub_target_merged_topic", SUB_TARGET_TOPIC, "/communication/sub_target_merged");
   nh.param<std::string>("/target_merge_node/sub_pnp_topic", SUB_PNP_TOPIC, "/detect_box_pnp/target");
-  nh.param<std::string>("/target_merge_node/search_service_name", SEARCH_SERVICE_NAME, "/search_plan/notify");
+  nh.param<std::string>("/target_merge_node/search_service_name", SEARCH_SERVICE_NAME, "/search_plan/slowdown_for_reg");
 
   pub_TargetMerged = nh.advertise<target_merge::TargetMerged_Message>(PUB_TARGET_TOPIC, 10);
   pub_TargetToSearch = nh.advertise<geometry_msgs::PoseStamped>(PUB_TARGET_SEARCH_TOPIC, 10);
@@ -237,6 +240,7 @@ void Target_Merge::init(ros::NodeHandle &nh)
   sub_TargetMerged = nh.subscribe(SUB_TARGET_TOPIC, 100, &Target_Merge::targetMergedCallback, this);
   client_Search = nh.serviceClient<search_plan::SearchService>(SEARCH_SERVICE_NAME);
   client_Search.waitForExistence();
+  ROS_INFO("Search service ok!");
   timer_PubTarget = nh.createTimer(ros::Duration(target_PubDuration), &Target_Merge::targetPubCallback, this);
 }
 } // namespace target_merge

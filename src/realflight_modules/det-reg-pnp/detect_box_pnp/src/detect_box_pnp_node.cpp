@@ -289,11 +289,12 @@ int main(int argc, char **argv)
             Eigen::Vector3d target_inCamera(o_tx, o_ty, o_tz);
             Eigen::Vector3d target_inWorld;
             bt_Camera.camera2World(target_inCamera, target_inWorld);
-
-            target_position_world_frame_msg.header.stamp = ros::Time::now();
+            
             target_position_world_frame_msg.header.seq = 1;
+            target_position_world_frame_msg.header.stamp = ros::Time::now();
             target_position_world_frame_msg.pose.position.x = target_inWorld.x();
             target_position_world_frame_msg.pose.position.y = target_inWorld.y();
+            target_position_world_frame_msg.pose.position.z = 1;
             targetInWorld_pub.publish(target_position_world_frame_msg);
         }
         if (!markerids2.empty())
@@ -340,10 +341,11 @@ int main(int argc, char **argv)
             Eigen::Vector3d target_inWorld;
             bt_Camera.camera2World(target_inCamera, target_inWorld);
 
-            target_position_world_frame_msg.header.stamp = ros::Time::now();
             target_position_world_frame_msg.header.seq = 2;
+            target_position_world_frame_msg.header.stamp = ros::Time::now();
             target_position_world_frame_msg.pose.position.x = target_inWorld.x();
             target_position_world_frame_msg.pose.position.y = target_inWorld.y();
+            target_position_world_frame_msg.pose.position.z = 2;
             targetInWorld_pub.publish(target_position_world_frame_msg);
         }
         if (!markerids3.empty())
@@ -390,10 +392,11 @@ int main(int argc, char **argv)
             Eigen::Vector3d target_inWorld;
             bt_Camera.camera2World(target_inCamera, target_inWorld);
 
-            target_position_world_frame_msg.header.stamp = ros::Time::now();
             target_position_world_frame_msg.header.seq = 3;
+            target_position_world_frame_msg.header.stamp = ros::Time::now();
             target_position_world_frame_msg.pose.position.x = target_inWorld.x();
             target_position_world_frame_msg.pose.position.y = target_inWorld.y();
+            target_position_world_frame_msg.pose.position.z = 3;
             targetInWorld_pub.publish(target_position_world_frame_msg);
         }
 

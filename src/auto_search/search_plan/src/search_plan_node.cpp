@@ -3,7 +3,7 @@
 using namespace auto_search;
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "search_node");
+  ros::init(argc, argv, "search_plan_node");
   ros::NodeHandle nh;
   Search_Plan_FSM search_fsm;
 

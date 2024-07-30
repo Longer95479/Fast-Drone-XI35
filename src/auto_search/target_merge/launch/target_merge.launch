@@ -12,6 +12,6 @@
         <param name="pub_target_to_search_topic" value = "/target_merge/target_to_search" type="string"/>
         <param name="sub_target_merged_topic" value="/communication/sub_target_merged" type="string"/>
         <param name="sub_pnp_topic" value="/detect_box_pnp/target" type="string"/>
-        <param name="search_service_name" value="/search_plan/notify" type="string"/>
+        <param name="search_service_name" value="/search_plan/slowdown_for_reg" type="string"/>
     </node>
 </launch>
