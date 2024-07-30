@@ -1,4 +1,5 @@
 std_msgs/Header header
+float64 time
 uint8 id
 uint8 type
 float64 x

@@ -43,6 +43,12 @@ struct Target_Single_Merged
     position << 0.0, 0.0;
     cov << 0.0, 0.0, 0.0, 0.0;
   }
+  void reset()
+  {
+    observed_Counts = 0;
+    position << 0.0, 0.0;
+    cov << 0.0, 0.0, 0.0, 0.0;
+  }
   int observed_Counts;//观察次数
   Vector2d position;//统计均值
   Matrix2d cov;//统计方差
@@ -65,6 +71,13 @@ struct Target_Merged
   }
   Target_Merged(double _time, uint8_t _type, Vector2d _position, Matrix2d _cov):
   time(_time), type(_type), position(_position), cov(_cov){}
+  void reset()
+  {
+    time = 0;
+    type = 0;
+    position << 0.0, 0.0;
+    cov << 0.0, 0.0, 0.0, 0.0;
+  }
   double time;
   uint8_t type;
   Vector2d position;
@@ -97,8 +110,10 @@ private:
   ros::ServiceClient client_Search;
   //var
   int single_merged_threshold;//每识别指定次数的目标就将统计结果加入到融合结果
+  double z_core_threshold, cov_threshold, kf_cov_threshold;
   double target_PubDuration;//广播周期
   int search_state = 0;//search状态
+  int search_type = 0;//正在进行减速识别的目标
   //function
   void updateSingleTarget(const SingleTargetPtr &target);//push单个目标信息，更新single_Merged
   void updateTargetMerged(const TargetMergedPtr &target);//push融合目标信息，更新target_Merged

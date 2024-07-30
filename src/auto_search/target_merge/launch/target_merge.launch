@@ -1,6 +1,9 @@
 <launch>    
     <node pkg="target_merge" name="target_merge_node" type="target_merge_node" output="screen">
         <param name="single_merged_threshold" value="20" type="int"/>
+        <param name="z_core_threshold" value="2.5" type="double"/>
+        <param name="cov_threshold" value="1.0" type="double"/>
+        <param name="kf_cov_threshold" value="4.0" type="double"/>
         <param name="drone_id" value="1" type="int"/>
         <param name="target_PubDuration" value="1" type="double"/>
         <param name="open_visualization" value="true" type="bool"/>

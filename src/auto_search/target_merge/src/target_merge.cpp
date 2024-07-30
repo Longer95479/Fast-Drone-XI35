@@ -8,8 +8,10 @@ bool open_visualization = false;
 //自身目标识别回调
 void Target_Merge::singleTargetCallback(const geometry_msgs::PoseStampedConstPtr &msg)
 {
+  if(msg->header.seq < 1  || msg->header.seq > 3)
+    return;
   double time = msg->header.stamp.toSec();
-  uint8_t type = msg->header.seq;
+  uint8_t type = msg->pose.position.z;
   SingleTargetPtr st_p = std::make_shared<SingleTarget_Type>(time, type, msg->pose.position.x, msg->pose.position.y);
   updateSingleTarget(st_p);
 }
@@ -17,7 +19,6 @@ void Target_Merge::singleTargetCallback(const geometry_msgs::PoseStampedConstPtr
 void Target_Merge::updateSingleTarget(const SingleTargetPtr &target)
 {
   int index = target->type-1;
-  target_List[index].push_back(target);
   auto& st = single_Merged[index];
   if(st.observed_Counts == 0)
   {//第一次观察到该目标
@@ -25,15 +26,40 @@ void Target_Merge::updateSingleTarget(const SingleTargetPtr &target)
     st.cov = Matrix2d::Zero();//协方差初始化为0
     st.observed_Counts++;
     //请求悬停或减速
-    // if(callSearchService(Target_Merge::Slow_Down))
-    //   search_state = 1;
+    if(callSearchService(Target_Merge::Slow_Down))
+    {
+      search_state = 1;
+      search_type = target->type;
+    }
   }
   else
-  {//更新均值和协方差
+  {
+    //若点数大于20则可以进行异常值剔除
+    if(st.observed_Counts >= 20)
+    {
+      double z_x = (target->position.x() - st.position.x()) / std::sqrt(st.cov(0, 0));
+      double z_y = (target->position.y() - st.position.y()) / std::sqrt(st.cov(1, 1));
+      if(z_x > z_core_threshold || z_y > z_core_threshold)
+      {
+        ROS_WARN("detect the outliers! the z_core is (%lf, %lf)", z_x, z_y);
+        target->type = 0;//异常点type为0
+        target_List[index].push_back(target);
+        return;
+      }
+    }
+    //更新均值和协方差
     int k = ++(st.observed_Counts);
     Vector2d temp = st.position;
     st.position += (target->position - st.position)/k;
     st.cov += (target->position - temp)*(target->position- st.position).transpose();
+    target_List[index].push_back(target);
+    //方差大于阈值重置统计结果
+    if(st.cov(0,0) > cov_threshold || st.cov(1,1) > cov_threshold)
+    {
+      ROS_WARN("the target-%d's cov (%lf, %lf) is exceed the threshold %lf, will reset the value", target->type, st.cov(0,0), st.cov(1,1), cov_threshold);
+      st.reset();
+      return;
+    }
   }
   //如果该目标观测次数超过一定阈值就加入到融合结果
   if(st.observed_Counts % single_merged_threshold == 0)
@@ -42,10 +68,10 @@ void Target_Merge::updateSingleTarget(const SingleTargetPtr &target)
     TargetMergedPtr tm_p = std::make_shared<TargetMerged_Type>(cur_time, target->type, st.position, st.cov);
     updateTargetMerged(tm_p);
     //如果处于减速或悬停，请求正常
-    if(search_state == 1)
+    if(search_state == 1 && search_type == target->type)
     {
-      // if(callSearchService(Target_Merge::Normal))
-      //   search_state = 0;
+      if(callSearchService(Target_Merge::Normal))
+        search_state = 0;
     }
   }
 }
@@ -53,8 +79,7 @@ void Target_Merge::updateSingleTarget(const SingleTargetPtr &target)
 //多机广播目标信息回调
 void Target_Merge::targetMergedCallback(const target_merge::TargetMerged_MessageConstPtr &msg)
 {
-  double time = msg->header.stamp.toSec();
-  TargetMergedPtr tm_p = std::make_shared<TargetMerged_Type>(time, msg->type);
+  TargetMergedPtr tm_p = std::make_shared<TargetMerged_Type>(msg->time, msg->type);
   tm_p->position << msg->x, msg->y;
   auto cov_array = msg->cov;
   tm_p->cov = Eigen::Map<Eigen::Matrix<double, 2, 2, Eigen::RowMajor>>(cov_array.data());
@@ -83,6 +108,13 @@ void Target_Merge::updateTargetMerged(const TargetMergedPtr &target)
     tm.position += k * (target->position - tm.position);
     tm.cov = (Matrix2d::Identity() - k)*tm.cov;
     tm.time = target->time;
+    //如果方差过大，重置kf
+    if(tm.cov(0, 0) > kf_cov_threshold || tm.cov(1, 1) > kf_cov_threshold)
+    {
+      ROS_WARN("Merged target's cov (%lf, %lf) is exceed the threshold %lf, will reset the value", tm.cov(0, 0), tm.cov(1, 1), kf_cov_threshold);
+      tm.reset();
+      return;
+    }
     //搜寻目标有更新，发布给search模块
     if(tm.type == drone_id)
       pubTargetToSearch(drone_id);
@@ -95,7 +127,8 @@ void Target_Merge::updateTargetMerged(const TargetMergedPtr &target)
 void Target_Merge::pubTargetMerged(const TargetMerged_Type &target)
 {
   target_merge::TargetMerged_Message msg;
-  msg.header.stamp.fromSec(target.time);
+  msg.header.stamp = ros::Time::now();
+  msg.time = target.time;
   msg.id = drone_id;
   msg.type = target.type;
   msg.x = target.position.x();
@@ -116,7 +149,6 @@ void Target_Merge::pubTargetToSearch(int drone_id)
   }
   geometry_msgs::PoseStamped msg;
   msg.header.stamp.fromSec(tm.time);
-  msg.header.seq = drone_id;
   msg.pose.position.x = tm.position.x();
   msg.pose.position.y = tm.position.y();
   msg.pose.position.z = 0.0;
@@ -184,16 +216,19 @@ void Target_Merge::targetVisualization(const TargetMerged_Type &target)
 void Target_Merge::init(ros::NodeHandle &nh)
 {
   //ros
-  nh.param<int>("single_merged_threshold", single_merged_threshold, 20);
-  nh.param<int>("drone_id", drone_id, 1);
-  nh.param<double>("target_PubDuration", target_PubDuration, 2);
-  nh.param<bool>("open_visualization", open_visualization, false);
+  nh.param<int>("/target_merge_node/single_merged_threshold", single_merged_threshold, 20);
+  nh.param<double>("/target_merge_node/z_core_threshold", z_core_threshold, 2.5);
+  nh.param<double>("/target_merge_node/cov_threshold", cov_threshold, 1.0);
+  nh.param<double>("/target_merge_node/kf_cov_threshold", kf_cov_threshold, 4.0);
+  nh.param<int>("/target_merge_node/drone_id", drone_id, 1);
+  nh.param<double>("/target_merge_node/target_PubDuration", target_PubDuration, 2);
+  nh.param<bool>("/target_merge_node/open_visualization", open_visualization, false);
 
-  nh.param<std::string>("pub_target_merged_topic", PUB_TARGET_TOPIC, "/target_merge/pub_target_merged");
-  nh.param<std::string>("pub_target_to_search_topic", PUB_TARGET_SEARCH_TOPIC, "/target_merge/target_to_search");
-  nh.param<std::string>("sub_target_merged_topic", SUB_TARGET_TOPIC, "/communication/sub_target_merged");
-  nh.param<std::string>("sub_pnp_topic", SUB_PNP_TOPIC, "/detect_box_pnp/target");
-  nh.param<std::string>("search_service_name", SEARCH_SERVICE_NAME, "/search_plan/notify");
+  nh.param<std::string>("/target_merge_node/pub_target_merged_topic", PUB_TARGET_TOPIC, "/target_merge/pub_target_merged");
+  nh.param<std::string>("/target_merge_node/pub_target_to_search_topic", PUB_TARGET_SEARCH_TOPIC, "/target_merge/target_to_search");
+  nh.param<std::string>("/target_merge_node/sub_target_merged_topic", SUB_TARGET_TOPIC, "/communication/sub_target_merged");
+  nh.param<std::string>("/target_merge_node/sub_pnp_topic", SUB_PNP_TOPIC, "/detect_box_pnp/target");
+  nh.param<std::string>("/target_merge_node/search_service_name", SEARCH_SERVICE_NAME, "/search_plan/notify");
 
   pub_TargetMerged = nh.advertise<target_merge::TargetMerged_Message>(PUB_TARGET_TOPIC, 10);
   pub_TargetToSearch = nh.advertise<geometry_msgs::PoseStamped>(PUB_TARGET_SEARCH_TOPIC, 10);
@@ -201,7 +236,7 @@ void Target_Merge::init(ros::NodeHandle &nh)
   sub_TargetSingle = nh.subscribe(SUB_PNP_TOPIC, 100, &Target_Merge::singleTargetCallback, this);
   sub_TargetMerged = nh.subscribe(SUB_TARGET_TOPIC, 100, &Target_Merge::targetMergedCallback, this);
   client_Search = nh.serviceClient<search_plan::SearchService>(SEARCH_SERVICE_NAME);
-  //client_Search.waitForExistence();
+  client_Search.waitForExistence();
   timer_PubTarget = nh.createTimer(ros::Duration(target_PubDuration), &Target_Merge::targetPubCallback, this);
 }
 } // namespace target_merge
