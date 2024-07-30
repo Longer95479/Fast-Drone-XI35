@@ -66,6 +66,7 @@ namespace ego_planner
     if (target_type_ == TARGET_TYPE::MANUAL_TARGET)
     {
       waypoint_sub_ = nh.subscribe("/move_base_simple/goal", 1, &EGOReplanFSM::waypointCallback, this);
+      search_plan_sub = nh.subscribe("/search_plan/pos_cmd", 1, &EGOReplanFSM::searchPlanCallback, this);
     }
     else if (target_type_ == TARGET_TYPE::PRESET_TARGET)
     {
@@ -233,6 +234,19 @@ namespace ego_planner
     planNextWaypoint(end_wp);
   }
 
+  void EGOReplanFSM::searchPlanCallback(const geometry_msgs::PoseStampedPtr &msg)
+  {
+      if (msg->pose.position.z < -0.1)
+      return;
+
+      cout << "Triggered!" << endl;
+      // trigger_ = true;
+      init_pt_ = odom_pos_;
+
+      Eigen::Vector3d end_wp(msg->pose.position.x, msg->pose.position.y, msg->pose.position.z);
+
+      planNextWaypoint(end_wp);
+  }
   void EGOReplanFSM::odometryCallback(const nav_msgs::OdometryConstPtr &msg)
   {
     odom_pos_(0) = msg->pose.pose.position.x;
