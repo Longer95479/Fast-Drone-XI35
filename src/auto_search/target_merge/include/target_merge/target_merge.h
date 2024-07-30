@@ -110,7 +110,7 @@ private:
   ros::ServiceClient client_Search;
   //var
   int single_merged_threshold;//每识别指定次数的目标就将统计结果加入到融合结果
-  double z_core_threshold, cov_threshold, kf_cov_threshold;
+  double z_core_threshold, cov_threshold_1, cov_threshold_2, kf_cov_threshold;
   double target_PubDuration;//广播周期
   int search_state = 0;//search状态
   int search_type = 0;//正在进行减速识别的目标
