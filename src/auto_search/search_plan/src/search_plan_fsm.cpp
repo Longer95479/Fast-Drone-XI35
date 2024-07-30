@@ -183,7 +183,18 @@ void Search_Plan_FSM::execLandStage()
 
   case TAKE_LAND:
   {
-    //TODO publish land msg to land topic
+    if (continously_called_times_ == 1)
+      publishLand();
+
+    static int count = 0;
+    if (count < 100) {
+      count++;
+    }
+    else {
+      publishLand();
+      count = 0;
+    }
+
     break;
   }
 
@@ -321,6 +332,13 @@ void Search_Plan_FSM::publishTarget()
   }
 }
 
+
+void Search_Plan_FSM::publishLand()
+{
+  quadrotor_msgs::TakeoffLand msg;
+  msg.takeoff_land_cmd = 2;
+  pub_Land.publish(msg);
+}
 
 // todo for substate
 // std::pair<int, Search_Plan_FSM::FSM_EXEC_STATE> Search_Plan_FSM::timesOfConsecutiveStateCalls()
@@ -508,6 +526,7 @@ void Search_Plan_FSM::init(ros::NodeHandle& nh)
 
   // pub
   pub_Target = nh.advertise<geometry_msgs::PoseStamped>("/search_plan/pos_cmd", 50);
+  pub_Land = nh.advertise<quadrotor_msgs::TakeoffLand>("/px4ctrl/takeoff_land", 5, true);
 
   // srv
   srv_slowdown = nh.advertiseService("/search_plan/slowdown_for_reg", &Search_Plan_FSM::slowDownServiceCallBack, this);

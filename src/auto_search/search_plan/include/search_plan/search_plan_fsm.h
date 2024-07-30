@@ -9,8 +9,11 @@
 
 #include <ros/ros.h>
 #include <ros/timer.h>
+
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Odometry.h>
+#include <quadrotor_msgs/TakeoffLand.h>
+
 #include <search_plan/SearchService.h>
 
 namespace auto_search
@@ -52,10 +55,11 @@ namespace auto_search
 		LAND_SUB_STATE land_SubState;
 
 		// statistic
-		int continously_called_times_{0};
+		uint32_t continously_called_times_{0};
 		
 		// ros
 		ros::Publisher pub_Target;
+		ros::Publisher pub_Land;
 
 		ros::Subscriber sub_Odom;
 		ros::Subscriber sub_Trigger;
@@ -100,6 +104,7 @@ namespace auto_search
                              		 search_plan::SearchService::Response &res);
 		// function
 		void publishTarget();		// 发布飞行目标点,只有目标点跟上次不一样时才发布
+		void publishLand();
 		void execStartStage();		// 执行起始阶段状态机
 		void execSearchStage();		// 执行搜索阶段状态机
 		void execLandStage();		// 执行降落阶段状态机
