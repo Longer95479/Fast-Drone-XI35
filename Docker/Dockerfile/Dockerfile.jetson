@@ -19,4 +19,6 @@ RUN  source /opt/ros/${ROS_VERSION}/setup.bash && \
 
 #container init
 COPY ./container_init.sh /
+COPY ./daemon /daemon
+RUN  chmod +x /container_init.sh
 ENTRYPOINT ["/bin/bash", "/container_init.sh"]

@@ -24,16 +24,8 @@ endif()
   set(_opencv_version 3)
 #endif()
 
-include("${CMAKE_SOURCE_DIR}/realflight_modules/det-reg-pnp/opencv3416_aruco_modified_install/share/OpenCV/OpenCVConfig.cmake")
-
-# find_package(OpenCV ${_opencv_version} REQUIRED
-#   PATHS /usr/local/opencv3.4.16
-#   COMPONENTS
-#     opencv_core
-#     opencv_imgproc
-#     opencv_imgcodecs
-#   CONFIG
-# )
+set(OpenCV_DIR /usr/local/opencv-3.4.16/share/OpenCV)
+find_package(OpenCV 3 REQUIRED)
 
 catkin_package(
   INCLUDE_DIRS include
