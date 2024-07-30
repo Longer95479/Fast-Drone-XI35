@@ -18,8 +18,8 @@ void Target_Merge::singleTargetCallback(const geometry_msgs::PoseStampedConstPtr
 //基于Welford更新均值和方差
 void Target_Merge::updateSingleTarget(const SingleTargetPtr &target)
 {
-  ROS_INFO("RECEIVE Single target: %d", target->type);
-  int index = target->type-1;
+  ROS_INFO("RECEIVE Single target: %d, (%lf, %lf)", target->type, target->position.x(), target->position.y());
+  int index = target->type - 1;
   auto& st = single_Merged[index];
   if(st.observed_Counts == 0)
   {//第一次观察到该目标
