@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   message_generation
   message_runtime
+  quadrotor_msgs
 )
 find_package(Eigen3 REQUIRED)
 
@@ -36,3 +37,8 @@ target_link_libraries(search_lib ${catkin_LIBRARIES})
 
 add_executable(search_node src/search_plan_node.cpp)
 target_link_libraries(search_node search_lib)
+
+add_dependencies(search_node 
+  ${${PROJECT_NAME}_EXPORTED_TARGETS} 
+  ${catkin_EXPORTED_TARGETS}
+)
