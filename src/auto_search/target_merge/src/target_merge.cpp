@@ -36,7 +36,7 @@ void Target_Merge::updateSingleTarget(const SingleTargetPtr &target)
   else
   {
     //若点数大于20则可以进行异常值剔除
-    if(st.observed_Counts >= 20)
+    if(st.observed_Counts >= single_merged_threshold)
     {
       double z_x = (target->position.x() - st.position.x()) / std::sqrt(st.cov(0, 0));
       double z_y = (target->position.y() - st.position.y()) / std::sqrt(st.cov(1, 1));
@@ -55,9 +55,15 @@ void Target_Merge::updateSingleTarget(const SingleTargetPtr &target)
     st.cov += (target->position - temp)*(target->position- st.position).transpose();
     target_List[index].push_back(target);
     //方差大于阈值重置统计结果
-    if(st.cov(0,0) > cov_threshold || st.cov(1,1) > cov_threshold)
-    {
-      ROS_WARN("the target-%d's cov (%lf, %lf) is exceed the threshold %lf, will reset the value", target->type, st.cov(0,0), st.cov(1,1), cov_threshold);
+    if(st.observed_Counts <= single_merged_threshold && (st.cov(0,0) > cov_threshold_1 || st.cov(1,1) > cov_threshold_1))
+    {//累积次数小于一定次数，方差不能大于较小值，否则重置
+      ROS_WARN("the target-%d's cov (%lf, %lf) is exceed the threshold %lf, will reset the value", target->type, st.cov(0,0), st.cov(1,1), cov_threshold_1);
+      st.reset();
+      return;
+    }
+    else if(st.observed_Counts > single_merged_threshold && (st.cov(0,0) > cov_threshold_2 || st.cov(1,1) > cov_threshold_2))
+    {//累积次数大于一定次数，方差不能大于较大值，否则重置
+      ROS_WARN("the target-%d's cov (%lf, %lf) is exceed the threshold %lf, will reset the value", target->type, st.cov(0,0), st.cov(1,1), cov_threshold_2);
       st.reset();
       return;
     }
@@ -122,7 +128,7 @@ void Target_Merge::updateTargetMerged(const TargetMergedPtr &target)
     //rviz显示
     if(open_visualization)
       targetVisualization(tm);
-    ROS_INFO("[1]Merged ok! type :%d", drone_id);
+    ROS_INFO("Merged ok! type :%d", drone_id);
   }
 }
 //发布融合信息
@@ -221,7 +227,8 @@ void Target_Merge::init(ros::NodeHandle &nh)
   //ros
   nh.param<int>("/target_merge_node/single_merged_threshold", single_merged_threshold, 20);
   nh.param<double>("/target_merge_node/z_core_threshold", z_core_threshold, 2.5);
-  nh.param<double>("/target_merge_node/cov_threshold", cov_threshold, 1.0);
+  nh.param<double>("/target_merge_node/cov_threshold_1", cov_threshold_1, 0.05);
+  nh.param<double>("/target_merge_node/cov_threshold_2", cov_threshold_2, 1.0);
   nh.param<double>("/target_merge_node/kf_cov_threshold", kf_cov_threshold, 4.0);
   nh.param<int>("/target_merge_node/drone_id", drone_id, 1);
   nh.param<double>("/target_merge_node/target_PubDuration", target_PubDuration, 2);
