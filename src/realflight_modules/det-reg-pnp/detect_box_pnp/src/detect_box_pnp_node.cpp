@@ -193,6 +193,11 @@ int main(int argc, char **argv)
 
         // Aruco识别参数
         Ptr<cv::aruco::DetectorParameters> parameters = cv::aruco::DetectorParameters::create();
+        
+        //minMarkerPerimeterRate: determine minimum perimeter for marker contour to be detected. This is defined as a rate respect to the maximum dimension of the input image (default 0.03).
+        parameters->minMarkerPerimeterRate=0.03;
+        //maxMarkerPerimeterRate: determine maximum perimeter for marker contour to be detected. This is defined as a rate respect to the maximum dimension of the input image (default 4.0).
+        parameters->maxMarkerPerimeterRate=4;
         parameters->cornerRefinementMethod = cv::aruco::CORNER_REFINE_CONTOUR;
         
         cv::aruco::detectMarkers(img, dictionary, markerCorners_deted, markerids_deted, parameters, rejectedCandidate);
