@@ -1,0 +1,7 @@
+<launch>
+	
+	<node pkg="lcm_receive" type="lcm_receive" name="lcm_receive" output="screen">
+			<param name="message_log_path" type="string" value="../Downloads/drone_comm/message_log.txt" />
+	</node>
+
+</launch>
