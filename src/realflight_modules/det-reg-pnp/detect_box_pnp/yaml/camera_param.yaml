@@ -44,4 +44,4 @@ extrinsicTranslation: !!opencv-matrix
    data: [-3.0e-03, -1.2e-02, -1.7e-02]
 
 #方形目标边长（单位：m）
-target_len: 0.5
+target_len: 0.05
