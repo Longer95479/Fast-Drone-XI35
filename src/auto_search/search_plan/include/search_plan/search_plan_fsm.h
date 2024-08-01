@@ -88,6 +88,7 @@ namespace auto_search
 		bool has_odom_;
 		bool has_found_my_target_;
 		bool has_slow_down_req_;
+		bool reset_slow_down_clock_;
 		std::queue<std::pair<double, Eigen::Vector3d>> my_target_stamped_queue_;
 		double target_msg_timeout_;
 		double target_converge_th_;

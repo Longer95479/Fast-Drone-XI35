@@ -53,7 +53,7 @@ void Search_Plan_FSM::execSearchStage()
     else if (has_slow_down_req_) {    // TODO: add a server
       changeSearchSubState(SLOWDOWN_FOR_RECOG, "execSearchStage()");
     }
-    else if (haveArrivedTarget()) {
+    else if ((wp_id_ < waypoint_num_ - 1) && haveArrivedTarget()) {
       wp_id_++;
     }
 
@@ -65,21 +65,30 @@ void Search_Plan_FSM::execSearchStage()
     /* TODO: stop for a while */
     static bool start_the_clock = true;
     static ros::Time start_time;
+    static Eigen::Vector3d slow_down_trig_pos;
     
     if (start_the_clock) {
       start_the_clock = false;
       start_time = ros::Time::now();
+
+      if (continously_called_times_ == 1)
+        slow_down_trig_pos = current_Position;
     }
     else {
       // Now just stopping
       // TODO: slowing down instead of stopping
-      current_Target = current_Position;
+      current_Target = slow_down_trig_pos;
 
       ros::Time now_time = ros::Time::now();
       if ((now_time - start_time).toSec() > slow_down_time_duration_ || 
           !has_slow_down_req_) {
         start_the_clock = true;
+        has_slow_down_req_ = false;
         changeSearchSubState(SEARCH_NUMS, "execSearchStage()");
+      }
+      else if (reset_slow_down_clock_ == true) {
+        start_the_clock = true;
+        reset_slow_down_clock_ = false;
       }
     }
 
@@ -304,8 +313,11 @@ bool Search_Plan_FSM::slowDownServiceCallBack(search_plan::SearchService::Reques
 
   if (req.req_type == 0)
     has_slow_down_req_ = false;
-  else if (req.req_type == 1)
+  else if (req.req_type == 1) {
     has_slow_down_req_ = true;
+    if (main_State == SEARCH_STAGE && search_SubState == SLOWDOWN_FOR_RECOG)
+      reset_slow_down_clock_ = true;
+  }
   else {
     ROS_ERROR("slow_down_req_ is wrong");
     return false;
@@ -498,6 +510,7 @@ void Search_Plan_FSM::init(ros::NodeHandle& nh)
   has_odom_ = false;
   has_found_my_target_ = false;
   has_slow_down_req_ = false;
+  reset_slow_down_clock_ = false;
 
   // param
   nh.param<std::string>("/search_plan_node/odom_topic", odom_Topic, "/vins_fusion/imu_propagate");
