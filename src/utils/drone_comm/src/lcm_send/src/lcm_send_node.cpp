@@ -46,7 +46,6 @@ bool save_to_file(int64_t timestamp, int drone_id) {
     std::ofstream file;
     file.open(message_log_path.c_str(), std::ios::app);
     if (file.is_open()) {
-        std::cout << timestamp << " " << drone_id << std::endl;
         file << timestamp << " " << drone_id << "\n";
         file.close();
     } else {
