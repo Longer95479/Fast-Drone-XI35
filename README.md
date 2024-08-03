@@ -257,6 +257,38 @@ after these settings you will have 250Hz /imu/data_raw /imu/data
 
 - 具体参考：[Jetson Orin NX 开发指南（6）: VINS-Fusion-gpu 的编译和运行](https://blog.csdn.net/qq_44998513/article/details/133780129)
 
+### 3.9 网络配置
+
+- 使用 `iw list` 查询网卡是否支持Ad-Hoc模式，如果Supported interface modes中出现IBSS，则说明网卡支持Ad-Hoc模式
+
+- 使用 `ifconfig` 查询想要配置成Ad-Hoc模式网卡的名称
+
+- 使用Network Manager配置网卡，ifname为待配置的网卡名称，con-name为配置文件名称，ssid为网络名称，wifi.band为频段，wifi.channel为信道
+```shell
+sudo nmcli connection add type wifi ifname wlan1 con-name HITADHOC mode adhoc ssid HITADHOC wifi.band bg wifi.channel 3
+```
+
+- 通过con-name修改网络配置，ipv4.addresses为IPv4地址
+```shell
+sudo nmcli connection modify HITADHOC ipv4.method manual ipv4.addresses 10.10.10.11/24
+```
+  
+- 通过con-name激活网络配置，激活后会开机自启动
+```shell
+sudo nmcli connection up HITADHOC
+```  
+
+- 如果后续要删除配置，可以通过con-name删除
+```shell
+sudo nmcli connection delete HITADHOC
+```
+
+- LCM通信配置
+```shell
+sudo ifconfig wlan1 multicast
+sudo route add -net 224.0.0.0 netmask 240.0.0.0 dev wlan1
+```
+  
 
 ## 4 Docker 配置与使用
 底层基础镜像：NVIDIA L4T JetPack r35.3.1

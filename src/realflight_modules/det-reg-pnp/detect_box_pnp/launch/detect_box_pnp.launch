@@ -4,6 +4,7 @@
 		<param name="config_file" type="string" value="$(find detect_box_pnp)/yaml/camera_param.yaml"/>
 		<param name="camera_topic" type="string" value="/csi_cam_0/image_raw" />
 		<param name="detect_hz"  value="10" />
+		<param name="detect_weight_thre"  value="0.0" />
 	</node>
 
 </launch>

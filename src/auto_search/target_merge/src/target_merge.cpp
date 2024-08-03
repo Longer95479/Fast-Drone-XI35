@@ -203,6 +203,7 @@ void Target_Merge::targetVisualization(const TargetMerged_Type &target)
     mark_msg.color.r = 1.0;
     mark_msg.color.g = 0.0;
     mark_msg.color.b = 0.0;
+    mark_msg.color.a = 1.0;
     break;
   }
   case 2:
@@ -210,6 +211,7 @@ void Target_Merge::targetVisualization(const TargetMerged_Type &target)
     mark_msg.color.r = 0.0;
     mark_msg.color.g = 1.0;
     mark_msg.color.b = 0.0;
+    mark_msg.color.a = 1.0;
     break;
   }
   case 3:
@@ -217,6 +219,7 @@ void Target_Merge::targetVisualization(const TargetMerged_Type &target)
     mark_msg.color.r = 0.0;
     mark_msg.color.g = 0.0;
     mark_msg.color.b = 1.0;
+    mark_msg.color.a = 1.0;
     break;
   }
   }

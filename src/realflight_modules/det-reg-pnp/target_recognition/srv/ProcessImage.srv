@@ -1,3 +1,4 @@
 sensor_msgs/Image image
 ---
+float32 weight
 int64 prediction
