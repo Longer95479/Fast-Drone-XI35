@@ -35,9 +35,10 @@ def handle_process_image(req):
 
         #rospy.loginfo("onnx weights: %s", outs)
         prediction = outs.argmax(axis=1)[0]
+        weight = np.max(outs)
         #rospy.loginfo("onnx prediction: %d", prediction)
 
-        return ProcessImageResponse(prediction)
+        return ProcessImageResponse(weight, prediction)
     except CvBridgeError as e:
         rospy.logerr("CvBridge Error: %s", e)
         return ProcessImageResponse(-1)

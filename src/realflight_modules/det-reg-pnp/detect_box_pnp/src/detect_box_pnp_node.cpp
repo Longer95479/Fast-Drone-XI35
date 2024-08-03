@@ -62,6 +62,8 @@ sensor_msgs::ImagePtr detect_result_image;
 
 float camera_offset[3];
 
+float detect_weight_thre;
+
 double calculation_time;
 
 // 相机话题中的图像同步相关变量
@@ -135,6 +137,8 @@ int main(int argc, char **argv)
     //方形目标边长
     double target_len = camera_config["target_len"].as<double>();
 
+    nh.param<float>("detect_weight_thre", detect_weight_thre, 0.0);
+
     // 目标位置
     //target_position_pub = nh.advertise<detect_box_pnp::DetectInfo>("/target_position", 10);
     targetInWorld_pub = nh.advertise<geometry_msgs::PoseStamped>("/detect_box_pnp/target", 10);
@@ -206,49 +210,51 @@ int main(int argc, char **argv)
         vector<Vec3d> rvecs, tvecs;
         for (size_t i = 0; i < markerCorners_deted.size(); ++i) 
         {
-            if (markerids1.empty() || markerids2.empty() || markerids3.empty())
+            // 获取当前检测到的角点
+            vector<Point2f> corners = markerCorners_deted[i];
+
+            // 定义正视图的目标角点
+            vector<Point2f> squareCorners = {
+                    Point2f(0, 0),
+                    Point2f(100, 0),
+                    Point2f(100, 100),
+                    Point2f(0, 100)
+            };
+
+            // 计算透视变换矩阵
+            Mat transformation = getPerspectiveTransform(corners, squareCorners);
+
+            // 应用透视变换以获取正视图
+            warpPerspective(img, resultImg, transformation, Size(100, 100), INTER_NEAREST);
+        
+            cv_image.image = resultImg;
+            cv_image.encoding = "bgr8";
+            cv_image.toImageMsg(target_recognition_srv.request.image);
+            client.call(target_recognition_srv);
+
+            if (target_recognition_srv.response.prediction == 1 && target_recognition_srv.response.weight > weight1 && target_recognition_srv.response.weight > detect_weight_thre)
             {
-                // 获取当前检测到的角点
-                vector<Point2f> corners = markerCorners_deted[i];
-
-                // 定义正视图的目标角点
-                vector<Point2f> squareCorners = {
-                        Point2f(0, 0),
-                        Point2f(100, 0),
-                        Point2f(100, 100),
-                        Point2f(0, 100)
-                };
-
-                // 计算透视变换矩阵
-                Mat transformation = getPerspectiveTransform(corners, squareCorners);
-
-                // 应用透视变换以获取正视图
-                warpPerspective(img, resultImg, transformation, Size(100, 100), INTER_NEAREST);
-            
-                cv_image.image = resultImg;
-                cv_image.encoding = "bgr8";
-                cv_image.toImageMsg(target_recognition_srv.request.image);
-                client.call(target_recognition_srv);
-
-                if (target_recognition_srv.response.prediction == 1 && markerids1.empty())
-                {
-                    markerCorners1.push_back(markerCorners_deted[i]);
-                    markerids1.push_back(1);
-                }
-                if (target_recognition_srv.response.prediction == 2 && markerids2.empty())
-                {
-                    markerCorners2.push_back(markerCorners_deted[i]);
-                    markerids2.push_back(2);
-                }
-                if (target_recognition_srv.response.prediction == 3 && markerids3.empty())
-                {
-                    markerCorners3.push_back(markerCorners_deted[i]);
-                    markerids3.push_back(3);
-                }
+                weight1 = target_recognition_srv.response.weight;
+                markerCorners1.clear();
+                markerids1.clear();
+                markerCorners1.push_back(markerCorners_deted[i]);
+                markerids1.push_back(1);
             }
-            else
+            if (target_recognition_srv.response.prediction == 2 && target_recognition_srv.response.weight > weight2 && target_recognition_srv.response.weight > detect_weight_thre)
             {
-                break;
+                weight2 = target_recognition_srv.response.weight;
+                markerCorners2.clear();
+                markerids2.clear();
+                markerCorners2.push_back(markerCorners_deted[i]);
+                markerids2.push_back(2);
+            }
+            if (target_recognition_srv.response.prediction == 3 && target_recognition_srv.response.weight > weight3 && target_recognition_srv.response.weight > detect_weight_thre)
+            {
+                weight3 = target_recognition_srv.response.weight;
+                markerCorners3.clear();
+                markerids3.clear();
+                markerCorners3.push_back(markerCorners_deted[i]);
+                markerids3.push_back(3);
             }
         }
         if (!markerids1.empty())
