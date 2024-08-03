@@ -30,7 +30,7 @@
         <arg name="fx" value="389.6706237792969"/>
         <arg name="fy" value="389.6706237792969"/>
         <!-- maximum velocity and acceleration the drone will reach -->
-        <arg name="max_vel" value="0.5" />
+        <arg name="max_vel" value="0.4" />
         <arg name="max_acc" value="6.0" />
         <!--always set to 1.5 times grater than sensing horizen-->
         <arg name="planning_horizon" value="6" />

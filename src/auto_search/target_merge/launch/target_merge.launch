@@ -1,6 +1,6 @@
 <launch>    
     <node pkg="target_merge" name="target_merge_node" type="target_merge_node" output="screen">
-        <param name="single_merged_threshold" value="20" type="int"/>
+        <param name="single_merged_threshold" value="15" type="int"/>
         <param name="z_core_threshold" value="2.5" type="double"/>
         <param name="cov_threshold_1" value="0.05" type="double"/>
         <param name="cov_threshold_2" value="1.0" type="double"/>
