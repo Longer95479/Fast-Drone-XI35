@@ -94,6 +94,9 @@ namespace auto_search
 		double target_converge_th_;
 		double slow_down_time_duration_;	// unit: sec
 		double distance_to_target_;
+		double slow_down_height_;
+		double my_target_hover_height_;
+		double publish_target_threshold_;
 
 
 		// callback

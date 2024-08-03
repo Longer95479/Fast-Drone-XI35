@@ -3,21 +3,21 @@
     <!-- search strategy waypoints (Convenience for template generation)-->
     <arg name="point_num" value="3" />
 
-    <arg name="point0_x" value="4.0" />
+    <arg name="point0_x" value="3.5" />
     <arg name="point0_y" value="0.0" />
-    <arg name="point0_z" value="0.8" />
+    <arg name="point0_z" value="0.7" />
 
-    <arg name="point1_x" value="4.0" />
+    <arg name="point1_x" value="3.5" />
     <arg name="point1_y" value="1.5" />
-    <arg name="point1_z" value="0.8" />
+    <arg name="point1_z" value="0.7" />
 
     <arg name="point2_x" value="0.0" />
     <arg name="point2_y" value="1.5" />
-    <arg name="point2_z" value="0.8" />
+    <arg name="point2_z" value="0.7" />
 
     <arg name="point3_x" value="0.0" />
     <arg name="point3_y" value="0.0" />
-    <arg name="point3_z" value="0.8" />
+    <arg name="point3_z" value="0.7" />
 
     <arg name="point4_x" value="4.2" />
     <arg name="point4_y" value="-2.2" />
@@ -27,9 +27,12 @@
         <param name="odom_topic" value="/vins_fusion/imu_propagate" type="string"/>
         <param name="exec_frequency" value="100" type="double"/>
         <param name="arrive_threshold" value="0.3" type="double"/>
+        <param name="publish_target_threshold" value="0.2" type="double"/>
         <param name="target_msg_timeout" value="5.0" type="double"/>
         <param name="target_converge_th" value="0.10" type="double"/>
-        <param name="slow_down_time_duration" value="4.0" type="double"/>
+        <param name="slow_down_time_duration" value="5.0" type="double"/>
+        <param name="slow_down_height" value="0.9" type="double"/>
+        <param name="my_target_hover_height" value="0.9" type="double"/>
 
         <param name="search_startpoint_x" value="1.0" type="double"/>
         <param name="search_startpoint_y" value="0.0" type="double"/>

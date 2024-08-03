@@ -44,18 +44,24 @@ void Search_Plan_FSM::execSearchStage()
   {
   case SEARCH_NUMS:
   {
-    current_Target = wps_[wp_id_];
     // TODO: or generate wp in runtime based on search strategy
 
     if (has_found_my_target_) {
       changeSearchSubState(FLY_TO_MY_TARGET, "execSearchStage()");
     }
-    else if (has_slow_down_req_) {    // TODO: add a server
+    else if (has_slow_down_req_) {
       changeSearchSubState(SLOWDOWN_FOR_RECOG, "execSearchStage()");
     }
-    else if ((wp_id_ < waypoint_num_ - 1) && haveArrivedTarget()) {
-      wp_id_++;
+    else if ((wp_id_ < waypoint_num_ - 1) ) {
+      current_Target = wps_[wp_id_];
+      // note: current_Target = wps_[wp_id_] must be done before calling haveArrivedTarget().
+      if (haveArrivedTarget()) {
+        wp_id_++;
+        current_Target = wps_[wp_id_];
+      }
     }
+    else
+      current_Target = wps_[wp_id_];
 
     break;
   }
@@ -71,8 +77,10 @@ void Search_Plan_FSM::execSearchStage()
       start_the_clock = false;
       start_time = ros::Time::now();
 
-      if (continously_called_times_ == 1)
+      if (continously_called_times_ == 1) {
         slow_down_trig_pos = current_Position;
+        slow_down_trig_pos.z() = slow_down_height_;
+      }
     }
     else {
       // Now just stopping
@@ -80,15 +88,26 @@ void Search_Plan_FSM::execSearchStage()
       current_Target = slow_down_trig_pos;
 
       ros::Time now_time = ros::Time::now();
-      if ((now_time - start_time).toSec() > slow_down_time_duration_ || 
-          !has_slow_down_req_) {
+      if (!has_slow_down_req_) {
         start_the_clock = true;
         has_slow_down_req_ = false;
+
         changeSearchSubState(SEARCH_NUMS, "execSearchStage()");
+
+        ROS_WARN("[SLOW DOWN] recieve slow down quit req.");
+      }
+      else if ((now_time - start_time).toSec() > slow_down_time_duration_) {
+        start_the_clock = true;
+        has_slow_down_req_ = false;
+
+        changeSearchSubState(SEARCH_NUMS, "execSearchStage()");
+
+        ROS_WARN("[SLOW DOWN] slow down time out.");
       }
       else if (reset_slow_down_clock_ == true) {
         start_the_clock = true;
         reset_slow_down_clock_ = false;
+        ROS_WARN("[SLOW DOWN] reset the slow down clock.");
       }
     }
 
@@ -100,7 +119,8 @@ void Search_Plan_FSM::execSearchStage()
     current_Target = my_target_stamped_queue_.back().second;
     
     //TODO: need to modify to get better land
-    current_Target.z() = current_Position.z();
+    // current_Target.z() = current_Position.z();
+    current_Target.z() = my_target_hover_height_;
 
     if (haveArrivedTarget()) {
       changeSearchSubState(WAIT_FOR_LAND, "execSearchStage()");
@@ -179,6 +199,8 @@ void Search_Plan_FSM::execLandStage()
     // TODO:
     // go circle and check target whether been seen
     // or stop for a while and back to CHECK_NUM_BE_SEEN
+    // or just land without fine tune.
+    changeLandSubState(TAKE_LAND, "execLandStage()");
     break;
   }
 
@@ -330,9 +352,11 @@ bool Search_Plan_FSM::slowDownServiceCallBack(search_plan::SearchService::Reques
 
 void Search_Plan_FSM::publishTarget()
 {
+  // static int normal_pub_counter = 0;
+
   if (have_trigger) {
     double dis = (current_Target - last_Target).norm();
-    if( dis >= 0.2)//新的目标点距离之前的目标点大于0.2m才发布新的目标点
+    if( dis >= publish_target_threshold_) //新的目标点距离之前的目标点大于 publish_target_threshold_ [m] 才发布新的目标点
     {
       geometry_msgs::PoseStamped msg;
       msg.header.stamp = ros::Time::now();
@@ -340,6 +364,7 @@ void Search_Plan_FSM::publishTarget()
       msg.pose.position.y = current_Target.y();
       msg.pose.position.z = current_Target.z();
       pub_Target.publish(msg);
+      ROS_WARN("publish new target.");
 
       last_Target = current_Target;
     }
@@ -516,9 +541,12 @@ void Search_Plan_FSM::init(ros::NodeHandle& nh)
   nh.param<std::string>("/search_plan_node/odom_topic", odom_Topic, "/vins_fusion/imu_propagate");
   nh.param<double>("/search_plan_node/exec_frequency", exec_Frequency, 100);
   nh.param<double>("/search_plan_node/arrive_threshold", arrive_Threshold, 0.3);
+  nh.param<double>("/search_plan_node/publish_target_threshold", publish_target_threshold_, 0.2);
   nh.param<double>("/search_plan_node/target_msg_timeout", target_msg_timeout_, 2.0);
   nh.param<double>("/search_plan_node/target_converge_th", target_converge_th_, 0.10);
   nh.param<double>("/search_plan_node/slow_down_time_duration", slow_down_time_duration_, 2.0);
+  nh.param<double>("/search_plan_node/slow_down_height", slow_down_height_, 0.7);
+  nh.param<double>("/search_plan_node/my_target_hover_height", my_target_hover_height_, 0.7);
 
   nh.param<double>("/search_plan_node/search_startpoint_x", search_StartPoint.x(), 2.0);
   nh.param<double>("/search_plan_node/search_startpoint_y", search_StartPoint.y(), 0.5);
