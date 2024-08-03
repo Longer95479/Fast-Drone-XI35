@@ -31,6 +31,7 @@ void Target_Merge::updateSingleTarget(const SingleTargetPtr &target)
     {
       search_state = 1;
       search_type = target->type;
+      ROS_WARN("callSearchService: Slow_Down");
     }
   }
   else
@@ -77,8 +78,10 @@ void Target_Merge::updateSingleTarget(const SingleTargetPtr &target)
     //如果处于减速或悬停，请求正常
     if(search_state == 1 && search_type == target->type)
     {
-      if(callSearchService(Target_Merge::Normal))
+      if(callSearchService(Target_Merge::Normal)) {
         search_state = 0;
+        ROS_WARN("callSearchService: Normal");
+      }
     }
   }
 }
@@ -128,7 +131,7 @@ void Target_Merge::updateTargetMerged(const TargetMergedPtr &target)
     //rviz显示
     if(open_visualization)
       targetVisualization(tm);
-    ROS_INFO("Merged ok! type :%d", drone_id);
+    ROS_INFO("Merged ok! type :%d", tm.type);
   }
 }
 //发布融合信息
@@ -161,7 +164,7 @@ void Target_Merge::pubTargetToSearch(int drone_id)
   msg.pose.position.y = tm.position.y();
   msg.pose.position.z = 0.0;
   pub_TargetToSearch.publish(msg);
-  ROS_INFO("Send msg to search_plan:%d", drone_id);
+  ROS_WARN("Send msg to search_plan:%d", drone_id);
 }
 //定期广播所有融合信息
 void Target_Merge::targetPubCallback(const ros::TimerEvent &e)
