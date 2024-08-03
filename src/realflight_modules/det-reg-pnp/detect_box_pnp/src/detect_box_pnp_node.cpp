@@ -194,7 +194,8 @@ int main(int argc, char **argv)
         // markerids存储每个识别到二维码的编号，markerCorners每个二维码对应的四个角点的像素坐标
         std::vector<int> markerids1, markerids_deted, markerids2, markerids3;
         vector<vector<Point2f>> markerCorners1, markerCorners_deted, rejectedCandidate, markerCorners2, markerCorners3;
-
+        float weight1 = 0.0f, weight2 = 0.0f, weight3 = 0.0f;
+        
         // Aruco识别参数
         Ptr<cv::aruco::DetectorParameters> parameters = cv::aruco::DetectorParameters::create();
         
