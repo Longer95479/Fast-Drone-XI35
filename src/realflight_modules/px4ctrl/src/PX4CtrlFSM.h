@@ -78,8 +78,8 @@ public:
 	bool emergency_hover = false;
 	void emergency_callback(const std_msgs::BoolConstPtr &msg)
 	{
-		if(msg->data == true)
-			emergency_hover = true;
+		// if(msg->data == true)
+		// 	emergency_hover = true;
 	}
 private:
 	State_t state; // Should only be changed in PX4CtrlFSM::process() function!
