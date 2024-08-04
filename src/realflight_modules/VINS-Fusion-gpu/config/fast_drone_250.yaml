@@ -104,6 +104,6 @@ load_previous_pose_graph: 0        # load and reuse previous pose graph; load fr
 pose_graph_save_path: "/home/orin02/savedfiles/output/pose_graph/" # save and load path
 save_image: 1                   # save image in pose graph for visualization prupose; you can close this function by setting 0 
 
-odometry_type: 1 #0为原始里程计，1为加了偏置后的里程计
-drone_id: 2
+odometry_type: 0 #0为原始里程计，1为加了偏置后的里程计
+drone_id: 1
 single_offset: 2.0
