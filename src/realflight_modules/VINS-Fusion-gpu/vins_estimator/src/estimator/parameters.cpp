@@ -51,6 +51,7 @@ double F_THRESHOLD;
 int SHOW_TRACK;
 int FLOW_BACK;
 
+int ODOM_TYPE;
 int DRONE_ID;
 double SINGLE_OFFSET;
 
@@ -216,6 +217,7 @@ void readParameters(std::string config_file)
         cv::cv2eigen(rectify_right, rectify_R_right);
 
     }
+    ODOM_TYPE = fsSettings["odometry_type"];
     DRONE_ID = fsSettings["drone_id"];
     SINGLE_OFFSET = fsSettings["single_offset"];
     fsSettings.release();

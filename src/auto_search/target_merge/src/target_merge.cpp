@@ -93,6 +93,8 @@ void Target_Merge::targetMergedCallback(const target_merge::TargetMerged_Message
   tm_p->position << msg->x, msg->y;
   auto cov_array = msg->cov;
   tm_p->cov = Eigen::Map<Eigen::Matrix<double, 2, 2, Eigen::RowMajor>>(cov_array.data());
+  ROS_INFO("Recv Target merged from %d, type:%d, position:(%lf, %lf), cov:[%lf, %lf, %lf, %lf]", msg->id, tm_p->type, tm_p->position.x(), tm_p->position.y(), 
+          tm_p->cov(0,0), tm_p->cov(0,1), tm_p->cov(1,0), tm_p->cov(1,1));
   updateTargetMerged(tm_p);
 }
 //单机识别超过一定次数调用该函数进行融合，其他无人机融合信息接收到一次就调用进行融合

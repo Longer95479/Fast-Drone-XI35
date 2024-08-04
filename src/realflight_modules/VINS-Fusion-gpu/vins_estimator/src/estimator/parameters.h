@@ -69,6 +69,7 @@ extern double F_THRESHOLD;
 extern int SHOW_TRACK;
 extern int FLOW_BACK;
 
+extern int ODOM_TYPE;
 extern int DRONE_ID;
 extern double SINGLE_OFFSET;
 void readParameters(std::string config_file);
