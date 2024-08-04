@@ -444,6 +444,9 @@ make jetson
 
 - 起飞和飞行时机身倾斜，需要校准一下地平线
 
+- LCM节点启动后报错：Error while loading shared libraries: liblcm.so.1: cannot open shared object file: No such file or directory
+    - [$ sudo ldconfig -v](https://github.com/CogChameleon/ChromaTag/issues/2)
+
 ## 参考
 
 - [OddityRC XI35pro Assembly Guide](https://oddityrc.com/blogs/assembly-guides/xi35pro-frame-assembly-guide)
