@@ -45,10 +45,12 @@ struct Target_Single_Merged
   }
   void reset()
   {
+    have_call_slowDown = false;
     observed_Counts = 0;
     position << 0.0, 0.0;
     cov << 0.0, 0.0, 0.0, 0.0;
   }
+  bool have_call_slowDown = false;//已经发起过悬停请求
   int observed_Counts;//观察次数
   Vector2d position;//统计均值
   Matrix2d cov;//统计方差
@@ -110,6 +112,7 @@ private:
   ros::ServiceClient client_Search;
   //var
   int single_merged_threshold;//每识别指定次数的目标就将统计结果加入到融合结果
+  int slow_down_counts;//识别超过一定次数就slow down
   double z_core_threshold, cov_threshold_1, cov_threshold_2, kf_cov_threshold;
   double target_PubDuration;//广播周期
   int search_state = 0;//search状态

@@ -26,13 +26,6 @@ void Target_Merge::updateSingleTarget(const SingleTargetPtr &target)
     st.position = target->position;
     st.cov = Matrix2d::Zero();//协方差初始化为0
     st.observed_Counts++;
-    //请求悬停或减速
-    if(callSearchService(Target_Merge::Slow_Down))
-    {
-      search_state = 1;
-      search_type = target->type;
-      ROS_WARN("callSearchService: Slow_Down");
-    }
   }
   else
   {
@@ -69,6 +62,17 @@ void Target_Merge::updateSingleTarget(const SingleTargetPtr &target)
       return;
     }
   }
+  //如果还没对该目标发起过悬停且识别次数大于阈值，则请求悬停
+  if(!st.have_call_slowDown && st.observed_Counts >= slow_down_counts)
+  {
+    if(callSearchService(Target_Merge::Slow_Down))
+    {
+      search_state = 1;
+      search_type = target->type;
+      st.have_call_slowDown = true;
+      ROS_WARN("callSearchService: Slow_Down, type: %d", target->type);
+    }
+  }
   //如果该目标观测次数超过一定阈值就加入到融合结果
   if(st.observed_Counts % single_merged_threshold == 0)
   {
@@ -80,7 +84,7 @@ void Target_Merge::updateSingleTarget(const SingleTargetPtr &target)
     {
       if(callSearchService(Target_Merge::Normal)) {
         search_state = 0;
-        ROS_WARN("callSearchService: Normal");
+        ROS_WARN("callSearchService: Normal, type: %d", target->type);
       }
     }
   }
@@ -234,6 +238,7 @@ void Target_Merge::init(ros::NodeHandle &nh)
 {
   //ros
   nh.param<int>("/target_merge_node/single_merged_threshold", single_merged_threshold, 20);
+  nh.param<int>("/target_merge_node/slow_down_counts", slow_down_counts, 3);
   nh.param<double>("/target_merge_node/z_core_threshold", z_core_threshold, 2.5);
   nh.param<double>("/target_merge_node/cov_threshold_1", cov_threshold_1, 0.05);
   nh.param<double>("/target_merge_node/cov_threshold_2", cov_threshold_2, 1.0);
