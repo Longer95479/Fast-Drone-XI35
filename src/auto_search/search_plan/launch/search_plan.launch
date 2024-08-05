@@ -26,12 +26,13 @@
     <node pkg="search_plan" name="search_plan_node" type="search_node" output="screen">
         <param name="odom_topic" value="/vins_fusion/imu_propagate" type="string"/>
         <param name="exec_frequency" value="100" type="double"/>
-        <param name="arrive_threshold" value="0.3" type="double"/>
+        <param name="arrive_threshold" value="0.4" type="double"/>
         <param name="publish_target_threshold" value="0.2" type="double"/>
         <param name="target_msg_timeout" value="5.0" type="double"/>
         <param name="target_converge_th" value="0.10" type="double"/>
         <param name="slow_down_time_duration" value="5.0" type="double"/>
         <param name="slow_down_height" value="1.0" type="double"/>
+        <param name="slowdown_forward_dist" value="0.15" type="double"/>
         <param name="my_target_hover_height" value="1.0" type="double"/>
 
         <param name="search_startpoint_x" value="1.0" type="double"/>

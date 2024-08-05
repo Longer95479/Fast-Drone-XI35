@@ -78,7 +78,7 @@ void Search_Plan_FSM::execSearchStage()
       start_time = ros::Time::now();
 
       if (continously_called_times_ == 1) {
-        slow_down_trig_pos = current_Position;
+        slow_down_trig_pos = current_Position + current_R_b2w_ * slowdown_forward_vector_;
         slow_down_trig_pos.z() = slow_down_height_;
       }
     }
@@ -298,6 +298,14 @@ void Search_Plan_FSM::updateOdomCallback(const nav_msgs::OdometryConstPtr &msg)
   current_Position[0] = msg->pose.pose.position.x;
   current_Position[1] = msg->pose.pose.position.y;
   current_Position[2] = msg->pose.pose.position.z;
+
+  /* get pose */
+  Eigen::Quaterniond body_q = Eigen::Quaterniond(msg->pose.pose.orientation.w,
+                                                 msg->pose.pose.orientation.x,
+                                                 msg->pose.pose.orientation.y,
+                                                 msg->pose.pose.orientation.z);
+  current_R_b2w_ = body_q.toRotationMatrix();
+
   has_odom_ = true;
 }
 
@@ -544,9 +552,12 @@ void Search_Plan_FSM::init(ros::NodeHandle& nh)
   nh.param<double>("/search_plan_node/publish_target_threshold", publish_target_threshold_, 0.2);
   nh.param<double>("/search_plan_node/target_msg_timeout", target_msg_timeout_, 2.0);
   nh.param<double>("/search_plan_node/target_converge_th", target_converge_th_, 0.10);
+  nh.param<double>("/search_plan_node/my_target_hover_height", my_target_hover_height_, 0.7);
+
   nh.param<double>("/search_plan_node/slow_down_time_duration", slow_down_time_duration_, 2.0);
   nh.param<double>("/search_plan_node/slow_down_height", slow_down_height_, 0.7);
-  nh.param<double>("/search_plan_node/my_target_hover_height", my_target_hover_height_, 0.7);
+  nh.param<double>("/search_plan_node/slowdown_forward_dist", slowdown_forward_dist_, 0.15);
+  slowdown_forward_vector_ << slowdown_forward_dist_, 0.0, 0.0;
 
   nh.param<double>("/search_plan_node/search_startpoint_x", search_StartPoint.x(), 2.0);
   nh.param<double>("/search_plan_node/search_startpoint_y", search_StartPoint.y(), 0.5);

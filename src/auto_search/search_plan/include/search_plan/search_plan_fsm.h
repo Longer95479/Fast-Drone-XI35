@@ -79,6 +79,10 @@ namespace auto_search
 		Eigen::Vector3d last_Target;
 		Eigen::Vector3d current_Position;
 		Eigen::Vector3d search_StartPoint;
+		Eigen::Matrix3d current_R_b2w_;
+
+		double slowdown_forward_dist_;
+		Eigen::Vector3d slowdown_forward_vector_;
 
 		// search strategy waypoints
 		double waypoints_[50][3];
