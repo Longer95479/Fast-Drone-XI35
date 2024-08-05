@@ -11,6 +11,7 @@
 #include <std_msgs/Bool.h>
 #include <vector>
 #include <visualization_msgs/Marker.h>
+#include <mutex>
 
 #include <bspline_opt/bspline_optimizer.h>
 #include <plan_env/grid_map.h>
@@ -68,6 +69,7 @@ namespace ego_planner
 
     /* planning data */
     bool have_trigger_, have_target_, have_odom_, have_new_target_, have_recv_pre_agent_;
+    std::mutex state_mtx;
     FSM_EXEC_STATE exec_state_;
     int continously_called_times_{0};
 
@@ -85,7 +87,7 @@ namespace ego_planner
     /* ROS utils */
     ros::NodeHandle node_;
     ros::Timer exec_timer_, safety_timer_;
-    ros::Subscriber waypoint_sub_, odom_sub_, swarm_trajs_sub_, broadcast_bspline_sub_, trigger_sub_, search_plan_sub;
+    ros::Subscriber waypoint_sub_, odom_sub_, swarm_trajs_sub_, broadcast_bspline_sub_, trigger_sub_, search_plan_sub, search_hover_sub;
     ros::Publisher replan_pub_, new_pub_, bspline_pub_, data_disp_pub_, swarm_trajs_pub_, broadcast_bspline_pub_;
     ros::Publisher Emergency_Hover;
 
@@ -114,6 +116,7 @@ namespace ego_planner
     void swarmTrajsCallback(const traj_utils::MultiBsplinesPtr &msg);
     void BroadcastBsplineCallback(const traj_utils::BsplinePtr &msg);
     void searchPlanCallback(const geometry_msgs::PoseStampedPtr &msg);
+    void searchHoverCallback(const std_msgs::BoolConstPtr &msg);
 
     bool checkCollision();
     void publishSwarmTrajs(bool startup_pub);

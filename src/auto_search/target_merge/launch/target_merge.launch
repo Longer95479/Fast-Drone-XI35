@@ -9,6 +9,8 @@
         <param name="drone_id" value="3" type="int"/>
         <param name="target_PubDuration" value="1" type="double"/>
         <param name="open_visualization" value="true" type="bool"/>
+        <!-- 0为服务通信，1为话题形式 -->
+        <param name="callstop_type" value="1" type="int"/>
 
         <param name="pub_target_merged_topic" value="/target_merge/pub_target_merged" type="string"/>
         <param name="pub_target_to_search_topic" value = "/target_merge/target_to_search" type="string"/>

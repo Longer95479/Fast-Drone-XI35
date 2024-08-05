@@ -87,6 +87,7 @@ int main(int argc, char *argv[])
 
     //add by bk
     ros::Subscriber emergency_sub = nh.subscribe<std_msgs::Bool>("/planning/Emergency_hover",1, boost::bind(&PX4CtrlFSM::emergency_callback, &fsm, _1));
+    ros::Subscriber search_hover_sub = nh.subscribe<std_msgs::Bool>("/target_merge/search_hover",1, boost::bind(&PX4CtrlFSM::search_hover_callback, &fsm, _1));
 
     ros::Duration(0.5).sleep();
 

@@ -65,11 +65,18 @@ void Target_Merge::updateSingleTarget(const SingleTargetPtr &target)
   //如果还没对该目标发起过悬停且识别次数大于阈值，则请求悬停
   if(!st.have_call_slowDown && st.observed_Counts >= slow_down_counts)
   {
-    if(callSearchService(Target_Merge::Slow_Down))
+    search_state = 1;
+    search_type = target->type;
+    st.have_call_slowDown = true;
+    if(callstop_type == 1)
+    {//采用话题形式请求悬停
+
+      callSearchHover(Target_Merge::Slow_Down);
+      ROS_WARN("callSearchHover: Slow_Down, type: %d", target->type);
+    }
+    else
     {
-      search_state = 1;
-      search_type = target->type;
-      st.have_call_slowDown = true;
+      callSearchService(Target_Merge::Slow_Down);
       ROS_WARN("callSearchService: Slow_Down, type: %d", target->type);
     }
   }
@@ -82,8 +89,15 @@ void Target_Merge::updateSingleTarget(const SingleTargetPtr &target)
     //如果处于减速或悬停，请求正常
     if(search_state == 1 && search_type == target->type)
     {
-      if(callSearchService(Target_Merge::Normal)) {
-        search_state = 0;
+      search_state = 0;
+      if(callstop_type == 1)
+      {
+        callSearchHover(Target_Merge::Normal);
+        ROS_WARN("callSearchHover: Normal, type: %d", target->type);
+      }
+      else
+      {
+        callSearchService(Target_Merge::Normal);
         ROS_WARN("callSearchService: Normal, type: %d", target->type);
       }
     }
@@ -192,6 +206,16 @@ bool Target_Merge::callSearchService(SearchService_Type req_type)
   srv.request.req_type = static_cast<int>(req_type);
   return client_Search.call(srv);
 }
+//发布搜索悬停
+void Target_Merge::callSearchHover(SearchService_Type req_type)
+{
+  std_msgs::Bool msg;
+  if(req_type == Slow_Down)
+    msg.data = true;
+  else if(req_type == Normal)
+    msg.data = false;
+  pub_CallHover.publish(msg);
+}
 //可视化target
 void Target_Merge::targetVisualization(const TargetMerged_Type &target)
 {
@@ -246,6 +270,7 @@ void Target_Merge::init(ros::NodeHandle &nh)
   nh.param<int>("/target_merge_node/drone_id", drone_id, 1);
   nh.param<double>("/target_merge_node/target_PubDuration", target_PubDuration, 2);
   nh.param<bool>("/target_merge_node/open_visualization", open_visualization, false);
+  nh.param<int>("/target_merge_node/callstop_type", callstop_type, 0);
 
   nh.param<std::string>("/target_merge_node/pub_target_merged_topic", PUB_TARGET_TOPIC, "/target_merge/pub_target_merged");
   nh.param<std::string>("/target_merge_node/pub_target_to_search_topic", PUB_TARGET_SEARCH_TOPIC, "/target_merge/target_to_search");
@@ -256,6 +281,7 @@ void Target_Merge::init(ros::NodeHandle &nh)
   pub_TargetMerged = nh.advertise<target_merge::TargetMerged_Message>(PUB_TARGET_TOPIC, 10);
   pub_TargetToSearch = nh.advertise<geometry_msgs::PoseStamped>(PUB_TARGET_SEARCH_TOPIC, 10);
   pub_TargetRviz = nh.advertise<visualization_msgs::Marker>("/target_merge/target_mark", 10);
+  pub_CallHover = nh.advertise<std_msgs::Bool>("/target_merge/search_hover", 1);
   sub_TargetSingle = nh.subscribe(SUB_PNP_TOPIC, 100, &Target_Merge::singleTargetCallback, this);
   sub_TargetMerged = nh.subscribe(SUB_TARGET_TOPIC, 100, &Target_Merge::targetMergedCallback, this);
   client_Search = nh.serviceClient<search_plan::SearchService>(SEARCH_SERVICE_NAME);

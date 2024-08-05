@@ -154,7 +154,7 @@ void PX4CtrlFSM::process()
 
 			ROS_WARN("[px4ctrl] AUTO_HOVER(L2) --> MANUAL_CTRL(L1)");
 		}
-		else if (rc_data.is_command_mode && cmd_is_received(now_time) && !emergency_hover)
+		else if (rc_data.is_command_mode && cmd_is_received(now_time) && !emergency_hover && !search_hover)
 		{
 			if (state_data.current_state.mode == "OFFBOARD")
 			{
@@ -200,7 +200,7 @@ void PX4CtrlFSM::process()
 
 			ROS_WARN("[px4ctrl] From CMD_CTRL(L3) to MANUAL_CTRL(L1)!");
 		}
-		else if (!rc_data.is_command_mode || !cmd_is_received(now_time) || emergency_hover)
+		else if (!rc_data.is_command_mode || !cmd_is_received(now_time) || emergency_hover || search_hover)
 		{
 			state = AUTO_HOVER;
 			set_hov_with_odom();
@@ -208,6 +208,8 @@ void PX4CtrlFSM::process()
 			ROS_INFO("[px4ctrl] From CMD_CTRL(L3) to AUTO_HOVER(L2)!");
 			if(emergency_hover)
 				ROS_WARN("Switch to AUTO_HOVER due to Emergency!");
+			if(search_hover)
+				ROS_WARN("Switch from CMD to Hover due to search_hover");
 		}
 		else
 		{

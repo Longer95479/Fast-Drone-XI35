@@ -4,6 +4,7 @@
 #include <ros/ros.h>
 #include <ros/timer.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <std_msgs/Bool.h>
 #include <eigen3/Eigen/Dense>
 #include <vector>
 #include <list>
@@ -106,6 +107,7 @@ private:
   ros::Publisher pub_TargetMerged;
   ros::Publisher pub_TargetToSearch;
   ros::Publisher pub_TargetRviz;
+  ros::Publisher pub_CallHover;
   ros::Subscriber sub_TargetSingle;
   ros::Subscriber sub_TargetMerged;
   ros::Timer timer_PubTarget;
@@ -117,11 +119,13 @@ private:
   double target_PubDuration;//广播周期
   int search_state = 0;//search状态
   int search_type = 0;//正在进行减速识别的目标
+  int callstop_type = 0;//请求悬停的消息形式
   //function
   void updateSingleTarget(const SingleTargetPtr &target);//push单个目标信息，更新single_Merged
   void updateTargetMerged(const TargetMergedPtr &target);//push融合目标信息，更新target_Merged
   void pubTargetMerged(const TargetMerged_Type &target);
   bool callSearchService(SearchService_Type req_type);//向search发起服务请求
+  void callSearchHover(SearchService_Type req_type);//发布悬停
   void pubTargetToSearch(int drone_id);//向search模块发送自身需要降落的目标位置
   void targetVisualization(const TargetMerged_Type &target);//可视化target
   //callback

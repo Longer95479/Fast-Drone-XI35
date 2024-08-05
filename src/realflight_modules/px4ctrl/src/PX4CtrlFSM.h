@@ -81,6 +81,12 @@ public:
 		// if(msg->data == true)
 		// 	emergency_hover = true;
 	}
+	
+	bool search_hover = false;
+	void search_hover_callback(const std_msgs::BoolConstPtr &msg)
+	{
+		search_hover = msg->data;
+	}
 private:
 	State_t state; // Should only be changed in PX4CtrlFSM::process() function!
 	AutoTakeoffLand_t takeoff_land;
