@@ -635,7 +635,7 @@ void FeatureTracker::drawTrack(const cv::Mat &imLeft, const cv::Mat &imRight,
                                vector<cv::Point2f> &curRightPts,
                                map<int, cv::Point2f> &prevLeftPtsMap)
 {
-    //int rows = imLeft.rows;
+    int rows = imLeft.rows;
     int cols = imLeft.cols;
     if (!imRight.empty() && stereo_cam)
         cv::hconcat(imLeft, imRight, imTrack);
@@ -682,10 +682,10 @@ void FeatureTracker::drawTrack(const cv::Mat &imLeft, const cv::Mat &imRight,
 
 
     //cv::Mat imCur2Compress;
-    //cv::resize(imCur2, imCur2Compress, cv::Size(cols, rows / 2));
+    cv::resize(imTrack, imTrack, cv::Size(cols, rows / 2));
 
-    cv::imshow("tracking", imTrack);
-    cv::waitKey(2);
+    // cv::imshow("tracking", imTrack);
+    // cv::waitKey(2);
 }
 
 

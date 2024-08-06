@@ -26,6 +26,8 @@ ros::Publisher pub_keyframe_pose;
 ros::Publisher pub_keyframe_point;
 ros::Publisher pub_extrinsic;
 
+ros::Publisher pub_image_track;
+
 CameraPoseVisualization cameraposevisual(1, 0, 0, 1);
 static double sum_of_path = 0;
 static Vector3d last_path(0.0, 0.0, 0.0);
@@ -48,6 +50,7 @@ void registerPub(ros::NodeHandle &n)
     pub_keyframe_pose = n.advertise<nav_msgs::Odometry>("keyframe_pose", 1000);
     pub_keyframe_point = n.advertise<sensor_msgs::PointCloud>("keyframe_point", 1000);
     pub_extrinsic = n.advertise<nav_msgs::Odometry>("extrinsic", 1000);
+    pub_image_track = n.advertise<sensor_msgs::Image>("image_track", 1000);
 
     cameraposevisual.setScale(0.1);
     cameraposevisual.setLineWidth(0.01);
@@ -81,6 +84,15 @@ void pubLatestOdometry(const Eigen::Vector3d &P, const Eigen::Quaterniond &Q, co
         pub_latest_odometry.publish(offset_odom);
     }
  }
+
+ void pubTrackImage(const cv::Mat &imgTrack, const double t)
+{
+    std_msgs::Header header;
+    header.frame_id = "world";
+    header.stamp = ros::Time(t);
+    sensor_msgs::ImagePtr imgTrackMsg = cv_bridge::CvImage(header, "bgr8", imgTrack).toImageMsg();
+    pub_image_track.publish(imgTrackMsg);
+}
 
 void printStatistics(const Estimator &estimator, double t)
 {
