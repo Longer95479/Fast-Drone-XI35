@@ -17,7 +17,8 @@ WallFollower::WallFollower(ros::NodeHandle& nh, GridMap::Ptr& grid_map_ptr)
         nh.param("wall_follower/have_plane_threshold", have_plane_threshold_, 20);
         nh.param("wall_follower/reach_waypoint_threshold", reach_waypoint_threshold_, 0.5);
         nh.param("wall_follower/max_planned_waypoints_num", max_planned_waypoints_num_, 10);
-        nh.param("wall_follower/run_interval", run_interval, 0.5);
+        nh.param("wall_follower/run_interval", run_interval_, 0.5);
+        nh.param("wall_follower/wp_height", wp_height_, 0.5);
 
         grid_map_ptr_ = grid_map_ptr;
 
@@ -34,7 +35,7 @@ WallFollower::WallFollower(ros::NodeHandle& nh, GridMap::Ptr& grid_map_ptr)
         waypoint_sub_ = nh.subscribe("/move_base_simple/goal", 1, &WallFollower::waypointCallback, this);
         waypoint_pub_ = nh.advertise<geometry_msgs::PoseStamped>("/move_base_simple/goal", 10);
 
-        find_waypoint_timer_ = nh.createTimer(ros::Duration(run_interval), &WallFollower::findWayPointCallback, this);
+        find_waypoint_timer_ = nh.createTimer(ros::Duration(run_interval_), &WallFollower::findWayPointCallback, this);
         vis_timer_ = nh.createTimer(ros::Duration(0.2), &WallFollower::visCallback, this); 
     }   
 }
@@ -60,7 +61,7 @@ void WallFollower::findWayPointCallback(const ros::TimerEvent& /*event*/)
         if (!is_next_waypoint_initialized_) {
             next_way_point_ = body_pos_;
             is_next_waypoint_initialized_ = true;
-            planned_waypoints_count_ = 1;
+            planned_waypoints_count_ = 0;
             ros::Duration(3.0).sleep();
             std::cout << "MY_DEBUG: planned_waypoints_count_ = " << planned_waypoints_count_ << std::endl;
         }
@@ -161,7 +162,7 @@ bool WallFollower::findNextWayPoint()
     if (plane_fitter_ptr_->have_plane_) {
         next_way_point_ = plane_fitter_ptr_->last_best_plane_.p_ + 
                             dist_from_wall_ * plane_fitter_ptr_->last_best_plane_.v_;
-        next_way_point_(2) = 1.0;
+        next_way_point_(2) = wp_height_;
 
         /* check if next waypoint is occupied */
         grid_map_ptr_->posToIndex(next_way_point_, id);
@@ -181,6 +182,7 @@ bool WallFollower::findNextWayPoint()
         // std::cout << "MY_DEBUG: [4]next_way_point_ = " << next_way_point_.transpose() << std::endl;
         // std::cout << "MY_DEBUG: [5]publicWayPoint(next_way_point_) start" << std::endl;
         publicWayPoint(next_way_point_);
+        std::cout << "MY_DEBUG: next_way_point_ = " << next_way_point_ << std::endl;
         // std::cout << "MY_DEBUG: [6]publicWayPoint(next_way_point_) end" << std::endl;
     }
 

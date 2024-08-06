@@ -165,7 +165,7 @@
       <arg name="dist_from_wall" value="0.6"/>
       <arg name="have_plane_threshold" value="20"/>
       <arg name="reach_waypoint_threshold" value="5.0"/>
-      <arg name="max_planned_waypoints_num" value="1000"/>
+      <arg name="max_planned_waypoints_num" value="3"/>
       <arg name="run_interval" default="0.2"/>
       <!-- pts_fov_end param -->
       <arg name="f" value="30.0"/>
