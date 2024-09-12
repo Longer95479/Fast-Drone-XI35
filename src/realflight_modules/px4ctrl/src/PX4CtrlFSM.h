@@ -23,6 +23,7 @@ struct AutoTakeoffLand_t
 	Eigen::Vector4d start_pose;
 	
 	static constexpr double MOTORS_SPEEDUP_TIME = 3.0; // motors idle running for 3 seconds before takeoff
+	static constexpr double TAKEOFF_SPEEDUP_TIME = 0.5; // Time to speed up during takeoff font stage
 	static constexpr double DELAY_TRIGGER_TIME = 2.0;  // Time to be delayed when reach at target height
 };
 
