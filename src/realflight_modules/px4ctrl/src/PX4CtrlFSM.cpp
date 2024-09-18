@@ -457,7 +457,7 @@ Desired_State_t PX4CtrlFSM::get_takeoff_land_des(const double speed)
 	des.p = takeoff_land.start_pose.head<3>() + Eigen::Vector3d(0, 0, speed * delta_t);
 	des.v = Eigen::Vector3d(0, 0, speed);
 	if (speed > 0) {
-		double des_a_z = (delta_t < AutoTakeoffLand_t::TAKEOFF_SPEEDUP_TIME) ? (0.2 * param_.gra * sin(M_PI/AutoTakeoffLand_t::TAKEOFF_SPEEDUP_TIME * delta_t)) : 0;
+		double des_a_z = (delta_t < AutoTakeoffLand_t::TAKEOFF_SPEEDUP_TIME) ? (0.2 * 9.81 * sin(M_PI/AutoTakeoffLand_t::TAKEOFF_SPEEDUP_TIME * delta_t)) : 0;
 		des.a = Eigen::Vector3d(0, 0, des_a_z);
 	}
 	else {
