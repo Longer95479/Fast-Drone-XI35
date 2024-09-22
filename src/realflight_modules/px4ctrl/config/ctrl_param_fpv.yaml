@@ -5,7 +5,7 @@
 mass        : 0.8 # kg 
 gra         : 9.81 
 pose_solver : 1     # 0:From ZhepeiWang (drag & less singular) 1:From ZhepeiWang, 2:From rotor-drag    
-ctrl_freq_max   : 100.0
+ctrl_freq_max   : 200.0
 use_bodyrate_ctrl: false
 max_manual_vel: 1.0
 max_angle: 30  # Attitude angle limit in degree. A negative value means no limit.
@@ -21,8 +21,8 @@ auto_takeoff_land:
     enable: true
     enable_auto_arm: true
     no_RC: false
-    takeoff_height: 0.7 # m
-    takeoff_land_speed: 0.3 # m/s
+    takeoff_height: 1.0 # m
+    takeoff_land_speed: 0.2 # m/s
 
 thrust_model: # The model that maps thrust signal u(0~1) to real thrust force F(Unit:N): F=K1*Voltage^K2*(K3*u^2+(1-K3)*u). 
     print_value: false # display the value of “thr_scale_compensate” or “hover_percentage” during thrust model estimating.
@@ -32,16 +32,16 @@ thrust_model: # The model that maps thrust signal u(0~1) to real thrust force F(
     K2: 1.6942 # Needs precise calibration!
     K3: 0.6786 # Needs precise calibration! K3 equals THR_MDL_FAC in https://docs.px4.io/master/en/config_mc/pid_tuning_guide_multicopter.html.
     # approximate thrust mapping parameters
-    hover_percentage: 0.60  # Thrust percentage in Stabilize/Arco mode # *
+    hover_percentage: 0.62  # Thrust percentage in Stabilize/Arco mode # *
 
 gain: 
     # Cascade PID controller. Recommend to read the code.
-    Kp0: 1.0
-    Kp1: 1.0 
-    Kp2: 1.5
-    Kv0: 4.75
-    Kv1: 4.75
-    Kv2: 3.5
+    Kp0: 4.0
+    Kp1: 4.0 
+    Kp2: 4.0
+    Kv0: 4.0
+    Kv1: 4.0
+    Kv2: 4.0
     # ↓↓↓ No use now --
     Kvi0: 0.0
     Kvi1: 0.0
