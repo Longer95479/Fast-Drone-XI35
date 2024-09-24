@@ -1,7 +1,7 @@
 <launch>
 	
 	<node pkg="lcm_send" type="lcm_send" name="lcm_send" output="screen">
-			<param name="message_log_path" type="string" value="../../../message_log.txt" />
+			<param name="message_log_path" type="string" value="../message_log.txt" />
 	</node>
 
 </launch>
