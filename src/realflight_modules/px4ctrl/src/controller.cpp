@@ -27,15 +27,16 @@ LinearControl::calculateControl(const Desired_State_t &des,
   /* WRITE YOUR CODE HERE */
       //compute disired acceleration
       Eigen::Vector3d des_acc(0.0, 0.0, 0.0);
-      Eigen::Vector3d Kp, Kv, Kvi;
+      Eigen::Vector3d Kp, Kv, Kvi, Kvd;
       Eigen::Vector3d err_v, err_p;
       Eigen::Vector3d des_vel_fb, des_acc_fb;
-      Eigen::Vector3d vel_inte_part;
-      static Eigen::Vector3d err_v_inte;
+      Eigen::Vector3d vel_inte_part, vel_diff_part;
+      static Eigen::Vector3d err_v_inte, delta_err_v, last_err_v;
 
       Kp << param_.gain.Kp0, param_.gain.Kp1, param_.gain.Kp2;
       Kv << param_.gain.Kv0, param_.gain.Kv1, param_.gain.Kv2;
       Kvi << param_.gain.Kvi0, param_.gain.Kvi1, param_.gain.Kvi2;
+      Kvd << param_.gain.Kvd0, param_.gain.Kvd1, param_.gain.Kvd2;
 
       err_p = des.p - odom.p;
       des_vel_fb = Kp.asDiagonal() * err_p;
@@ -49,7 +50,10 @@ LinearControl::calculateControl(const Desired_State_t &des,
         else if (vel_inte_part(i) < -6.0)
           vel_inte_part(i) = -6.0;
       }
-      des_acc_fb = Kv.asDiagonal() * err_v + vel_inte_part;
+      delta_err_v = err_v - last_err_v;
+      last_err_v = err_v;
+      vel_diff_part = Kvd.asDiagonal() * delta_err_v;
+      des_acc_fb = Kv.asDiagonal() * err_v + vel_inte_part + vel_diff_part;
 
       des_acc = des.a + des_acc_fb;
       des_acc += Eigen::Vector3d(0,0,param_.gra);
@@ -157,7 +161,7 @@ LinearControl::estimateThrustModel(
     //printf("%6.3f,%6.3f,%6.3f,%6.3f\n", thr2acc_, gamma, K, P_);
     //fflush(stdout);
 
-    // debug_msg_.thr2acc = thr2acc_;
+    debug_msg_.thr_scale_compensate = thr2acc_;
     return true;
   }
   return false;
