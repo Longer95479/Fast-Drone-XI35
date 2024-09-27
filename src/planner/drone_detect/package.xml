@@ -17,4 +17,5 @@
   <depend>sensor_msgs</depend>
 
   <build_depend>roslint</build_depend>
+  <build_depend>cv_bridge_454</build_depend>
 </package>

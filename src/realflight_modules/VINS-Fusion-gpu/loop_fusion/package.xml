@@ -41,7 +41,9 @@
   <!--   <test_depend>gtest</test_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>camera_models</build_depend>
+  <build_depend>cv_bridge_454</build_depend>
   <run_depend>camera_models</run_depend>
+  <run_depend>cv_bridge_454</run_depend>
 
 
 
