@@ -27,10 +27,31 @@ LinearControl::calculateControl(const Desired_State_t &des,
   /* WRITE YOUR CODE HERE */
       //compute disired acceleration
       Eigen::Vector3d des_acc(0.0, 0.0, 0.0);
-      Eigen::Vector3d Kp,Kv;
+      Eigen::Vector3d Kp, Kv, Kvi;
+      Eigen::Vector3d err_v, err_p;
+      Eigen::Vector3d des_vel_fb, des_acc_fb;
+      Eigen::Vector3d vel_inte_part;
+      static Eigen::Vector3d err_v_inte;
+
       Kp << param_.gain.Kp0, param_.gain.Kp1, param_.gain.Kp2;
       Kv << param_.gain.Kv0, param_.gain.Kv1, param_.gain.Kv2;
-      des_acc = des.a + Kv.asDiagonal() * (des.v - odom.v) + Kp.asDiagonal() * (des.p - odom.p);
+      Kvi << param_.gain.Kvi0, param_.gain.Kvi1, param_.gain.Kvi2;
+
+      err_p = des.p - odom.p;
+      des_vel_fb = Kp.asDiagonal() * err_p;
+
+      err_v = (des_vel_fb + des.v) - odom.v;
+      err_v_inte += err_v;
+      vel_inte_part = Kvi.asDiagonal() * err_v_inte;
+      for (int i = 0; i < 3; i++) {
+        if (vel_inte_part(i) > 6.0)
+          vel_inte_part(i) = 6.0;
+        else if (vel_inte_part(i) < -6.0)
+          vel_inte_part(i) = -6.0;
+      }
+      des_acc_fb = Kv.asDiagonal() * err_v + vel_inte_part;
+
+      des_acc = des.a + des_acc_fb;
       des_acc += Eigen::Vector3d(0,0,param_.gra);
 
       u.thrust = computeDesiredCollectiveThrustSignal(des_acc);
