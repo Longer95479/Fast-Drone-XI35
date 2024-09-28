@@ -289,7 +289,7 @@ sudo nmcli connection delete HITADHOC
 
 - LCM 安装
 ```shell
-cd /root && git clone https://github.com/lcm-proj/lcm && \
+git clone https://github.com/lcm-proj/lcm && \
 cd lcm && \
 git checkout tags/v1.4.0 && \
 mkdir build && cd build && \
