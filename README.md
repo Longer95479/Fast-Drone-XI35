@@ -287,6 +287,16 @@ sudo nmcli connection up HITADHOC
 sudo nmcli connection delete HITADHOC
 ```
 
+- LCM 安装
+```shell
+cd /root && git clone https://github.com/lcm-proj/lcm && \
+cd lcm && \
+git checkout tags/v1.4.0 && \
+mkdir build && cd build && \
+cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF -DBUILD_BENCHMARKS=OFF .. && \
+make -j${USE_PROC} && make install
+```
+
 - LCM通信配置
 ```shell
 sudo ifconfig wlan1 multicast
