@@ -192,6 +192,7 @@ after these settings you will have 250Hz /imu/data_raw /imu/data
 * `sudo apt-get install ros-noetic-mavros`
 * `cd /opt/ros/noetic/lib/mavros`
 * `sudo ./install_geographiclib_datasets.sh`
+*  `roscd mavros`，修改 px4.launch 的串口波特率（921600）和串口名字（ttyTHS0）
 
 ### 3.5 安装ceres与glog与ddyanmic-reconfigure
 
@@ -226,6 +227,7 @@ after these settings you will have 250Hz /imu/data_raw /imu/data
 如果我们在 sdkmanager 中勾选了安装 opencv 的选项，安装的版本将会是 `OpenCV 4.5.4`，但不支持 cuda 加速，此时我们下载相同版本的 opencv 源码，在 CMAKE 选项上打开支持 cuda 加速的选项，再进行编译。
 
 安装过程参考 [Jetson Orin NX 开发指南（5）: 安装 OpenCV 4.6.0 并配置 CUDA 以支持 GPU 加速](https://blog.csdn.net/qq_44998513/article/details/133778446)，注意版本的不同即可，我们安装的是 4.5.4
+* install 的目录为 /usr/local/opencv-4.5.4，方便其他包的查找
 
 <font color="#dd0000">注意，编译支持cuda的 opencv时，cmake选项里 CUDA_ARCH_BIN=8.7，而不是 7.2 </font>
 
@@ -236,6 +238,8 @@ after these settings you will have 250Hz /imu/data_raw /imu/data
 安装 noetic full版本时已经下载了 cv_bridge 的二进制文件，其编译时使用的是 opencv 4.2 的函数，因此链接时需要链接到opencv 4.2的 so 文件，但 orin 上新安装的支持 cuda 加速的 opencv 是 4.5.4 版本，因此该 cv_bridge 只能链接到 4.5 版本的 opencv 库，vins 在执行到 cv_bridge 相关的函数时就无法正常执行，最后报内存溢出的错。
 
 解决办法：下载 cv_bridge 的源码，然后指定 4.5 版本的opencv进行编译，编译完成后将其路径添加到 ~/.bashrc 文件中，并刷新环境变量，具体参考 [Jetson Orin NX 开发指南（5）: 安装 OpenCV 4.6.0 并配置 CUDA 以支持 GPU 加速](https://blog.csdn.net/qq_44998513/article/details/133778446)
+
+或者是将 cv_bridge_454 的包放入同一个工作空间，其他包在 CMakeList.txt 和 package.xml 里指明依赖，一同编译即可，这是目前的做法
 
 ### 3.8 下载并编译 Fast-drone-XI35
 
