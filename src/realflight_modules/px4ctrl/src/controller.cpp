@@ -205,7 +205,7 @@ LinearControl::estimateThrustModelUsingVelFB(
     /***********************************/
     double gamma = 1 / (rho2_ + thr * P_ * thr);
     double K = gamma * P_ * thr;
-    est_a = (est_v - t_v) / time_passed;
+    double est_a = (est_v(2) - t_v(2)) / time_passed;
     thr2acc_ = thr2acc_ + K * (est_a - thr * thr2acc_);
     P_ = (1 - K * thr) * P_ / rho2_;
     //printf("%6.3f,%6.3f,%6.3f,%6.3f\n", thr2acc_, gamma, K, P_);

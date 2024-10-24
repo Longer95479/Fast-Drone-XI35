@@ -61,7 +61,7 @@ public:
   bool estimateThrustModel(const Eigen::Vector3d &est_v,
       const Parameter_t &param);
   bool estimateThrustModelUsingVelFB(const Eigen::Vector3d &est_v,
-    const Parameter_t &param)
+    const Parameter_t &param);
   void resetThrustMapping(void);
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
