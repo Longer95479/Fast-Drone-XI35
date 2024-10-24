@@ -160,8 +160,8 @@ LinearControl::estimateThrustModel(
     double K = gamma * P_ * thr;
     thr2acc_ = thr2acc_ + K * (est_a(2) - thr * thr2acc_);
     P_ = (1 - K * thr) * P_ / rho2_;
-    //printf("%6.3f,%6.3f,%6.3f,%6.3f\n", thr2acc_, gamma, K, P_);
-    //fflush(stdout);
+    // printf("%6.3f,%6.3f,%6.3f,%6.3f,%6.3f,%6.3f\n", est_a(2), thr, thr2acc_, gamma, K, P_);
+    fflush(stdout);
 
     debug_msg_.thr_scale_compensate = thr2acc_;
     return true;

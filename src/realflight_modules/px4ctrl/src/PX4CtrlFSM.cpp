@@ -308,7 +308,15 @@ void PX4CtrlFSM::process()
 	{
 		// controller.estimateThrustModel(imu_data.a, bat_data.volt, param);
 		// controller.estimateThrustModel(imu_data.a,param);
-		controller.estimateThrustModelUsingVelFB(odom_data.v,param);
+		// controller.estimateThrustModelUsingVelFB(odom_data.v,param);
+
+		// LPF: 200 / 2 / PI * 0.78 = fc = 15 Hz
+		static Eigen::Vector3d imu_a_z = imu_data.a;
+		imu_a_z = 0.47 * imu_data.a + (1 - 0.47) * imu_a_z;
+		printf("%6.3f,%6.3f\n", imu_a_z(2), imu_data.a(2));
+		fflush(stdout);
+
+		controller.estimateThrustModel(imu_a_z,param);
 
 	}
 
