@@ -100,9 +100,11 @@ LinearControl::calculateControl(const Desired_State_t &des,
   
   // Used for thrust-accel mapping estimation
   timed_thrust_.push(std::pair<ros::Time, double>(ros::Time::now(), u.thrust));
+  timed_vel_.push(odom.v);
   while (timed_thrust_.size() > 100)
   {
     timed_thrust_.pop();
+    timed_vel_.pop();
   }
   return debug_msg_;
 }
@@ -157,6 +159,54 @@ LinearControl::estimateThrustModel(
     double gamma = 1 / (rho2_ + thr * P_ * thr);
     double K = gamma * P_ * thr;
     thr2acc_ = thr2acc_ + K * (est_a(2) - thr * thr2acc_);
+    P_ = (1 - K * thr) * P_ / rho2_;
+    //printf("%6.3f,%6.3f,%6.3f,%6.3f\n", thr2acc_, gamma, K, P_);
+    //fflush(stdout);
+
+    debug_msg_.thr_scale_compensate = thr2acc_;
+    return true;
+  }
+  return false;
+}
+
+bool 
+LinearControl::estimateThrustModelUsingVelFB(
+    const Eigen::Vector3d &est_v,
+    const Parameter_t &param)
+{
+  ros::Time t_now = ros::Time::now();
+  while (timed_thrust_.size() >= 1)
+  {
+    // Choose data before 35~45ms ago
+    std::pair<ros::Time, double> t_t = timed_thrust_.front();
+    Eigen::Vector3d t_v = timed_vel_.front();
+    double time_passed = (t_now - t_t.first).toSec();
+    if (time_passed > 0.045) // 45ms
+    {
+      // printf("continue, time_passed=%f\n", time_passed);
+      timed_thrust_.pop();
+      timed_vel_.pop();
+      continue;
+    }
+    if (time_passed < 0.035) // 35ms
+    {
+      // printf("skip, time_passed=%f\n", time_passed);
+      return false;
+    }
+
+    /***********************************************************/
+    /* Recursive least squares algorithm with vanishing memory */
+    /***********************************************************/
+    double thr = t_t.second;
+    timed_thrust_.pop();
+    
+    /***********************************/
+    /* Model: est_a(2) = thr1acc_ * thr */
+    /***********************************/
+    double gamma = 1 / (rho2_ + thr * P_ * thr);
+    double K = gamma * P_ * thr;
+    est_a = (est_v - t_v) / time_passed;
+    thr2acc_ = thr2acc_ + K * (est_a - thr * thr2acc_);
     P_ = (1 - K * thr) * P_ / rho2_;
     //printf("%6.3f,%6.3f,%6.3f,%6.3f\n", thr2acc_, gamma, K, P_);
     //fflush(stdout);

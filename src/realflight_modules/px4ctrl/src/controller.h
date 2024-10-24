@@ -60,6 +60,8 @@ public:
       Controller_Output_t &u);
   bool estimateThrustModel(const Eigen::Vector3d &est_v,
       const Parameter_t &param);
+  bool estimateThrustModelUsingVelFB(const Eigen::Vector3d &est_v,
+    const Parameter_t &param)
   void resetThrustMapping(void);
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -68,6 +70,7 @@ private:
   Parameter_t param_;
   quadrotor_msgs::Px4ctrlDebug debug_msg_;
   std::queue<std::pair<ros::Time, double>> timed_thrust_;
+  std::queue<Eigen::Vector3d> timed_vel_;
   static constexpr double kMinNormalizedCollectiveThrust_ = 3.0;
 
   // Thrust-accel mapping params

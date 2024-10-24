@@ -307,7 +307,8 @@ void PX4CtrlFSM::process()
 	if (state == AUTO_HOVER || state == CMD_CTRL)
 	{
 		// controller.estimateThrustModel(imu_data.a, bat_data.volt, param);
-		controller.estimateThrustModel(imu_data.a,param);
+		// controller.estimateThrustModel(imu_data.a,param);
+		controller.estimateThrustModelUsingVelFB(odom_data.v,param);
 
 	}
 
