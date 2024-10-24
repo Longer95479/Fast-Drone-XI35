@@ -388,7 +388,38 @@ make jetson
 ./update_jetson.sh
 ```
 
-## 5 需要注意的问题
+## 5 启动流程
+
+- ssh 连接到 orin 板，如 `ssh orin01@10.10.10.11`
+
+悬停功能：
+
+- 启动里程计
+  - `sh Fast-Drone-XI35/shfiles/rspx4.sh`
+
+- 启动运动控制器
+  - `roslaunch px4ctrl run_ctrl.launch`
+
+可选功能：
+
+- 启动 ego-planner
+  - `roslaunch ego_planner single_run_in_exp.launch`
+
+
+- 打开下视摄像头，并进行数字标识检测、定位、识别
+  - `roslaunch jetson_csi_cam jetson_csi_cam.launch sensor_id:=0`
+  - `roslaunch detect_box_pnp detect_box_pnp.launch`
+  -  `roslaunch target_recognition target_recognition.launch`
+
+- 打开多机协同搜索的状态机，以及目标结果融合
+  - `roslaunch search_plan search_plan.launch`
+  - `roslaunch target_recognition target_recognition.launch`
+
+起飞：
+
+- `sh Fast-Drone-XI35/shfiles/takeoff.sh`
+
+## 6 需要注意的问题
 
 ### 飞控相关
 
