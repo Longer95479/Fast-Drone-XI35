@@ -52,9 +52,11 @@ public:
 	void DrawMatches(const cv::Mat& ref_image, const cv::Mat& image, 
 					const vector<cv::Point2f>& ref_pts, const vector<cv::Point2f>& pts,
 					const vector<int>& ref_ids, const vector<int>& ids);
+	void DrawTrackCnt(const cv::Mat& image, const vector<cv::Point2f>& pts, const vector<int>& ids, const unordered_map<int, int>& id_cnt_umap);
 	bool inBorder(const cv::Point2f &pt);
 	void prewarmForTracker();
 	cv::Mat getTrackImage();
+	void calTrackCnt();
 
 
 	FeatureDetectorPtr feature_detector;
@@ -72,6 +74,8 @@ public:
 
 	unordered_map<int, cv::Point2f> prev_un_pts_map, cur_un_pts_map;
 	unordered_map<int, cv::Point2f> prev_un_right_pts_map, cur_un_right_pts_map;
+
+	unordered_map<int, int> prev_trackcnt_umap, cur_trackcnt_umap;
 
 	vector<camodocal::CameraPtr> m_camera;
 	FeatureTrackerConfig feature_tracker_config;

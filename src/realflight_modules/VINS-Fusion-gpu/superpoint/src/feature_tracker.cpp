@@ -286,8 +286,8 @@ void FeatureTracker::track_img(double _cur_time, const cv::Mat &_img, const cv::
 		}
 		prev_un_right_pts_map = cur_un_right_pts_map;
 	}
+	calTrackCnt();
 	//draw
-
 	switch (feature_tracker_config.show_track)
 	{
 	case 1:
@@ -297,9 +297,20 @@ void FeatureTracker::track_img(double _cur_time, const cv::Mat &_img, const cv::
 	case 2:
 		if(!cur_img.empty() && !right_img.empty())
 			DrawMatches(cur_img, right_img, cur_pts, cur_right_pts, cur_ids, right_ids);
+	case 3:
+		if(!prev_img.empty() && !cur_img.empty())
+			DrawTrackCnt(cur_img, cur_pts, cur_ids, cur_trackcnt_umap);
 	default:
 		break;
 	}
+
+	int good_track_cnt = 0;
+	for(auto ele : cur_trackcnt_umap)
+	{
+		if(ele.second >= 4)
+			good_track_cnt++;
+	}
+	printf("good track cnt is %d.\n", good_track_cnt);
 
 	prev_img = cur_img;
 	prev_pts = cur_pts;
@@ -308,6 +319,24 @@ void FeatureTracker::track_img(double _cur_time, const cv::Mat &_img, const cv::
 	prev_un_pts = cur_un_pts;
 	prev_un_pts_map = cur_un_pts_map;
 	prev_time = cur_time;
+}
+
+void FeatureTracker::DrawTrackCnt(const cv::Mat& image, const vector<cv::Point2f>& pts, const vector<int>& ids, const unordered_map<int, int>& id_cnt_umap)
+{
+	cv::Mat rgba_image;
+	cv::cvtColor(image, rgba_image, cv::COLOR_BGR2BGRA);
+	for(int i = 0; i < pts.size(); i++)
+	{
+		int track_cnt;
+		auto it = id_cnt_umap.find(ids[i]);
+		if(it == id_cnt_umap.end())
+			track_cnt = 0;
+		else
+			track_cnt = it->second;
+		double len = std::min(1.0, 1.0 * track_cnt / 20);
+		cv::circle(rgba_image, pts[i], 2, cv::Scalar(255 * (1 - len), 0, 255 * len), 2);
+	}
+	cv::cvtColor(rgba_image, imTrack, cv::COLOR_BGRA2BGR);
 }
 
 void FeatureTracker::DrawMatches(const cv::Mat& ref_image, const cv::Mat& image, 
@@ -429,4 +458,26 @@ void FeatureTracker::prewarmForTracker()
 cv::Mat FeatureTracker::getTrackImage()
 {
 	return imTrack;
+}
+
+void FeatureTracker::calTrackCnt()
+{
+	cur_trackcnt_umap.clear();
+	if(prev_trackcnt_umap.empty() && !cur_ids.empty())
+	{
+		for(auto id : cur_ids)
+			cur_trackcnt_umap[id] = 1;
+	}
+	else
+	{
+		for(auto id : cur_ids)
+		{
+			auto prev_it = prev_trackcnt_umap.find(id);
+			if(prev_it != prev_trackcnt_umap.end())
+				cur_trackcnt_umap[id] = prev_it->second + 1;
+			else
+				cur_trackcnt_umap[id] = 1;
+		}
+	}
+	prev_trackcnt_umap = cur_trackcnt_umap;
 }

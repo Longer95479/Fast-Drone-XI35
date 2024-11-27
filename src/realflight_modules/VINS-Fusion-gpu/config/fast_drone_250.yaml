@@ -108,7 +108,7 @@ odometry_type: 0 #0为原始里程计，1为加了偏置后的里程计
 drone_id: 1
 single_offset: 2.0
 
-use_external_front_end: 1 #0：前端使用自带的光流跟踪，1：使用外部特征跟踪器
+use_external_front_end: 0 #0：前端使用自带的光流跟踪，1：使用外部特征跟踪器
 
 #superpoint & light glue
 plnet:
@@ -116,11 +116,11 @@ plnet:
     max_keypoints: 400  #400
     keypoint_threshold: 0.004 #0.004
     remove_borders: 4 
-    dist_thresh: 16
+    dist_thresh: 16 
     line_threshold: 0.75
     line_length_threshold: 50
     pub_freq: 6
-    show_track: 1 #0：不显示，1：显示左目与上一帧匹配结果，2：显示左右目匹配结果
+    show_track: 3 #0：不显示，1：显示左目与上一帧匹配结果，2：显示左右目匹配结果 3：可视化左目特征点追踪次数
     use_opticalflow_stereo: 1 #0：左右目匹配使用superpoint+lightglue 1：左右目匹配使用光流，
 
     superpoint_onnx_model: "superpoint_v1_sim_int32.onnx"

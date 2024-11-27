@@ -492,6 +492,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
     }
 
     //printf("feature track whole time %f\n", t_r.toc());
+    printTrackCnt();
     return featureFrame;
 }
 
@@ -736,4 +737,22 @@ void FeatureTracker::removeOutliers(set<int> &removePtsIds)
 cv::Mat FeatureTracker::getTrackImage()
 {
     return imTrack;
+}
+
+void FeatureTracker::printTrackCnt()
+{
+    std:string cnt_str;
+    int good_track_cnt = 0;
+    for(int i = 0; i < track_cnt.size(); i++)
+    {
+        std::string single_cnt = std::to_string(track_cnt[i]);
+        single_cnt += " ";
+        cnt_str.append(single_cnt);
+        if(track_cnt[i] >= 4)
+            good_track_cnt++;
+        // if(i >= 19)
+        //     break;
+    }
+    std::cout << "good track cnt is " << good_track_cnt << std::endl;
+    //std::cout << "current track cnt: " << cnt_str << ", good track cnt is "<< good_track_cnt << std::endl;
 }
