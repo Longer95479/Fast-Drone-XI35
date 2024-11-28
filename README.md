@@ -59,7 +59,7 @@ categories:
 
 ## 1 机体安装步骤
 
-### 1.1 整体流程
+### 1.1 整体流程 （kxr 和 lym 补充修正）
 
 - 将电机安装到机架上，使用四个M2*6，注意机架的上下面，孔位有凹槽的为上面
 
@@ -98,7 +98,7 @@ categories:
 
 参考：[NxtPX4v2开源飞控装机和配置全流程教程](https://www.bilibili.com/read/cv33197403/)
 
-### 1.2 px4 与 orin 串口连接线的线序与焊接
+### 1.2 px4 与 orin 串口连接线的线序与焊接 （kxr 和 lym 补充修正）
 
 由于 nxt-px4 和 orin 载板上的串口端口型号不同，需要将各自配套的线材剪断，并按照串口正确的线序进行焊接，线序对应关系如下：
 
@@ -106,7 +106,11 @@ categories:
 |---|---|---|---|---|
 |orin|3(GND)|x(5V)|1(Rx)|2(Tx)|
 
-## 2 飞控配置
+### 1.3 CSI 相机的固定安装 （chz 补充）
+### 1.4 3070无线网卡安装（hh 补充）
+### 1.5 4G/5G 模块安装 （hh 补充）
+
+## 2 飞控配置 （kxr、hyy、lym 检查补充）
 
 ### 2.1 基本配置
 
@@ -159,7 +163,7 @@ then using the following settings:
 
 after these settings you will have 250Hz /imu/data_raw /imu/data
 
-## 3 ORIN NX 配置
+## 3 ORIN NX 配置 （mxy、yy、hyy 学习检查）
 
 ### 3.1 安装 jetpack 5.1.3 linux for jetson orin nx modules: 
 
@@ -350,7 +354,10 @@ pip install onnxruntime
 pip install scikit-image
 ```
 
-## 4 Docker 配置与使用
+## 4 Docker 配置与使用 （bkr ）
+
+### 4.0 Dockerfile 的编写与构建
+
 底层基础镜像：NVIDIA L4T JetPack r35.3.1
 官方镜像地址：https://catalog.ngc.nvidia.com/orgs/nvidia/containers/l4t-jetpack
 ### 4.1 构建基础环境镜像Dockerfile.jetson_base
@@ -474,7 +481,7 @@ sudo docker exec -it  fd_runtime bash
 ./update_jetson.sh
 ```
 
-## 5 代码编译与启动流程
+## 5 代码编译与启动流程 （bkr 检查）
 
 - ssh 连接到 orin 板，如 `ssh orin01@10.10.10.11`
 
@@ -551,7 +558,7 @@ sudo docker exec -it  fd_runtime bash
 
 ## 6 开发流程
 
-## 注意事项
+## 注意事项 （所有人补充）
 
 ### 飞控相关
 
@@ -601,7 +608,7 @@ sudo docker exec -it  fd_runtime bash
 - 设置好外参初始值后，里程计输出出现姿态较准确，但平移量反复波折，仿佛被约束在一点，不随实际运动而运动，且容易出现巨大漂移
   - 外参中旋转矩阵的符号错了，本来以为相机坐标系是z朝前y朝上，实际情况时z朝前y朝下，修改后里程计正常
 
-- 自动起飞后会超调一下,并且调整较为缓慢
+- 自动起飞后会超调一下
 
 - 飞行过程上下起伏，可能需要调一下PID参数
 
