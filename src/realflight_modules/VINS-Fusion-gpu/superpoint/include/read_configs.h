@@ -34,6 +34,7 @@ struct FeatureTrackerConfig
         //printf("%s cam1 path\n", cam1Path.c_str() );
         camera_config_file.push_back(cam1Path);
 
+		use_opticalflow = fsSettings["plnet"]["use_opticalflow"];
 		max_cnt = fsSettings["plnet"]["max_keypoints"];
 		pub_freq = fsSettings["plnet"]["pub_freq"];
 		borders = fsSettings["plnet"]["remove_borders"];
@@ -41,16 +42,21 @@ struct FeatureTrackerConfig
 		use_opticalflow_stereo = fsSettings["plnet"]["use_opticalflow_stereo"];
 		col = fsSettings["image_width"];
 		row = fsSettings["image_height"];
+		of_min_dist = fsSettings["plnet"]["of_min_dist"];
+		of_max_cnt = fsSettings["plnet"]["of_max_cnt"];
 	}
 
 	std::string image0_topic, image1_topic;
 	std::vector<std::string> camera_config_file;
+	int use_opticalflow;
 	int col, row;
 	int max_cnt;
 	double pub_freq;
 	int borders;
 	int show_track;
 	int use_opticalflow_stereo;
+	int of_min_dist;
+	int of_max_cnt;
 };
 
 struct PLNetConfig

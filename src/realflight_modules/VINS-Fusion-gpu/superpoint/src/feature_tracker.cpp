@@ -81,6 +81,207 @@ vector<cv::Point2f> FeatureTracker::ptsVelocity(vector<int> &_cur_ids, vector<cv
     return pts_velocity;
 }
 
+void FeatureTracker::setMask()
+{
+    mask = cv::Mat(feature_tracker_config.row, feature_tracker_config.col, CV_8UC1, cv::Scalar(255));
+
+    // prefer to keep features that are tracked for long time
+    vector<pair<int, pair<cv::Point2f, int>>> cnt_pts_id;
+
+    for (unsigned int i = 0; i < cur_pts.size(); i++)
+        cnt_pts_id.push_back(make_pair(track_cnt[i], make_pair(cur_pts[i], cur_ids[i])));
+
+    sort(cnt_pts_id.begin(), cnt_pts_id.end(), [](const pair<int, pair<cv::Point2f, int>> &a, const pair<int, pair<cv::Point2f, int>> &b)
+         {
+            return a.first > b.first;
+         });
+
+    cur_pts.clear();
+    cur_ids.clear();
+    track_cnt.clear();
+
+    for (auto &it : cnt_pts_id)
+    {
+        if (mask.at<uchar>(it.second.first) == 255)
+        {
+            cur_pts.push_back(it.second.first);
+            cur_ids.push_back(it.second.second);
+            track_cnt.push_back(it.first);
+            cv::circle(mask, it.second.first, feature_tracker_config.of_min_dist, 0, -1);
+        }
+    }
+}
+
+void FeatureTracker::addPoints()
+{
+    for (auto &p : n_pts)
+    {
+        cur_pts.push_back(p);
+        cur_ids.push_back(n_id++);
+        track_cnt.push_back(1);
+    }
+}
+
+void FeatureTracker::track_img_use_opticalflow(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1)
+{
+	cur_time = _cur_time;
+	cur_img = _img;
+	cur_pts.clear();
+	cur_features.setZero();
+	cout << "*********** current frame ***********" << endl;
+	if(prev_pts.size() > 0)
+	{
+		vector<uchar> status;
+		TicToc t_og;
+		cv::cuda::GpuMat prev_gpu_img(prev_img);
+		cv::cuda::GpuMat cur_gpu_img(cur_img);
+		cv::cuda::GpuMat prev_gpu_pts(prev_pts);
+		cv::cuda::GpuMat cur_gpu_pts(cur_pts);
+		cv::cuda::GpuMat gpu_status;
+		cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse = cv::cuda::SparsePyrLKOpticalFlow::create(
+		cv::Size(21, 21), 3, 30, false);
+		d_pyrLK_sparse->calc(prev_gpu_img, cur_gpu_img, prev_gpu_pts, cur_gpu_pts, gpu_status);
+
+		vector<cv::Point2f> tmp1_cur_pts(cur_gpu_pts.cols);
+		cur_gpu_pts.download(tmp1_cur_pts);
+		cur_pts = tmp1_cur_pts;
+
+		vector<uchar> tmp1_status(gpu_status.cols);
+		gpu_status.download(tmp1_status);
+		status = tmp1_status;
+		//flow back
+		cv::cuda::GpuMat reverse_gpu_status;
+		cv::cuda::GpuMat reverse_gpu_pts = prev_gpu_pts;
+		d_pyrLK_sparse->calc(cur_gpu_img, prev_gpu_img, cur_gpu_pts, reverse_gpu_pts, reverse_gpu_status);
+
+		vector<cv::Point2f> reverse_pts(reverse_gpu_pts.cols);
+		reverse_gpu_pts.download(reverse_pts);
+
+		vector<uchar> reverse_status(reverse_gpu_status.cols);
+		reverse_gpu_status.download(reverse_status);
+
+		for(size_t i = 0; i < status.size(); i++)
+		{
+			if(status[i] && reverse_status[i] && distance(prev_pts[i], reverse_pts[i]) <= 0.5)
+			{
+				status[i] = 1;
+			}
+			else
+				status[i] = 0;
+		}
+		for (int i = 0; i < int(cur_pts.size()); i++)
+        	if (status[i] && !inBorder(cur_pts[i]))
+                status[i] = 0;
+        reduceVector(prev_pts, status);
+        reduceVector(cur_pts, status);
+        reduceVector(cur_ids, status);
+        reduceVector(track_cnt, status);
+	}
+	for(auto &n : track_cnt)
+		n++;
+	setMask();
+	//add new points
+	int n_max_cnt = feature_tracker_config.of_max_cnt - static_cast<int>(cur_pts.size());
+	if(n_max_cnt > 0)
+	{
+		feature_detector->Detect(cur_img, cur_features);
+		int new_pts_nums = 0;
+		n_pts.clear();
+		for(int i = 0; i < cur_features.cols() && new_pts_nums < n_max_cnt; i++)
+		{
+			cv::Point2f n_pt(cur_features(1, i), cur_features(2, i));
+			if(mask.at<uchar>(n_pt) == 255)
+			{
+				n_pts.push_back(n_pt);
+				new_pts_nums++;
+			}
+		}
+		//printf("add %d new points.", new_pts_nums);
+	}
+	else
+		n_pts.clear();
+
+	addPoints();
+
+	cur_un_pts = undistortedPts(cur_pts, m_camera[0]);
+	pts_velocity = ptsVelocity(cur_ids, cur_un_pts, cur_un_pts_map, prev_un_pts_map);
+
+	if(!_img1.empty() && stereo_cam)
+	{
+		right_img = _img1;
+		right_ids.clear();
+		cur_right_pts.clear();
+		cur_un_right_pts.clear();
+		right_pts_velocity.clear();
+		cur_un_right_pts_map.clear();
+		if(!cur_pts.empty())
+		{
+			vector<cv::Point2f> reverseLeftPts;
+			vector<uchar> status, statusRightLeft;
+			TicToc t_og1;
+			cv::cuda::GpuMat cur_gpu_img(cur_img);
+			cv::cuda::GpuMat right_gpu_Img(right_img);
+			cv::cuda::GpuMat cur_gpu_pts(cur_pts);
+			cv::cuda::GpuMat cur_right_gpu_pts;
+			cv::cuda::GpuMat gpu_status;
+			cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse = cv::cuda::SparsePyrLKOpticalFlow::create(
+			cv::Size(21, 21), 3, 30, false);
+			d_pyrLK_sparse->calc(cur_gpu_img, right_gpu_Img, cur_gpu_pts, cur_right_gpu_pts, gpu_status);
+
+			vector<cv::Point2f> tmp_cur_right_pts(cur_right_gpu_pts.cols);
+			cur_right_gpu_pts.download(tmp_cur_right_pts);
+			cur_right_pts = tmp_cur_right_pts;
+
+			vector<uchar> tmp_status(gpu_status.cols);
+			gpu_status.download(tmp_status);
+			status = tmp_status;
+			//flow back
+			cv::cuda::GpuMat reverseLeft_gpu_Pts;
+			cv::cuda::GpuMat status_gpu_RightLeft;
+			d_pyrLK_sparse->calc(right_gpu_Img, cur_gpu_img, cur_right_gpu_pts, reverseLeft_gpu_Pts, status_gpu_RightLeft);
+
+			vector<cv::Point2f> tmp_reverseLeft_Pts(reverseLeft_gpu_Pts.cols);
+			reverseLeft_gpu_Pts.download(tmp_reverseLeft_Pts);
+			reverseLeftPts = tmp_reverseLeft_Pts;
+
+			vector<uchar> tmp1_status(status_gpu_RightLeft.cols);
+			status_gpu_RightLeft.download(tmp1_status);
+			statusRightLeft = tmp1_status;
+			for(size_t i = 0, j = 0; i < status.size(); i++)
+			{
+				if(status[i] && statusRightLeft[i] && inBorder(cur_right_pts[i]) && distance(cur_pts[i], reverseLeftPts[i]) <= 0.5)
+				{
+					status[i] = 1;
+				}
+				else
+					status[i] = 0;
+			}
+			right_ids = cur_ids;
+			reduceVector(cur_right_pts, status);
+			reduceVector(right_ids, status);
+			ROS_DEBUG("opticalflow for right image  tracked %d features, cost %f ms", right_ids.size(), t_og1.toc());
+			//undistorted right points
+			cur_un_right_pts = undistortedPts(cur_right_pts, m_camera[1]);
+			//calculate the right points' velocity
+			right_pts_velocity = ptsVelocity(right_ids, cur_un_right_pts, cur_un_right_pts_map, prev_un_right_pts_map);
+		}
+		prev_un_right_pts_map = cur_un_right_pts_map;
+	}
+	//draw
+	if(feature_tracker_config.show_track)
+		DrawOpticalFlow(cur_img, right_img, cur_ids, cur_pts, cur_right_pts, prevLeftPtsMap);
+
+	prev_img = cur_img;
+    prev_pts = cur_pts;
+    prev_un_pts = cur_un_pts;
+    prev_un_pts_map = cur_un_pts_map;
+    prev_time = cur_time;
+
+    prevLeftPtsMap.clear();
+    for(size_t i = 0; i < cur_pts.size(); i++)
+        prevLeftPtsMap[cur_ids[i]] = cur_pts[i];
+}
+
 void FeatureTracker::track_img(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1)
 {
 	cur_time = _cur_time;
@@ -327,13 +528,13 @@ void FeatureTracker::DrawTrackCnt(const cv::Mat& image, const vector<cv::Point2f
 	cv::cvtColor(image, rgba_image, cv::COLOR_BGR2BGRA);
 	for(int i = 0; i < pts.size(); i++)
 	{
-		int track_cnt;
+		int track_cnts;
 		auto it = id_cnt_umap.find(ids[i]);
 		if(it == id_cnt_umap.end())
-			track_cnt = 0;
+			track_cnts = 0;
 		else
-			track_cnt = it->second;
-		double len = std::min(1.0, 1.0 * track_cnt / 20);
+			track_cnts = it->second;
+		double len = std::min(1.0, 1.0 * track_cnts / 20);
 		cv::circle(rgba_image, pts[i], 2, cv::Scalar(255 * (1 - len), 0, 255 * len), 2);
 	}
 	cv::cvtColor(rgba_image, imTrack, cv::COLOR_BGRA2BGR);
@@ -366,7 +567,49 @@ void FeatureTracker::DrawMatches(const cv::Mat& ref_image, const cv::Mat& image,
 	}
   	cv::cvtColor(rgba_image, imTrack, cv::COLOR_BGRA2BGR);
 }
+void FeatureTracker::DrawOpticalFlow(const cv::Mat &imLeft, const cv::Mat &imRight, 
+                               vector<int> &curLeftIds,
+                               vector<cv::Point2f> &curLeftPts, 
+                               vector<cv::Point2f> &curRightPts,
+                               map<int, cv::Point2f> &prevLeftPtsMap)
+{
+    int rows = imLeft.rows;
+    int cols = imLeft.cols;
+    if (!imRight.empty() && stereo_cam)
+        cv::hconcat(imLeft, imRight, imTrack);
+    else
+        imTrack = imLeft.clone();
+    cv::cvtColor(imTrack, imTrack, cv::COLOR_GRAY2RGB);
 
+    for (size_t j = 0; j < curLeftPts.size(); j++)
+    {
+        double len = std::min(1.0, 1.0 * track_cnt[j] / 20);
+        cv::circle(imTrack, curLeftPts[j], 2, cv::Scalar(255 * (1 - len), 0, 255 * len), 2);
+    }
+    if (!imRight.empty() && stereo_cam)
+    {
+        for (size_t i = 0; i < curRightPts.size(); i++)
+        {
+            cv::Point2f rightPt = curRightPts[i];
+            rightPt.x += cols;
+            cv::circle(imTrack, rightPt, 2, cv::Scalar(0, 255, 0), 2);
+            //cv::Point2f leftPt = curLeftPtsTrackRight[i];
+            //cv::line(imTrack, leftPt, rightPt, cv::Scalar(0, 255, 0), 1, 8, 0);
+        }
+    }
+    
+    map<int, cv::Point2f>::iterator mapIt;
+    for (size_t i = 0; i < curLeftIds.size(); i++)
+    {
+        int id = curLeftIds[i];
+        mapIt = prevLeftPtsMap.find(id);
+        if(mapIt != prevLeftPtsMap.end())
+        {
+            cv::arrowedLine(imTrack, curLeftPts[i], mapIt->second, cv::Scalar(0, 255, 0), 1, 8, 0, 0.2);
+        }
+    }
+    cv::resize(imTrack, imTrack, cv::Size(cols, rows / 2));
+}
 void FeatureTracker::readIntrinsicParameter()
 {
 	auto calib_file = feature_tracker_config.camera_config_file;

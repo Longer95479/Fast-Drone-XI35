@@ -65,6 +65,7 @@ bool process_this_frame = false;
 void sync_process()
 {
 	double FREQ = tracker.feature_tracker_config.pub_freq;
+	int use_opticalflow = tracker.feature_tracker_config.use_opticalflow;
     while(1)
     {
 		double cur_time = 0;
@@ -125,7 +126,10 @@ void sync_process()
 			{
 				process_counts++;
 				TicToc tic_tk;
-				tracker.track_img(cur_time, image0, image1);
+				if(use_opticalflow)
+					tracker.track_img_use_opticalflow(cur_time, image0, image1);
+				else
+					tracker.track_img(cur_time, image0, image1);
 				pub_this_frame = true;
 				ROS_INFO("track stereo cost %f ms", tic_tk.toc());
 			}
