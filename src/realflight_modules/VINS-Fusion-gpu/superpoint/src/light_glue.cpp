@@ -15,7 +15,7 @@
 using namespace tensorrt_log;
 using namespace tensorrt_buffer;
 
-bool loadCustomPlugin(const std::string& pluginPath) {
+static bool loadCustomPlugin(const std::string& pluginPath) {
     void* handle = dlopen(pluginPath.c_str(), RTLD_LAZY);
     if (!handle) {
         std::cerr << "Failed to load plugin library: " << dlerror() << std::endl;

@@ -1,7 +1,7 @@
 //
 // Created by haoyuefan on 2021/9/22.
 //
-#include "super_point.h"
+#include "xfeat.h"
 #include "tic_toc.h"
 #include <utility>
 #include <unordered_map>
@@ -10,18 +10,26 @@
 using namespace tensorrt_log;
 using namespace tensorrt_buffer;
 
-SuperPoint::SuperPoint(const SuperPointConfig &super_point_config): resized_width(640), //原始为512， 512
-        resized_height(480), super_point_config_(super_point_config), engine_(nullptr) {
-    setReportableSeverity(Logger::Severity::kINTERNAL_ERROR);
-    // setReportableSeverity(Logger::Severity::kINTERNAL_ERROR);
+static bool loadCustomPlugin(const std::string& pluginPath) {
+    void* handle = dlopen(pluginPath.c_str(), RTLD_LAZY);
+    if (!handle) {
+        std::cerr << "Failed to load plugin library: " << dlerror() << std::endl;
+        return false;
+    }
+    return true;
 }
 
-bool SuperPoint::build() {
+Xfeat::Xfeat(const XfeatConfig &xfeat_config): resized_width(640), 
+        resized_height(480), xfeat_config_(xfeat_config), engine_(nullptr) {
+    setReportableSeverity(Logger::Severity::kINTERNAL_ERROR);
+}
+
+bool Xfeat::build() {
     // cudaSetDevice(2);
     if(deserialize_engine()){
         return true;
     }
-    std::cout << "deserialize superpoint engine failed, will build it at runtime" << std::endl;
+    std::cout << "deserialize xfeat engine failed, will build it at runtime" << std::endl;
     auto builder = TensorRTUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(gLogger.getTRTLogger()));
     if (!builder) {
         return false;
@@ -45,12 +53,12 @@ bool SuperPoint::build() {
     if (!profile) {
         return false;
     }
-    profile->setDimensions(super_point_config_.input_tensor_names[0].c_str(),
-                           nvinfer1::OptProfileSelector::kMIN, nvinfer1::Dims4(1, 1, 100, 100));
-    profile->setDimensions(super_point_config_.input_tensor_names[0].c_str(),
-                           nvinfer1::OptProfileSelector::kOPT, nvinfer1::Dims4(1, 1, 500, 500));
-    profile->setDimensions(super_point_config_.input_tensor_names[0].c_str(),
-                           nvinfer1::OptProfileSelector::kMAX, nvinfer1::Dims4(1, 1, 1500, 1500));
+    profile->setDimensions(xfeat_config_.input_tensor_names[0].c_str(),
+                           nvinfer1::OptProfileSelector::kMIN, nvinfer1::Dims4(1, 1, 480, 640));
+    profile->setDimensions(xfeat_config_.input_tensor_names[0].c_str(),
+                           nvinfer1::OptProfileSelector::kOPT, nvinfer1::Dims4(1, 1, 480, 640));
+    profile->setDimensions(xfeat_config_.input_tensor_names[0].c_str(),
+                           nvinfer1::OptProfileSelector::kMAX, nvinfer1::Dims4(1, 1, 480, 640));
     config->addOptimizationProfile(profile);
     
     auto constructed = construct_network(builder, network, config, parser);
@@ -78,31 +86,35 @@ bool SuperPoint::build() {
     ASSERT(network->getNbInputs() == 1);
     input_dims_ = network->getInput(0)->getDimensions();
     ASSERT(input_dims_.nbDims == 4);
-    ASSERT(network->getNbOutputs() == 2);
-    semi_dims_ = network->getOutput(0)->getDimensions();
-    ASSERT(semi_dims_.nbDims == 3);
-    desc_dims_ = network->getOutput(1)->getDimensions();
+
+    ASSERT(network->getNbOutputs() == 3);
+    desc_dims_ = network->getOutput(0)->getDimensions();
     ASSERT(desc_dims_.nbDims == 4);
+    score_dims_ = network->getOutput(1)->getDimensions();
+    ASSERT(score_dims_.nbDims == 4);
+    relimap_dims_ = network->getOutput(2)->getDimensions();
+    ASSERT(relimap_dims_.nbDims == 4);
+
     return true;
 }
 
-bool SuperPoint::construct_network(TensorRTUniquePtr<nvinfer1::IBuilder> &builder,
+bool Xfeat::construct_network(TensorRTUniquePtr<nvinfer1::IBuilder> &builder,
                                    TensorRTUniquePtr<nvinfer1::INetworkDefinition> &network,
                                    TensorRTUniquePtr<nvinfer1::IBuilderConfig> &config,
                                    TensorRTUniquePtr<nvonnxparser::IParser> &parser) const {
-    auto parsed = parser->parseFromFile(super_point_config_.onnx_file.c_str(),
+    auto parsed = parser->parseFromFile(xfeat_config_.onnx_file.c_str(),
                                         static_cast<int>(gLogger.getReportableSeverity()));
     if (!parsed) {
         return false;
     }
     // config->setMaxWorkspaceSize(512_MiB);
     config->setFlag(nvinfer1::BuilderFlag::kFP16);
-    enableDLA(builder.get(), config.get(), super_point_config_.dla_core);
+    enableDLA(builder.get(), config.get(), xfeat_config_.dla_core);
     return true;
 }
 
 
-bool SuperPoint::infer(const cv::Mat &image_, Eigen::Matrix<float, 259, Eigen::Dynamic> &features) {
+bool Xfeat::infer(const cv::Mat &image_, Eigen::Matrix<float, 67, Eigen::Dynamic> &features) {
     if (!context_) {
         context_ = TensorRTUniquePtr<nvinfer1::IExecutionContext>(engine_->createExecutionContext());
         if (!context_) {
@@ -115,14 +127,12 @@ bool SuperPoint::infer(const cv::Mat &image_, Eigen::Matrix<float, 259, Eigen::D
     h_scale = (float)input_height / resized_height;
     w_scale = (float)input_width / resized_width;
     cv::Mat image;
-    //cv::resize(image_, image, cv::Size(resized_width, resized_height));
     cv::resize(image_, image, cv::Size(resized_width, resized_height), 0.0, 0.0, cv::INTER_AREA);
 
-    assert(engine_->getNbBindings() == 3);
+    assert(engine_->getNbBindings() == 4);
 
-    const int input_index = engine_->getBindingIndex(super_point_config_.input_tensor_names[0].c_str());
-
-    context_->setBindingDimensions(input_index, nvinfer1::Dims4(1, 1, image.rows, image.cols));
+    // const int input_index = engine_->getBindingIndex(xfeat_config_.input_tensor_names[0].c_str());
+    // context_->setBindingDimensions(input_index, nvinfer1::Dims4(1, 1, image.rows, image.cols));
 
     /*create host and device mem buffer*/
     TicToc tic_cb;    
@@ -130,7 +140,7 @@ bool SuperPoint::infer(const cv::Mat &image_, Eigen::Matrix<float, 259, Eigen::D
     //ROS_DEBUG("SP: create buffer cost %f ms.", tic_cb.toc());
 
     /*process image to host mem*/
-    ASSERT(super_point_config_.input_tensor_names.size() == 1);
+    ASSERT(xfeat_config_.input_tensor_names.size() == 1);
     TicToc tic_pi;
     if (!process_input(buffers, image)) {
         return false;
@@ -148,7 +158,7 @@ bool SuperPoint::infer(const cv::Mat &image_, Eigen::Matrix<float, 259, Eigen::D
     if (!status) {
         return false;
     }
-    ROS_DEBUG("sp: infer cost %f ms.", tic_inf.toc());
+    ROS_DEBUG("xfeat: infer cost %f ms.", tic_inf.toc());
 
     /*copy device mem to host mem*/
     TicToc tic_cp1;
@@ -164,16 +174,20 @@ bool SuperPoint::infer(const cv::Mat &image_, Eigen::Matrix<float, 259, Eigen::D
     return true;
 }
 //copy image to host mem
-bool SuperPoint::process_input(const BufferManager &buffers, const cv::Mat &image) {
+bool Xfeat::process_input(const BufferManager &buffers, const cv::Mat &image) {
     input_dims_.d[2] = image.rows;
     input_dims_.d[3] = image.cols;
-    semi_dims_.d[1] = image.rows;
-    semi_dims_.d[2] = image.cols;
-    desc_dims_.d[1] = 256;
+    desc_dims_.d[1] = 64;
     desc_dims_.d[2] = image.rows / 8;
     desc_dims_.d[3] = image.cols / 8;
+    score_dims_.d[1] = 1;
+    score_dims_.d[2] = image.rows;
+    score_dims_.d[3] = image.cols;
+    relimap_dims_.d[1] = 1;
+    relimap_dims_.d[2] = image.rows / 8;
+    relimap_dims_.d[3] = image.cols / 8;
 
-    auto *host_data_buffer = static_cast<float *>(buffers.getHostBuffer(super_point_config_.input_tensor_names[0]));
+    auto *host_data_buffer = static_cast<float *>(buffers.getHostBuffer(xfeat_config_.input_tensor_names[0]));
     for(int row = 0; row < image.rows; ++row){
         const uchar *ptr = image.ptr(row);  
         int row_shift = row * image.cols;
@@ -185,14 +199,14 @@ bool SuperPoint::process_input(const BufferManager &buffers, const cv::Mat &imag
     return true;
 }
 
-std::vector<int> SuperPoint::sort_indexes(std::vector<float> &data) {
+std::vector<int> Xfeat::sort_indexes(std::vector<float> &data) {
   std::vector<int> indexes(data.size());
   iota(indexes.begin(), indexes.end(), 0);
   sort(indexes.begin(), indexes.end(), [&data](int i1, int i2) { return data[i1] > data[i2]; });
   return indexes;
 }
 //nms
-std::vector<std::pair<int, cv::Point2f>> SuperPoint::nms_process(const std::vector<cv::Point2f>& pts, const std::vector<int>& sorted_idx, float dist_thresh)
+std::vector<std::pair<int, cv::Point2f>> Xfeat::nms_process(const std::vector<cv::Point2f>& pts, const std::vector<int>& sorted_idx, float dist_thresh)
 {   
     int grid_size = dist_thresh;
     std::unordered_map<int64, std::vector<int>> grid_umap;
@@ -236,7 +250,7 @@ std::vector<std::pair<int, cv::Point2f>> SuperPoint::nms_process(const std::vect
     return id_pts;
 }
 //recovery features points from heat_map
-void SuperPoint::detect_point(const float* heat_map, Eigen::Matrix<float, 259, Eigen::Dynamic>& features, 
+void Xfeat::detect_point(const float* heat_map, Eigen::Matrix<float, 67, Eigen::Dynamic>& features, 
     int h, int w, float threshold, int border, int top_k) {
 	std::vector<float> scores_v;
 	std::vector<cv::Point2f> kpts;
@@ -266,9 +280,10 @@ void SuperPoint::detect_point(const float* heat_map, Eigen::Matrix<float, 259, E
 	if(scores_v.size() > top_k){
 		indexes.resize(top_k);
 	}
-	auto id_pts_reserved = nms_process(kpts, indexes, super_point_config_.dist_thresh);
+    ROS_DEBUG("xp: detect %d points", indexes.size());
+	auto id_pts_reserved = nms_process(kpts, indexes, xfeat_config_.dist_thresh);
 	int reserved_size = id_pts_reserved.size();
-	features.resize(259, reserved_size);
+	features.resize(67, reserved_size);
 	int i = 0;
 	for (auto &id_pt : id_pts_reserved) {
 		features(0, i) = scores_v[id_pt.first];
@@ -278,12 +293,12 @@ void SuperPoint::detect_point(const float* heat_map, Eigen::Matrix<float, 259, E
 	}
 }
 
-int SuperPoint::clip(int val, int max) {
+int Xfeat::clip(int val, int max) {
   if (val < 0) return 0;
   return std::min(val, max - 1);
 }
 
-void SuperPoint::extract_descriptors(const float *descriptors, Eigen::Matrix<float, 259, Eigen::Dynamic> &features, int h, int w, int s){
+void Xfeat::extract_descriptors(const float *descriptors, Eigen::Matrix<float, 67, Eigen::Dynamic> &features, int h, int w, int s){
   float sx = 2.f / (w * s - s / 2 - 0.5);
   float bx = (1 - s) / (w * s - s / 2 - 0.5) - 1;
 
@@ -317,7 +332,7 @@ void SuperPoint::extract_descriptors(const float *descriptors, Eigen::Matrix<flo
     float sw = (ix_ne - ix) * (iy - iy_ne);
     float se = (ix - ix_nw) * (iy - iy_nw);
 
-    for (int i = 0; i < 256; ++i) {
+    for (int i = 0; i < 64; ++i) {
       // 256x60x106 dhw
       // x * height * depth + y * depth + z
       float nw_val = descriptors[i * h * w + iy_nw * w + ix_nw];
@@ -333,11 +348,11 @@ void SuperPoint::extract_descriptors(const float *descriptors, Eigen::Matrix<flo
   features.block(3, 0, features.rows() - 3, features.cols()) = descriptor_matrix;
 }
 
-bool SuperPoint::keypoints_decoder(const float* scores, const float* descriptors, Eigen::Matrix<float, 259, Eigen::Dynamic> &features){
+bool Xfeat::keypoints_decoder(const float* scores, const float* descriptors, Eigen::Matrix<float, 67, Eigen::Dynamic> &features){
     TicToc tic_dp;
-    detect_point(scores, features, resized_height, resized_width, super_point_config_.keypoint_threshold, 
-        super_point_config_.remove_borders, super_point_config_.max_keypoints);
-    ROS_DEBUG("sp: detect_point cost %lf ms", tic_dp.toc());
+    detect_point(scores, features, resized_height, resized_width, xfeat_config_.keypoint_threshold, 
+        xfeat_config_.remove_borders, xfeat_config_.max_keypoints);
+    ROS_DEBUG("xp: detect_point cost: %lf ms", tic_dp.toc());
     extract_descriptors(descriptors, features, resized_height / 8, resized_width / 8, 8);
 
     features.block(1, 0, 1, features.cols()) = features.block(1, 0, 1, features.cols()) * w_scale;//recovery scale
@@ -346,28 +361,32 @@ bool SuperPoint::keypoints_decoder(const float* scores, const float* descriptors
 }
 
 
-bool SuperPoint::process_output(const BufferManager &buffers, Eigen::Matrix<float, 259, Eigen::Dynamic> &features) {
-    keypoints_.clear();
-    descriptors_.clear();
-    auto *output_score = static_cast<float *>(buffers.getHostBuffer(super_point_config_.output_tensor_names[0]));
-    auto *output_desc = static_cast<float *>(buffers.getHostBuffer(super_point_config_.output_tensor_names[1]));
+bool Xfeat::process_output(const BufferManager &buffers, Eigen::Matrix<float, 67, Eigen::Dynamic> &features) {
+    auto *output_desc = static_cast<float *>(buffers.getHostBuffer(xfeat_config_.output_tensor_names[0]));
+    auto *output_score = static_cast<float *>(buffers.getHostBuffer(xfeat_config_.output_tensor_names[1]));
 
     keypoints_decoder(output_score, output_desc, features);
     return true;
 }
 
-void SuperPoint::save_engine() {
-    if (super_point_config_.engine_file.empty()) return;
+void Xfeat::save_engine() {
+    if (xfeat_config_.engine_file.empty()) return;
     if (engine_ != nullptr) {
         nvinfer1::IHostMemory *data = engine_->serialize();
-        std::ofstream file(super_point_config_.engine_file, std::ios::binary);
+        std::ofstream file(xfeat_config_.engine_file, std::ios::binary);
         if (!file) return;
         file.write(reinterpret_cast<const char *>(data->data()), data->size());
     }
 }
 
-bool SuperPoint::deserialize_engine() {
-    std::ifstream file(super_point_config_.engine_file.c_str(), std::ios::binary);
+bool Xfeat::deserialize_engine() {
+    // if (!loadCustomPlugin("/usr/lib/aarch64-linux-gnu/libnvinfer_plugin.so")) 
+    // {
+    //     std::cerr << "Failed to load plugin library." << std::endl;
+    //     return false;
+    // }
+    initLibNvInferPlugins(&gLogger, "");
+    std::ifstream file(xfeat_config_.engine_file.c_str(), std::ios::binary);
     if (file.is_open()) {
         file.seekg(0, std::ifstream::end);
         size_t size = file.tellg();
@@ -384,7 +403,7 @@ bool SuperPoint::deserialize_engine() {
         engine_ = std::shared_ptr<nvinfer1::ICudaEngine>(runtime->deserializeCudaEngine(model_stream, size));
         delete[] model_stream;
         if (engine_ == nullptr) return false;
-        std::cout << "deserialize superpoint engine successfully!" << std::endl;
+        std::cout << "deserialize xfeat engine successfully!" << std::endl;
         return true;
     }
     return false;

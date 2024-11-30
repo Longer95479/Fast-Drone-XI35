@@ -74,6 +74,10 @@ extern int DRONE_ID;
 extern double SINGLE_OFFSET;
 
 extern int USE_EXTERNAL_TRACKER;
+
+extern int record_csv;
+extern std::string csv_file_path;
+
 void readParameters(std::string config_file);
 
 enum SIZE_PARAMETERIZATION

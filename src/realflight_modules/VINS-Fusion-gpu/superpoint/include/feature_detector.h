@@ -2,6 +2,7 @@
 #define FEATURE_DETECTOR_H_
 
 #include "super_point.h"
+#include "xfeat.h"
 #include "plnet.h"
 #include "read_configs.h"
 
@@ -10,6 +11,7 @@ class FeatureDetector
 public:
 	FeatureDetector(const PLNetConfig& plnet_config);
 
+	bool DetectUseXfeat(cv::Mat& image, Eigen::Matrix<float, 67, Eigen::Dynamic> &features);
   	bool Detect(cv::Mat& image, Eigen::Matrix<float, 259, Eigen::Dynamic> &features);
 	bool Detect(cv::Mat& image, Eigen::Matrix<float, 259, Eigen::Dynamic> &features, std::vector<Eigen::Vector4d>& lines);
 	bool Detect(cv::Mat& image, Eigen::Matrix<float, 259, Eigen::Dynamic> &features, std::vector<Eigen::Vector4d>& lines, Eigen::Matrix<float, 259, Eigen::Dynamic>& junctions);
@@ -27,9 +29,12 @@ public:
 
 	void prewarmInference();
 
+	int getDetectNetworkType();
+
 private:
 	PLNetConfig _plnet_config;
 	SuperPointPtr _superpoint;
+	XfeatPtr _xfeat;
 	PLNetPtr _plnet;
 };
 

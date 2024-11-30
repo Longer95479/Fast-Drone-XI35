@@ -1,5 +1,7 @@
 #include "feature_tracker.h"
 
+const double FOCAL_LENGTH = 460.0;
+
 double distance(cv::Point2f pt1, cv::Point2f pt2)
 {
     //printf("pt1: %f %f pt2: %f %f\n", pt1.x, pt1.y, pt2.x, pt2.y);
@@ -79,6 +81,40 @@ vector<cv::Point2f> FeatureTracker::ptsVelocity(vector<int> &_cur_ids, vector<cv
         }
     }
     return pts_velocity;
+}
+
+void FeatureTracker::rejectWithF()
+{
+    if (cur_pts.size() >= 8)
+    {
+        ROS_DEBUG("FM ransac begins");
+        TicToc t_f;
+        vector<cv::Point2f> un_cur_pts(cur_pts.size()), un_prev_pts(prev_pts.size());
+        for (unsigned int i = 0; i < cur_pts.size(); i++)
+        {
+            Eigen::Vector3d tmp_p;
+            m_camera[0]->liftProjective(Eigen::Vector2d(cur_pts[i].x, cur_pts[i].y), tmp_p);
+            tmp_p.x() = FOCAL_LENGTH * tmp_p.x() / tmp_p.z() + feature_tracker_config.col / 2.0;
+            tmp_p.y() = FOCAL_LENGTH * tmp_p.y() / tmp_p.z() + feature_tracker_config.row / 2.0;
+            un_cur_pts[i] = cv::Point2f(tmp_p.x(), tmp_p.y());
+
+            m_camera[0]->liftProjective(Eigen::Vector2d(prev_pts[i].x, prev_pts[i].y), tmp_p);
+            tmp_p.x() = FOCAL_LENGTH * tmp_p.x() / tmp_p.z() + feature_tracker_config.col / 2.0;
+            tmp_p.y() = FOCAL_LENGTH * tmp_p.y() / tmp_p.z() + feature_tracker_config.row / 2.0;
+            un_prev_pts[i] = cv::Point2f(tmp_p.x(), tmp_p.y());
+        }
+
+        vector<uchar> status;
+        cv::findFundamentalMat(un_cur_pts, un_prev_pts, cv::FM_RANSAC, feature_tracker_config.F_threshold, 0.99, status);
+        int size_a = cur_pts.size();
+        reduceVector(prev_pts, status);
+        reduceVector(cur_pts, status);
+        reduceVector(cur_un_pts, status);
+        reduceVector(cur_ids, status);
+        reduceVector(track_cnt, status);
+        ROS_DEBUG("FM ransac: %d -> %lu: %f", size_a, cur_pts.size(), 1.0 * cur_pts.size() / size_a);
+        ROS_DEBUG("FM ransac costs: %fms", t_f.toc());
+    }
 }
 
 void FeatureTracker::setMask()
@@ -179,21 +215,39 @@ void FeatureTracker::track_img_use_opticalflow(double _cur_time, const cv::Mat &
 	}
 	for(auto &n : track_cnt)
 		n++;
+	rejectWithF();
 	setMask();
 	//add new points
 	int n_max_cnt = feature_tracker_config.of_max_cnt - static_cast<int>(cur_pts.size());
 	if(n_max_cnt > 0)
 	{
-		feature_detector->Detect(cur_img, cur_features);
-		int new_pts_nums = 0;
-		n_pts.clear();
-		for(int i = 0; i < cur_features.cols() && new_pts_nums < n_max_cnt; i++)
+		//extract features
+		Eigen::Matrix<float, 2, Eigen::Dynamic> new_pts;
+		int new_pts_num = 0;
+		if(feature_detector->getDetectNetworkType() == 2)
 		{
-			cv::Point2f n_pt(cur_features(1, i), cur_features(2, i));
+			feature_detector->DetectUseXfeat(cur_img, cur_xfeatures);
+			new_pts_num = cur_xfeatures.cols();
+			new_pts.resize(2, new_pts_num);
+			new_pts = cur_xfeatures.block(1, 0, 2, new_pts_num);
+		}
+		else
+		{
+			feature_detector->Detect(cur_img, cur_features);
+			new_pts_num = cur_features.cols();
+			new_pts.resize(2, new_pts_num);
+			new_pts = cur_features.block(1, 0, 2, new_pts_num);
+		}
+		//add features
+		int add_pts_nums = 0;
+		n_pts.clear();
+		for(int i = 0; i < new_pts_num && add_pts_nums < n_max_cnt; i++)
+		{
+			cv::Point2f n_pt(new_pts(0, i), new_pts(1, i));
 			if(mask.at<uchar>(n_pt) == 255)
 			{
 				n_pts.push_back(n_pt);
-				new_pts_nums++;
+				add_pts_nums++;
 			}
 		}
 		//printf("add %d new points.", new_pts_nums);
@@ -270,7 +324,7 @@ void FeatureTracker::track_img_use_opticalflow(double _cur_time, const cv::Mat &
 	//draw
 	if(feature_tracker_config.show_track)
 		DrawOpticalFlow(cur_img, right_img, cur_ids, cur_pts, cur_right_pts, prevLeftPtsMap);
-
+	printTrackCnt();
 	prev_img = cur_img;
     prev_pts = cur_pts;
     prev_un_pts = cur_un_pts;
@@ -643,6 +697,7 @@ void FeatureTracker::readConfigParameter(const string &config_file, const string
 	// //prewarm
 	// feature_detector->prewarmInference();
 	// point_matcher->prewarmInference();
+	//set feature's desc dim
 }
 
 void FeatureTracker::prewarmForTracker()
@@ -666,24 +721,40 @@ void FeatureTracker::prewarmForTracker()
         }
 	}
 	cv::Mat dummyImage1 = dummyImage0;
-	//prewarm for superpoint
-	TicToc tic_1;
-	Eigen::Matrix<float, 259, Eigen::Dynamic> features0;
-	Eigen::Matrix<float, 259, Eigen::Dynamic> features1;
-	feature_detector->Detect(dummyImage0, features0);
-	feature_detector->Detect(dummyImage1, features1);
-	int dummy0PtsSize = features0.cols();
 	vector<cv::Point2f> dummy_pts0;
-	for(int i = 0; i < dummy0PtsSize; i++)
-	{
-		dummy_pts0.emplace_back(features0(1, i), features0(2, i));
+	//prewarm for superpoint/xfeat
+	if(feature_detector->getDetectNetworkType() == 1)
+	{//superpoint
+		TicToc tic_1;
+		Eigen::Matrix<float, 259, Eigen::Dynamic> features0, features1;
+		feature_detector->Detect(dummyImage0, features0);
+		feature_detector->Detect(dummyImage1, features1);
+		int dummy0PtsSize = features0.cols();
+		for(int i = 0; i < dummy0PtsSize; i++)
+		{
+			dummy_pts0.emplace_back(features0(1, i), features0(2, i));
+		}
+		ROS_DEBUG("prewarm superpoint cost %f ms, detect %d features.", tic_1.toc(), dummy0PtsSize);
+		//prewarm for lightglue
+		TicToc tic_2;
+		vector<cv::DMatch> matches;
+		point_matcher->MatchingPoints(features0, features1, matches, true);
+		ROS_DEBUG("prewarm lightglue cost %f ms, matches size %d.", tic_2.toc(), matches.size());
 	}
-	ROS_DEBUG("prewarm superpoint cost %f ms, detect %d features.", tic_1.toc(), dummy0PtsSize);
-	//prewarm for lightglue
-	TicToc tic_2;
-	vector<cv::DMatch> matches;
-	point_matcher->MatchingPoints(features0, features1, matches, true);
-	ROS_DEBUG("prewarm lightglue cost %f ms, matches size %d.", tic_2.toc(), matches.size());
+	else if(feature_detector->getDetectNetworkType() == 2)
+	{//xfeat
+		TicToc tic_1;
+		Eigen::Matrix<float, 67, Eigen::Dynamic> features0, features1;
+		feature_detector->DetectUseXfeat(dummyImage0, features0);
+		feature_detector->DetectUseXfeat(dummyImage1, features1);
+		int dummy0PtsSize = features0.cols();
+		for(int i = 0; i < dummy0PtsSize; i++)
+		{
+			dummy_pts0.emplace_back(features0(1, i), features0(2, i));
+		}
+		ROS_DEBUG("prewarm xfeat cost %f ms, detect %d features.", tic_1.toc(), dummy0PtsSize);
+	}
+
 	//prewarm for opticalflow
 	TicToc tic_3;
 	cv::cuda::GpuMat cur_gpu_img(dummyImage0);
@@ -723,4 +794,22 @@ void FeatureTracker::calTrackCnt()
 		}
 	}
 	prev_trackcnt_umap = cur_trackcnt_umap;
+}
+
+void FeatureTracker::printTrackCnt()
+{
+    std:string cnt_str;
+    int good_track_cnt = 0;
+    for(int i = 0; i < track_cnt.size(); i++)
+    {
+        std::string single_cnt = std::to_string(track_cnt[i]);
+        single_cnt += " ";
+        cnt_str.append(single_cnt);
+        if(track_cnt[i] >= 4)
+            good_track_cnt++;
+        // if(i >= 19)
+        //     break;
+    }
+    std::cout << "good track cnt is " << good_track_cnt << std::endl;
+    //std::cout << "current track cnt: " << cnt_str << ", good track cnt is "<< good_track_cnt << std::endl;
 }

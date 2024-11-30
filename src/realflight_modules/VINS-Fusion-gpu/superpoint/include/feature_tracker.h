@@ -47,6 +47,7 @@ public:
 	vector<cv::Point2f> undistortedPts(vector<cv::Point2f> &pts, camodocal::CameraPtr cam);
 	vector<cv::Point2f> ptsVelocity(vector<int> &cur_ids, vector<cv::Point2f> &cur_un_pts, 
                                             unordered_map<int, cv::Point2f> &cur_id_pts, unordered_map<int, cv::Point2f> &prev_id_pts);
+	void rejectWithF();
 	void setMask();
 	void addPoints();
 	void track_img(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1 = cv::Mat());
@@ -65,6 +66,7 @@ public:
 	void prewarmForTracker();
 	cv::Mat getTrackImage();
 	void calTrackCnt();
+	void printTrackCnt();
 
 
 	FeatureDetectorPtr feature_detector;
@@ -74,6 +76,7 @@ public:
 
 	vector<cv::Point2f> prev_pts, cur_pts, cur_right_pts;
 	Eigen::Matrix<float, 259, Eigen::Dynamic> prev_features, cur_features, cur_right_features;
+	Eigen::Matrix<float, 67, Eigen::Dynamic> prev_xfeatures, cur_xfeatures, cur_right_xfeatures;
 
 	vector<cv::Point2f> prev_un_pts, cur_un_pts, cur_un_right_pts;
 	vector<cv::Point2f> pts_velocity, right_pts_velocity;

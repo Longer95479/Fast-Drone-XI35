@@ -57,6 +57,7 @@ add_library(${PROJECT_NAME}_lib SHARED
     src/point_matcher.cpp
     src/super_point.cpp
     src/utils.cpp
+    src/xfeat.cpp
 )
 
 # cuda_add_library(custom_layernorm SHARED

@@ -9,6 +9,7 @@
 
 #include "estimator.h"
 #include "../utility/visualization.h"
+#include <fstream>
 
 Estimator::Estimator(): f_manager{Rs}
 {
@@ -225,6 +226,25 @@ void Estimator::processMeasurements()
             pubTF(*this, header);
             printf("current used features counts: %d.\n", f_manager.getFeatureCount());
             printf("process measurement time: %f\n", t_process.toc());
+            if(record_csv)
+            {
+                double cur_timestamp = feature.first;
+                if(!csv_file_path.empty())
+                {
+                    std::ofstream ofs;
+                    ofs.open(csv_file_path, std::ios_base::app);
+                    if(ofs.is_open())
+                    {
+                        ofs << cur_timestamp << " ";
+                        ofs << f_manager.getFeatureCount() << " ";
+                        ofs << Ps[WINDOW_SIZE].x() << " ";
+                        ofs << Ps[WINDOW_SIZE].y() << " ";
+                        ofs << Ps[WINDOW_SIZE].z() << " ";
+                        ofs << td << "\n";
+                        ofs.close();
+                    }
+                }
+            }
         }
 
         if (! MULTIPLE_THREAD)

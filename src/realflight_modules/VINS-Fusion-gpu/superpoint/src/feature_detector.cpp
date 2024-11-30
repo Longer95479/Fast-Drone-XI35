@@ -5,7 +5,7 @@
 #include "utils.h"
 
 FeatureDetector::FeatureDetector(const PLNetConfig& plnet_config) : _plnet_config(plnet_config){
-	if(_plnet_config.use_superpoint){
+	if(_plnet_config.use_superpoint == 1){
 		SuperPointConfig superpoint_config;
 		superpoint_config.max_keypoints = plnet_config.max_keypoints;
 		superpoint_config.keypoint_threshold = plnet_config.keypoint_threshold;
@@ -26,6 +26,28 @@ FeatureDetector::FeatureDetector(const PLNetConfig& plnet_config) : _plnet_confi
 		exit(0);
 		}
 	}
+	else if(_plnet_config.use_superpoint == 2){
+		XfeatConfig xfeat_config;
+		xfeat_config.max_keypoints = plnet_config.max_keypoints;
+		xfeat_config.keypoint_threshold = plnet_config.keypoint_threshold;
+		xfeat_config.remove_borders = plnet_config.remove_borders;
+		xfeat_config.dist_thresh = plnet_config.dist_thresh;
+		xfeat_config.dla_core = -1;
+
+		xfeat_config.input_tensor_names.push_back("input");
+		xfeat_config.output_tensor_names.push_back("output_feats");
+		xfeat_config.output_tensor_names.push_back("output_scores");
+		xfeat_config.output_tensor_names.push_back("output_reliability");
+
+		xfeat_config.onnx_file = plnet_config.xfeat_onnx;
+		xfeat_config.engine_file = plnet_config.xfeat_engine;
+		
+		_xfeat = std::shared_ptr<Xfeat>(new Xfeat(xfeat_config));
+		if (!_xfeat->build()){
+		std::cout << "Error in Xfeat building" << std::endl;
+		exit(0);
+		}
+	}
 	#if 0
 	_plnet = std::shared_ptr<PLNet>(new PLNet(_plnet_config));
 	if (!_plnet->build()){
@@ -34,6 +56,18 @@ FeatureDetector::FeatureDetector(const PLNetConfig& plnet_config) : _plnet_confi
 	}
 	#endif
 }
+
+bool FeatureDetector::DetectUseXfeat(cv::Mat& image, Eigen::Matrix<float, 67, Eigen::Dynamic> &features){
+	bool good_infer = false;
+	if(_plnet_config.use_superpoint == 2){
+		good_infer = _xfeat->infer(image, features);
+	}
+	if(!good_infer){
+		std::cout << "Failed when extracting point features !" << std::endl;
+	}
+	return good_infer; 
+}
+
 //features[0]:score features[1~2]:(x,y) features[3~259]:desc
 bool FeatureDetector::Detect(cv::Mat& image, Eigen::Matrix<float, 259, Eigen::Dynamic> &features){
 	bool good_infer = false;
@@ -122,4 +156,9 @@ void FeatureDetector::prewarmInference()
 	Eigen::Matrix<float, 259, Eigen::Dynamic> features;
 	Detect(dummyImage, features);
 	std::cout << "prewarm for superpoint completed!" << std::endl;
+}
+
+int FeatureDetector::getDetectNetworkType()
+{
+	return _plnet_config.use_superpoint;
 }

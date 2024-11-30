@@ -44,6 +44,7 @@ struct FeatureTrackerConfig
 		row = fsSettings["image_height"];
 		of_min_dist = fsSettings["plnet"]["of_min_dist"];
 		of_max_cnt = fsSettings["plnet"]["of_max_cnt"];
+		F_threshold = fsSettings["point_matcher"]["fsSettings"];
 	}
 
 	std::string image0_topic, image1_topic;
@@ -57,6 +58,7 @@ struct FeatureTrackerConfig
 	int use_opticalflow_stereo;
 	int of_min_dist;
 	int of_max_cnt;
+	double F_threshold;
 };
 
 struct PLNetConfig
@@ -75,6 +77,9 @@ struct PLNetConfig
 		cv::FileStorage fsSettings(config_file, cv::FileStorage::READ);
 		fsSettings["plnet"]["superpoint_onnx_model"] >> superpoint_onnx;
 		fsSettings["plnet"]["superpoint_trt_model"] >> superpoint_engine;
+
+		fsSettings["plnet"]["xfeat_onnx_model"] >> xfeat_onnx;
+		fsSettings["plnet"]["xfeat_trt_model"] >> xfeat_engine;	
 
 		fsSettings["plnet"]["plnet_s0_onnx_model"] >> plnet_s0_onnx;
 		fsSettings["plnet"]["plnet_s0_trt_model"] >> plnet_s0_engine;
@@ -97,6 +102,8 @@ struct PLNetConfig
 			model_prefix_path += '/';
 		superpoint_onnx = model_prefix_path + superpoint_onnx;
 		superpoint_engine = model_prefix_path + superpoint_engine;
+		xfeat_onnx = model_prefix_path + xfeat_onnx;
+		xfeat_engine = model_prefix_path + xfeat_engine;
 		plnet_s0_onnx = model_prefix_path + plnet_s0_onnx;
 		plnet_s0_engine = model_prefix_path + plnet_s0_engine;
 		plnet_s1_onnx = model_prefix_path + plnet_s1_onnx;
@@ -105,6 +112,8 @@ struct PLNetConfig
 
 	std::string superpoint_onnx;
 	std::string superpoint_engine;
+	std::string xfeat_onnx;
+	std::string xfeat_engine;
 
 	std::string plnet_s0_onnx;
 	std::string plnet_s0_engine;
@@ -123,6 +132,19 @@ struct PLNetConfig
 };
 
 struct SuperPointConfig
+{
+	int max_keypoints;
+	float keypoint_threshold;
+	int remove_borders;
+	float dist_thresh;
+	int dla_core;
+	std::vector<std::string> input_tensor_names;
+	std::vector<std::string> output_tensor_names;
+	std::string onnx_file;
+	std::string engine_file;
+};
+
+struct XfeatConfig
 {
 	int max_keypoints;
 	float keypoint_threshold;

@@ -108,19 +108,22 @@ odometry_type: 0 #0为原始里程计，1为加了偏置后的里程计
 drone_id: 1
 single_offset: 2.0
 
-use_external_front_end: 0 #0：前端使用自带的光流跟踪，1：使用外部特征跟踪器
+use_external_front_end: 1 #0：前端使用自带的光流跟踪，1：使用外部特征跟踪器
+
+record_csv: 1 #记录滑窗优化最新帧的时间戳、滑窗内可用的特征点数目、xyz、td
+csv_file_path: "/home/nx05/csv/xp_opticalflow.csv" #sp_opticalflow.csv, sp_lg_version.csv, original_version.csv 
 
 #superpoint & light glue
 plnet:
     use_opticalflow: 1 #0：匹配使用lightglue 1：使用光流
-    use_superpoint: 1
-    max_keypoints: 200  #400 200
-    keypoint_threshold: 0.001 #0.004 0.001
-    remove_borders: 4 
-    dist_thresh: 16 
+    use_superpoint: 2   #1: superpoint 2: xfeat
+    max_keypoints: 250  #200
+    keypoint_threshold: 0.08 #0.004 0.001 for superpoint 
+    remove_borders: 4
+    dist_thresh: 16 #nms dist
     line_threshold: 0.75
     line_length_threshold: 50
-    pub_freq: 10
+    pub_freq: 15
     show_track: 3 #0：不显示，1：显示左目与上一帧匹配结果，2：显示左右目匹配结果 3：可视化左目特征点追踪次数
     use_opticalflow_stereo: 1 #0：左右目匹配使用superpoint+lightglue 1：左右目匹配使用光流，
 
@@ -129,6 +132,8 @@ plnet:
 
     superpoint_onnx_model: "superpoint_v1_sim_int32.onnx"
     superpoint_trt_model: "superpoint_v1_sim_int32.engine"
+    xfeat_onnx_model: "xfeat.onnx"
+    xfeat_trt_model: "xfeat.engine"
     plnet_s0_onnx_model: "plnet_s0.onnx"
     plnet_s0_trt_model: "plnet_s0.engine"
     plnet_s1_onnx_model: "plnet_s1.onnx"
