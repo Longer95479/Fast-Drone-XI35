@@ -19,12 +19,15 @@ public:
 
     bool build();
 
-    bool infer(const cv::Mat &image, Eigen::Matrix<float, 67, Eigen::Dynamic> &features);
+    bool infer(const cv::Mat &image_, Eigen::Matrix<float, 67, Eigen::Dynamic> &features);
+
+    bool infer_origin(const cv::Mat &image_, float* heatmap, float* descriptors);
 
     void save_engine();
 
     bool deserialize_engine();
 
+    XfeatConfig xfeat_config_;
 private:
     int input_width;
     int input_height;
@@ -33,7 +36,6 @@ private:
     float w_scale;
     float h_scale; 
 
-    XfeatConfig xfeat_config_;
     nvinfer1::Dims input_dims_{};
     nvinfer1::Dims desc_dims_{};
     nvinfer1::Dims score_dims_{};

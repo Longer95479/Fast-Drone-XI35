@@ -12,6 +12,7 @@ public:
 	FeatureDetector(const PLNetConfig& plnet_config);
 
 	bool DetectUseXfeat(cv::Mat& image, Eigen::Matrix<float, 67, Eigen::Dynamic> &features);
+	bool DetectHDUseXfeat(cv::Mat& image, float* heatmap, float* descriptors);
   	bool Detect(cv::Mat& image, Eigen::Matrix<float, 259, Eigen::Dynamic> &features);
 	bool Detect(cv::Mat& image, Eigen::Matrix<float, 259, Eigen::Dynamic> &features, std::vector<Eigen::Vector4d>& lines);
 	bool Detect(cv::Mat& image, Eigen::Matrix<float, 259, Eigen::Dynamic> &features, std::vector<Eigen::Vector4d>& lines, Eigen::Matrix<float, 259, Eigen::Dynamic>& junctions);
@@ -30,6 +31,10 @@ public:
 	void prewarmInference();
 
 	int getDetectNetworkType();
+
+	double getDetectPointThreshold();
+
+	void setDetectPointThreshold(double new_thresh);
 
 private:
 	PLNetConfig _plnet_config;

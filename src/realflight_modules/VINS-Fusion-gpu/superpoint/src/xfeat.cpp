@@ -131,13 +131,10 @@ bool Xfeat::infer(const cv::Mat &image_, Eigen::Matrix<float, 67, Eigen::Dynamic
 
     assert(engine_->getNbBindings() == 4);
 
-    // const int input_index = engine_->getBindingIndex(xfeat_config_.input_tensor_names[0].c_str());
-    // context_->setBindingDimensions(input_index, nvinfer1::Dims4(1, 1, image.rows, image.cols));
-
     /*create host and device mem buffer*/
     TicToc tic_cb;    
     BufferManager buffers(engine_, 0, context_.get());
-    //ROS_DEBUG("SP: create buffer cost %f ms.", tic_cb.toc());
+    //ROS_DEBUG("xp: create buffer cost %f ms.", tic_cb.toc());
 
     /*process image to host mem*/
     ASSERT(xfeat_config_.input_tensor_names.size() == 1);
@@ -145,12 +142,12 @@ bool Xfeat::infer(const cv::Mat &image_, Eigen::Matrix<float, 67, Eigen::Dynamic
     if (!process_input(buffers, image)) {
         return false;
     }
-    //ROS_DEBUG("sp: process input(image to host mem) cost %f ms.", tic_pi.toc());
+    //ROS_DEBUG("xp: process input(image to host mem) cost %f ms.", tic_pi.toc());
 
     /*copy host mem to device mem*/
     TicToc tic_cp;
     buffers.copyInputToDevice();
-    //ROS_DEBUG("sp: copyInputToDevice cost %f ms.", tic_cp.toc());
+    //ROS_DEBUG("xp: copyInputToDevice cost %f ms.", tic_cp.toc());
 
     /*execute infer*/
     TicToc tic_inf;
@@ -163,16 +160,77 @@ bool Xfeat::infer(const cv::Mat &image_, Eigen::Matrix<float, 67, Eigen::Dynamic
     /*copy device mem to host mem*/
     TicToc tic_cp1;
     buffers.copyOutputToHost();
-    //ROS_DEBUG("sp: copyOutputToHost cost %f ms.", tic_cp1.toc());
+    //ROS_DEBUG("xp: copyOutputToHost cost %f ms.", tic_cp1.toc());
 
     /*process output*/
     TicToc tic_po;
     if (!process_output(buffers, features)) {
         return false;
     }
-    //ROS_DEBUG("sp: process output cost %f ms.", tic_po.toc());
+    //ROS_DEBUG("xp: process output cost %f ms.", tic_po.toc());
     return true;
 }
+
+bool Xfeat::infer_origin(const cv::Mat &image_, float* heatmap, float* descriptors)
+{
+    if (!context_) {
+        context_ = TensorRTUniquePtr<nvinfer1::IExecutionContext>(engine_->createExecutionContext());
+        if (!context_) {
+            return false;
+        }
+    }
+
+    input_height = image_.rows;
+    input_width = image_.cols;
+    h_scale = (float)input_height / resized_height;
+    w_scale = (float)input_width / resized_width;
+    cv::Mat image;
+    cv::resize(image_, image, cv::Size(resized_width, resized_height), 0.0, 0.0, cv::INTER_AREA);
+
+    assert(engine_->getNbBindings() == 4);
+
+    /*create host and device mem buffer*/
+    TicToc tic_cb;    
+    BufferManager buffers(engine_, 0, context_.get());
+    //ROS_DEBUG("xp: create buffer cost %f ms.", tic_cb.toc());
+
+    /*process image to host mem*/
+    ASSERT(xfeat_config_.input_tensor_names.size() == 1);
+    TicToc tic_pi;
+    if (!process_input(buffers, image)) {
+        return false;
+    }
+    //ROS_DEBUG("xp: process input(image to host mem) cost %f ms.", tic_pi.toc());
+
+    /*copy host mem to device mem*/
+    TicToc tic_cp;
+    buffers.copyInputToDevice();
+    //ROS_DEBUG("xp: copyInputToDevice cost %f ms.", tic_cp.toc());
+
+    /*execute infer*/
+    TicToc tic_inf;
+    bool status = context_->executeV2(buffers.getDeviceBindings().data());
+    if (!status) {
+        return false;
+    }
+    ROS_DEBUG("xfeat: infer cost %f ms.", tic_inf.toc());
+
+    /*copy device mem to host mem*/
+    TicToc tic_cp1;
+    buffers.copyOutputToHost();
+    //ROS_DEBUG("xp: copyOutputToHost cost %f ms.", tic_cp1.toc());
+
+    /*process output*/
+    TicToc tic_po;
+    auto *output_desc = static_cast<float *>(buffers.getHostBuffer(xfeat_config_.output_tensor_names[0]));
+    auto *output_heatmap = static_cast<float *>(buffers.getHostBuffer(xfeat_config_.output_tensor_names[1]));
+    ASSERT(descriptors != nullptr && heatmap != nullptr);
+    memcpy(descriptors, output_desc, buffers.size(xfeat_config_.output_tensor_names[0]));
+    memcpy(heatmap, output_heatmap, buffers.size(xfeat_config_.output_tensor_names[1]));
+    //ROS_DEBUG("xp: copy output cost %f ms.", tic_po.toc());
+    return true;
+}
+
 //copy image to host mem
 bool Xfeat::process_input(const BufferManager &buffers, const cv::Mat &image) {
     input_dims_.d[2] = image.rows;
@@ -291,6 +349,7 @@ void Xfeat::detect_point(const float* heat_map, Eigen::Matrix<float, 67, Eigen::
 		features(2, i) = id_pt.second.y;
 		i++;
 	}
+    ROS_DEBUG("xp: %d points reserved after nms.", reserved_size);
 }
 
 int Xfeat::clip(int val, int max) {
@@ -353,7 +412,9 @@ bool Xfeat::keypoints_decoder(const float* scores, const float* descriptors, Eig
     detect_point(scores, features, resized_height, resized_width, xfeat_config_.keypoint_threshold, 
         xfeat_config_.remove_borders, xfeat_config_.max_keypoints);
     ROS_DEBUG("xp: detect_point cost: %lf ms", tic_dp.toc());
+    TicToc tic_ed;
     extract_descriptors(descriptors, features, resized_height / 8, resized_width / 8, 8);
+    ROS_DEBUG("xp: extract_descriptors cost: %lf ms", tic_ed.toc());
 
     features.block(1, 0, 1, features.cols()) = features.block(1, 0, 1, features.cols()) * w_scale;//recovery scale
     features.block(2, 0, 1, features.cols()) = features.block(2, 0, 1, features.cols()) * h_scale;

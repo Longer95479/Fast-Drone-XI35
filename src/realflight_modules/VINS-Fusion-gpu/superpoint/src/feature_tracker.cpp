@@ -225,14 +225,14 @@ void FeatureTracker::track_img_use_opticalflow(double _cur_time, const cv::Mat &
 		Eigen::Matrix<float, 2, Eigen::Dynamic> new_pts;
 		int new_pts_num = 0;
 		if(feature_detector->getDetectNetworkType() == 2)
-		{
+		{//xfeat
 			feature_detector->DetectUseXfeat(cur_img, cur_xfeatures);
 			new_pts_num = cur_xfeatures.cols();
 			new_pts.resize(2, new_pts_num);
 			new_pts = cur_xfeatures.block(1, 0, 2, new_pts_num);
 		}
 		else
-		{
+		{//superpoint
 			feature_detector->Detect(cur_img, cur_features);
 			new_pts_num = cur_features.cols();
 			new_pts.resize(2, new_pts_num);
@@ -250,13 +250,13 @@ void FeatureTracker::track_img_use_opticalflow(double _cur_time, const cv::Mat &
 				add_pts_nums++;
 			}
 		}
-		//printf("add %d new points.", new_pts_nums);
+		ROS_DEBUG("xfeat add %d new points.", add_pts_nums);
 	}
 	else
 		n_pts.clear();
 
 	addPoints();
-
+	ROS_DEBUG("total %d points after add new points.", cur_pts.size());
 	cur_un_pts = undistortedPts(cur_pts, m_camera[0]);
 	pts_velocity = ptsVelocity(cur_ids, cur_un_pts, cur_un_pts_map, prev_un_pts_map);
 
@@ -743,6 +743,8 @@ void FeatureTracker::prewarmForTracker()
 	}
 	else if(feature_detector->getDetectNetworkType() == 2)
 	{//xfeat
+		double origin_thresh = feature_detector->getDetectPointThreshold();
+		feature_detector->setDetectPointThreshold(0.001);//临时降低阈值
 		TicToc tic_1;
 		Eigen::Matrix<float, 67, Eigen::Dynamic> features0, features1;
 		feature_detector->DetectUseXfeat(dummyImage0, features0);
@@ -753,8 +755,9 @@ void FeatureTracker::prewarmForTracker()
 			dummy_pts0.emplace_back(features0(1, i), features0(2, i));
 		}
 		ROS_DEBUG("prewarm xfeat cost %f ms, detect %d features.", tic_1.toc(), dummy0PtsSize);
+		feature_detector->setDetectPointThreshold(origin_thresh);
 	}
-
+	
 	//prewarm for opticalflow
 	TicToc tic_3;
 	cv::cuda::GpuMat cur_gpu_img(dummyImage0);
@@ -767,6 +770,9 @@ void FeatureTracker::prewarmForTracker()
 	d_pyrLK_sparse->calc(cur_gpu_img, right_gpu_Img, cur_gpu_pts, cur_right_gpu_pts, gpu_status);
 	ROS_DEBUG("prewarm opticalflow cost %f ms.", tic_3.toc());
 	std::cout << "Prewarm for feature tracker completed!" << std::endl;
+	// cv::cvtColor(dummyImage0, dummyImage0, cv::COLOR_GRAY2RGB);
+	// cv::imshow("dummy", dummyImage0);
+    // cv::waitKey(0);
 }
 
 cv::Mat FeatureTracker::getTrackImage()

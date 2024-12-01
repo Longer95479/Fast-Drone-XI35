@@ -41,6 +41,14 @@ public:
 		right_pts_velocity.reserve(400);
 		prev_ids.reserve(400);
 		cur_ids.reserve(400);
+		
+		cur_heatmap = new float[640*480];
+		cur_desc = new float[64*80*60];
+	}
+	~FeatureTracker()
+	{
+		delete[] cur_heatmap;
+		delete[] cur_desc;
 	}
 	void readIntrinsicParameter();
 	void readConfigParameter(const string &config_file, const string &model_prefix_path, const string &plugin_path="");
@@ -75,8 +83,8 @@ public:
 	cv::Mat prev_img, cur_img, right_img;
 
 	vector<cv::Point2f> prev_pts, cur_pts, cur_right_pts;
-	Eigen::Matrix<float, 259, Eigen::Dynamic> prev_features, cur_features, cur_right_features;
-	Eigen::Matrix<float, 67, Eigen::Dynamic> prev_xfeatures, cur_xfeatures, cur_right_xfeatures;
+	Eigen::Matrix<float, 259, Eigen::Dynamic> prev_features, cur_features, cur_right_features;//superpoint features
+	Eigen::Matrix<float, 67, Eigen::Dynamic> prev_xfeatures, cur_xfeatures, cur_right_xfeatures;//xfeat features
 
 	vector<cv::Point2f> prev_un_pts, cur_un_pts, cur_un_right_pts;
 	vector<cv::Point2f> pts_velocity, right_pts_velocity;
@@ -95,6 +103,8 @@ public:
 
 	vector<camodocal::CameraPtr> m_camera;
 	FeatureTrackerConfig feature_tracker_config;
+
+	float  *cur_heatmap, *cur_desc;
 
 	cv::Mat mask;
 	cv::Mat imTrack;

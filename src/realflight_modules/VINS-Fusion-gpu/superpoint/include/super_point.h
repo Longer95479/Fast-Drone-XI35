@@ -28,7 +28,8 @@ public:
     void save_engine();
 
     bool deserialize_engine();
-
+    
+    SuperPointConfig super_point_config_;
 private:
     int input_width;
     int input_height;
@@ -37,7 +38,6 @@ private:
     float w_scale;
     float h_scale; 
 
-    SuperPointConfig super_point_config_;
     nvinfer1::Dims input_dims_{};
     nvinfer1::Dims semi_dims_{};
     nvinfer1::Dims desc_dims_{};

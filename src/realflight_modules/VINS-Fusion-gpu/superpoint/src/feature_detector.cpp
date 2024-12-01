@@ -56,6 +56,17 @@ FeatureDetector::FeatureDetector(const PLNetConfig& plnet_config) : _plnet_confi
 	}
 	#endif
 }
+bool FeatureDetector::DetectHDUseXfeat(cv::Mat& image, float* heatmap, float* descriptors)
+{
+	bool good_infer = false;
+	if(_plnet_config.use_superpoint == 2)
+	{
+		good_infer = _xfeat->infer_origin(image, heatmap, descriptors);
+	}
+	if(!good_infer)
+		std::cout << "Failed when extracting heatmap, descriptors !" << std::endl;
+	return good_infer; 
+}
 
 bool FeatureDetector::DetectUseXfeat(cv::Mat& image, Eigen::Matrix<float, 67, Eigen::Dynamic> &features){
 	bool good_infer = false;
@@ -161,4 +172,22 @@ void FeatureDetector::prewarmInference()
 int FeatureDetector::getDetectNetworkType()
 {
 	return _plnet_config.use_superpoint;
+}
+
+double FeatureDetector::getDetectPointThreshold()
+{
+	if(getDetectNetworkType() == 1)
+		return _superpoint->super_point_config_.keypoint_threshold;
+	else if(getDetectNetworkType() == 2)
+		return _xfeat->xfeat_config_.keypoint_threshold;
+	else
+		return 0;
+}
+
+void FeatureDetector::setDetectPointThreshold(double new_thresh)
+{
+	if(getDetectNetworkType() == 1)
+		_superpoint->super_point_config_.keypoint_threshold = new_thresh;
+	else if(getDetectNetworkType() == 2)
+		_xfeat->xfeat_config_.keypoint_threshold = new_thresh;
 }

@@ -118,9 +118,9 @@ plnet:
     use_opticalflow: 1 #0：匹配使用lightglue 1：使用光流
     use_superpoint: 2   #1: superpoint 2: xfeat
     max_keypoints: 250  #200
-    keypoint_threshold: 0.08 #0.004 0.001 for superpoint 
+    keypoint_threshold: 0.1 #0.004 0.001 for superpoint 0.05 ~ 0.1for xfeat
     remove_borders: 4
-    dist_thresh: 16 #nms dist
+    dist_thresh: 20 #nms dist
     line_threshold: 0.75
     line_length_threshold: 50
     pub_freq: 15
@@ -128,7 +128,7 @@ plnet:
     use_opticalflow_stereo: 1 #0：左右目匹配使用superpoint+lightglue 1：左右目匹配使用光流，
 
     of_max_cnt: 200 # max feature number in feature tracking for opticalflow
-    of_min_dist: 20 # min distance between two features for opticalflow
+    of_min_dist: 20 # min distance between two features for opticalflow 光流nms半径
 
     superpoint_onnx_model: "superpoint_v1_sim_int32.onnx"
     superpoint_trt_model: "superpoint_v1_sim_int32.engine"
