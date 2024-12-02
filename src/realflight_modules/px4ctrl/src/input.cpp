@@ -258,6 +258,7 @@ Battery_Data_t::Battery_Data_t()
 
 void Battery_Data_t::feed(sensor_msgs::BatteryStateConstPtr pMsg)
 {
+    static bool lpf_init = false;
 
     msg = *pMsg;
     rcv_stamp = ros::Time::now();
@@ -267,7 +268,13 @@ void Battery_Data_t::feed(sensor_msgs::BatteryStateConstPtr pMsg)
     {
         voltage += pMsg->cell_voltage[i];
     }
-    volt = 0.8 * volt + 0.2 * voltage; // Naive LPF, cell_voltage has a higher frequency
+    if (!lpf_init) {
+        volt = voltage;
+	lpf_init = true;
+    }
+    else {
+        volt = 0.8 * volt + 0.2 * voltage; // Naive LPF, cell_voltage has a higher frequency
+    }
 
     // volt = 0.8 * volt + 0.2 * pMsg->voltage; // Naive LPF
     percentage = pMsg->percentage;

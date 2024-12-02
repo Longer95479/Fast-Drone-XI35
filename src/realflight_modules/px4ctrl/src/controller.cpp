@@ -1,4 +1,6 @@
 #include "controller.h"
+#include "input.h"
+#include "PX4CtrlFSM.h"
 
 using namespace std;
 
@@ -32,6 +34,11 @@ LinearControl::calculateControl(const Desired_State_t &des,
       Eigen::Vector3d des_vel_fb, des_acc_fb;
       Eigen::Vector3d vel_inte_part, vel_diff_part;
       static Eigen::Vector3d err_v_inte, delta_err_v, last_err_v;
+     
+      // Low pass filter for deriverte part
+      static bool lpf_init = false;
+      static double a = 0.56;
+      static Eigen::Vector3d delta_err_v_lpf; 
 
       Kp << param_.gain.Kp0, param_.gain.Kp1, param_.gain.Kp2;
       Kv << param_.gain.Kv0, param_.gain.Kv1, param_.gain.Kv2;
@@ -50,9 +57,18 @@ LinearControl::calculateControl(const Desired_State_t &des,
         else if (vel_inte_part(i) < -6.0)
           vel_inte_part(i) = -6.0;
       }
+
       delta_err_v = err_v - last_err_v;
       last_err_v = err_v;
-      vel_diff_part = Kvd.asDiagonal() * delta_err_v;
+      if (!lpf_init) {
+        lpf_init = true;
+	delta_err_v_lpf = delta_err_v;
+      }
+      else {
+        delta_err_v_lpf = a * delta_err_v + (1 - a)* delta_err_v_lpf;
+      }
+      vel_diff_part = Kvd.asDiagonal() * delta_err_v_lpf;
+
       des_acc_fb = Kv.asDiagonal() * err_v + vel_inte_part + vel_diff_part;
 
       des_acc = des.a + des_acc_fb;
@@ -74,6 +90,11 @@ LinearControl::calculateControl(const Desired_State_t &des,
         * Eigen::AngleAxisd(pitch,Eigen::Vector3d::UnitY())
         * Eigen::AngleAxisd(roll,Eigen::Vector3d::UnitX());
       u.q = imu.q * odom.q.inverse() * q;
+      // std::cout << "imu.q:   " << imu.q.coeffs().transpose() << std::endl;
+      // std::cout << "odom.q:  " << odom.q.coeffs().transpose() << std::endl;
+      // std::cout << "q:       " << q.coeffs().transpose() << std::endl;
+      // std::cout << "u.q:     " << u.q.coeffs().transpose() << std::endl;
+      // std::cout << "=========" << std::endl;
 
 
   /* WRITE YOUR CODE HERE */
@@ -172,6 +193,55 @@ LinearControl::estimateThrustModel(
 }
 
 bool 
+LinearControl::estimateThrustModel(
+    const Eigen::Vector3d &est_a,
+    const Parameter_t &param, 
+    const Battery_Data_t &bat_data)
+{
+  ros::Time t_now = ros::Time::now();
+  while (timed_thrust_.size() >= 1)
+  {
+    // Choose data before 35~45ms ago
+    std::pair<ros::Time, double> t_t = timed_thrust_.front();
+    double time_passed = (t_now - t_t.first).toSec();
+    if (time_passed > 0.045) // 45ms
+    {
+      // printf("continue, time_passed=%f\n", time_passed);
+      timed_thrust_.pop();
+      continue;
+    }
+    if (time_passed < 0.035) // 35ms
+    {
+      // printf("skip, time_passed=%f\n", time_passed);
+      return false;
+    }
+
+    /***********************************************************/
+    /* Recursive least squares algorithm with vanishing memory */
+    /***********************************************************/
+    double thr = t_t.second;
+    timed_thrust_.pop();
+    
+    /***********************************/
+    /* Model: est_a(2) = g/mass / f(volt) * thr */
+    /***********************************/
+    double gamma = 1 / (rho2_ + thr * P_ * thr);
+    double K = gamma * P_ * thr;
+    thr2acc_ = alpha_ * param_.gra / param_.mass / volt2HoverPerOverM0(bat_data.volt);
+    alpha_ = alpha_ + K * (est_a(2) - thr * thr2acc_);
+    P_ = (1 - K * thr) * P_ / rho2_;
+    if (param_.thr_map.print_val == true) {
+      printf("%6.3f,%6.3f,%6.3f,%6.3f,%6.3f,%6.3f\n", est_a(2), thr, thr2acc_, gamma, K, P_);
+      fflush(stdout);
+    }
+
+    debug_msg_.thr_scale_compensate = thr2acc_;
+    return true;
+  }
+  return false;
+}
+
+bool 
 LinearControl::estimateThrustModelUsingVelFB(
     const Eigen::Vector3d &est_v,
     const Parameter_t &param)
@@ -225,9 +295,26 @@ LinearControl::resetThrustMapping(void)
   thr2acc_ = param_.gra / param_.thr_map.hover_percentage;
   P_ = 1e6;
 }
+	
+void LinearControl::resetThrustMapping(Battery_Data_t &bat_data)
+{
+  printf("Recieve bat volt: %f  V\n", bat_data.volt);
+
+  double volt = bat_data.volt;
+  double tmp = volt2HoverPerOverM0(volt); 
+  thr2acc_ = param_.gra / (param_.mass * tmp);
+
+  printf("hover percentage: %f\n", param_.mass * tmp);
+
+  P_ = 1e6;
+}
 
 
-
+double LinearControl::volt2HoverPerOverM0(double volt)
+{
+  double tmp = (2.0148 - 0.1009 * volt  + 0.0016 * volt * volt) / 0.89;
+  return tmp;
+}
 
 
 

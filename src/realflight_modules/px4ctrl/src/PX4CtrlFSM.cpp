@@ -117,7 +117,17 @@ void PX4CtrlFSM::process()
 			}
 
 			state = AUTO_TAKEOFF;
-			controller.resetThrustMapping();
+
+			if (!bat_is_received(now_time)) {
+			  ROS_ERROR("[px4ctrl] Don't receive bat_data.");
+                          while (!bat_is_received(now_time) && ros::ok()) {
+                            ros::Duration(0.01).sleep();
+                            ros::spinOnce();
+                          }
+			}
+			controller.resetThrustMapping(bat_data);
+			// controller.resetThrustMapping();
+
 			set_start_pose_for_takeoff_land(odom_data);
 			toggle_offboard_mode(true);				  // toggle on offboard before arm
 			for (int i = 0; i < 10 && ros::ok(); ++i) // wait for 0.1 seconds to allow mode change by FMU // mark
@@ -239,6 +249,10 @@ void PX4CtrlFSM::process()
 			state = AUTO_HOVER;
 			set_hov_with_odom();
 			ROS_INFO("\033[32m[px4ctrl] AUTO_TAKEOFF --> AUTO_HOVER(L2)\033[32m");
+			
+			ROS_INFO("odom_data.p(2): %f", odom_data.p(2));
+			ROS_INFO("takeoff_land.start_pose(2): %f", takeoff_land.start_pose(2));
+			ROS_INFO("takeoff_height: %f", param.takeoff_land.height);
 
 			takeoff_land.delay_trigger.first = true;
 			takeoff_land.delay_trigger.second = now_time + ros::Duration(AutoTakeoffLand_t::DELAY_TRIGGER_TIME);
@@ -327,6 +341,7 @@ void PX4CtrlFSM::process()
 		// controller.estimateThrustModel(imu_data.a, param);
 		// controller.estimateThrustModelUsingVelFB(odom_data.v, param);
 		controller.estimateThrustModel(imu_acc_lpf, param);
+		// controller.estimateThrustModel(imu_acc_lpf, param, bat_data);
 
 	}
 
@@ -476,7 +491,7 @@ Desired_State_t PX4CtrlFSM::get_takeoff_land_des(const double speed)
 	des.p = takeoff_land.start_pose.head<3>() + Eigen::Vector3d(0, 0, speed * delta_t);
 	des.v = Eigen::Vector3d(0, 0, speed);
 	if (speed > 0) {
-		double des_a_z = (delta_t < AutoTakeoffLand_t::TAKEOFF_SPEEDUP_TIME) ? (0.02 * 9.81 * sin(M_PI/AutoTakeoffLand_t::TAKEOFF_SPEEDUP_TIME * delta_t)) : 0;
+		double des_a_z = (delta_t < AutoTakeoffLand_t::TAKEOFF_SPEEDUP_TIME) ? (0.01 * 9.81 * sin(M_PI/AutoTakeoffLand_t::TAKEOFF_SPEEDUP_TIME * delta_t)) : 0;
 		des.a = Eigen::Vector3d(0, 0, des_a_z);
 	}
 	else {
@@ -693,7 +708,7 @@ void PX4CtrlFSM::LPF_imu_a(Eigen::Vector3d &imu_data_acc)
 
 		b_lpf = 2 * 3.1415926 * param.thr_map.imu_acc_lpf_freq_cutoff / param.ctrl_freq_max;
 		a_lpf = b_lpf / (1 + b_lpf);
-		printf("%6.3f,%6.3f\n", param.thr_map.imu_acc_lpf_freq_cutoff, a_lpf);	
+		printf("lpf_freq_cutoff: %6.3f, a_lpf: %6.3f\n", param.thr_map.imu_acc_lpf_freq_cutoff, a_lpf);	
 
 		imu_acc_lpf = imu_data_acc;
 		flag_init_imu_acc_lpf = true;

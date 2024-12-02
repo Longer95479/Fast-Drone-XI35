@@ -54,15 +54,23 @@ class LinearControl
 {
 public:
   LinearControl(Parameter_t &);
+
   quadrotor_msgs::Px4ctrlDebug calculateControl(const Desired_State_t &des,
       const Odom_Data_t &odom,
       const Imu_Data_t &imu, 
       Controller_Output_t &u);
+
   bool estimateThrustModel(const Eigen::Vector3d &est_v,
       const Parameter_t &param);
   bool estimateThrustModelUsingVelFB(const Eigen::Vector3d &est_v,
     const Parameter_t &param);
+  bool estimateThrustModel(
+    const Eigen::Vector3d &est_a,
+    const Parameter_t &param, 
+    const Battery_Data_t &bat_data);
+
   void resetThrustMapping(void);
+  void resetThrustMapping(Battery_Data_t &bat_data);
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
@@ -76,10 +84,12 @@ private:
   // Thrust-accel mapping params
   const double rho2_ = 0.998; // do not change
   double thr2acc_;
+  double alpha_ = 1.0;
   double P_;
 
   double computeDesiredCollectiveThrustSignal(const Eigen::Vector3d &des_acc);
   double fromQuaternion2yaw(Eigen::Quaterniond q);
+  double volt2HoverPerOverM0(double volt);
 };
 
 
