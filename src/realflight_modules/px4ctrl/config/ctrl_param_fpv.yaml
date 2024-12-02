@@ -2,7 +2,7 @@
 # ⭐⭐⭐  Set parameters carefully for satisfied performance!   ⭐⭐⭐ #
 #########################################################################
 
-mass        : 0.8 # kg 
+mass        : 0.89 # kg 
 gra         : 9.81 
 pose_solver : 1     # 0:From ZhepeiWang (drag & less singular) 1:From ZhepeiWang, 2:From rotor-drag    
 ctrl_freq_max   : 200.0
@@ -32,7 +32,7 @@ thrust_model: # The model that maps thrust signal u(0~1) to real thrust force F(
     K2: 1.6942 # Needs precise calibration!
     K3: 0.6786 # Needs precise calibration! K3 equals THR_MDL_FAC in https://docs.px4.io/master/en/config_mc/pid_tuning_guide_multicopter.html.
     # approximate thrust mapping parameters
-    hover_percentage: 0.50  # Thrust percentage in Stabilize/Arco mode
+    hover_percentage: 0.56 # Thrust percentage in Stabilize/Arco mode
     imu_acc_lpf_freq_cutoff: 40 # imu acc raw data low pass filter cutoff frequency [Hz]
 
 gain: 
