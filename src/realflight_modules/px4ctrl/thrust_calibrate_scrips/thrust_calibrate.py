@@ -63,7 +63,7 @@ class ThrustCalibration:
             self.cmd_records = np.append(
                 self.cmd_records, np.array([np.mean(self.cmd_buf)]), axis=0)
             self.cmd_buf = np.array([])
-            print "volt=", self.volt_records[-1], " thr=", self.cmd_records[-1]
+            print("volt=", self.volt_records[-1], " thr=", self.cmd_records[-1])
 
         # Calculate calibration parameters
         if ((self.count_start_trigger_received >= 2) or 
@@ -77,7 +77,7 @@ class ThrustCalibration:
             return
 
         self.cmd_buf = np.append(self.cmd_buf, np.array([msg.thrust]), axis=0)
-        print msg.thrust
+        print (msg.thrust)
 
     def start_trigger_cb(self, msg):
 
