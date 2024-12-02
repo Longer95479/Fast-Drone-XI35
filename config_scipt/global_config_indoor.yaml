@@ -76,6 +76,11 @@ paths:
       <arg name="map_size_y" value="\d+"/>: <arg name="map_size_y" value="20"/>
       <arg name="map_size_z" value="\d+.\d+"/>: <arg name="map_size_z" value="3.0"/>
 
+      # ego planner 栅格地图的立方体的右下角坐标
+      "<arg name=\"map_origin_x\" value=\"-*\\d+.\\d+\"/>": "<arg name=\"map_origin_x\" value=\"-10.0\"/>"
+      "<arg name=\"map_origin_y\" value=\"-*\\d+.\\d+\"/>": "<arg name=\"map_origin_y\" value=\"-10.0\"/>"
+
+
       # ego planner 规划的最大速度和加速度
       "<arg name=\"max_vel\" value=\"\\d+.\\d+\" />": "<arg name=\"max_vel\" value=\"0.4\" />"
       "<arg name=\"max_acc\" value=\"\\d+.\\d+\" />": "<arg name=\"max_acc\" value=\"3.0\" />"
