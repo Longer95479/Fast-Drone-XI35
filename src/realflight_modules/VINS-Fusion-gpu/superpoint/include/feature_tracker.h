@@ -21,6 +21,7 @@
 #include "point_matcher.h"
 
 using namespace std;
+using DescV = Eigen::Matrix<float, 64, 1>;
 
 class FeatureTracker
 {
@@ -76,6 +77,14 @@ public:
 	void calTrackCnt();
 	void printTrackCnt();
 
+	void retrackThroughDescMatch(const vector<cv::Point2f>& prev_pts, vector<DescV> prev_desc, vector<cv::Point2f>& cur_pts, vector<uchar>& status);
+ 	void extractDescriptors(const vector<cv::Point2f>& pts, vector<DescV>& descs);
+	void extractSquareROIPtsDesc(const cv::Point2f& ori_pt, int half_len, vector<cv::Point2f>& pts, vector<DescV>& descs);
+	pair<int, float> matchSingleDesc(const DescV& target_desc, vector<DescV>& descs);
+	void extractKeyPoints(vector<cv::Point2f>& new_pts);
+	vector<int> sort_indexes(vector<float> &data);
+	vector<std::pair<int, cv::Point2f>> nms_process(const vector<cv::Point2f>& pts, const vector<int>& sorted_idx, float dist_thresh);
+
 
 	FeatureDetectorPtr feature_detector;
 	PointMatcherPtr point_matcher;
@@ -85,6 +94,8 @@ public:
 	vector<cv::Point2f> prev_pts, cur_pts, cur_right_pts;
 	Eigen::Matrix<float, 259, Eigen::Dynamic> prev_features, cur_features, cur_right_features;//superpoint features
 	Eigen::Matrix<float, 67, Eigen::Dynamic> prev_xfeatures, cur_xfeatures, cur_right_xfeatures;//xfeat features
+
+	vector<DescV> prev_xdesc;
 
 	vector<cv::Point2f> prev_un_pts, cur_un_pts, cur_un_right_pts;
 	vector<cv::Point2f> pts_velocity, right_pts_velocity;
@@ -104,8 +115,9 @@ public:
 	vector<camodocal::CameraPtr> m_camera;
 	FeatureTrackerConfig feature_tracker_config;
 
-	float  *cur_heatmap, *cur_desc;
+	float *cur_heatmap = nullptr, *cur_desc = nullptr;
 
+	tarckAssistArg track_assist_args;
 	cv::Mat mask;
 	cv::Mat imTrack;
 	long n_id;

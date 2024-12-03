@@ -56,6 +56,7 @@ FeatureDetector::FeatureDetector(const PLNetConfig& plnet_config) : _plnet_confi
 	}
 	#endif
 }
+//直接获取heatmap和描述子特征图，heatmap和descriptors需要提前分配好内存
 bool FeatureDetector::DetectHDUseXfeat(cv::Mat& image, float* heatmap, float* descriptors)
 {
 	bool good_infer = false;

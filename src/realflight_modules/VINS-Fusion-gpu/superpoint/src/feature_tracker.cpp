@@ -20,6 +20,11 @@ void reduceVector(vector<T> &v, vector<uchar> status)
     v.resize(j);
 }
 
+int clip(int val, int max) {
+  if (val < 0) return 0;
+  return std::min(val, max - 1);
+}
+
 bool FeatureTracker::inBorder(const cv::Point2f &pt)
 {
     int BORDER_SIZE = feature_tracker_config.borders;
@@ -158,6 +163,271 @@ void FeatureTracker::addPoints()
     }
 }
 
+vector<int> FeatureTracker::sort_indexes(vector<float> &data)
+{
+	std::vector<int> indexes(data.size());
+	iota(indexes.begin(), indexes.end(), 0);
+	sort(indexes.begin(), indexes.end(), [&data](int i1, int i2) { return data[i1] > data[i2]; });
+	return indexes;
+}
+//基于网格划分实现nms
+vector<std::pair<int, cv::Point2f>> FeatureTracker::nms_process(const vector<cv::Point2f>& pts, const vector<int>& sorted_idx, float dist_thresh)
+{
+	int grid_size = dist_thresh;
+    std::unordered_map<int64, std::vector<int>> grid_umap;
+    auto grid_id = [&](int x, int y) -> int64{return static_cast<int64>(x) << 32 | (y & 0xFFFFFFFF);};
+    //construct umap
+    for(int i = 0; i < sorted_idx.size(); i++)
+    {
+        int grid_x = static_cast<int>(std::floor(pts[sorted_idx[i]].x / grid_size));
+        int grid_y = static_cast<int>(std::floor(pts[sorted_idx[i]].y / grid_size));
+        grid_umap[grid_id(grid_x, grid_y)].push_back(sorted_idx[i]);
+    }
+
+    std::vector<bool> suppressed(pts.size(), false);
+    std::vector<std::pair<int, cv::Point2f>> id_pts;
+    for(int i = 0; i < sorted_idx.size(); i++)
+    {
+		int cur_idx = sorted_idx[i];
+        if(suppressed[cur_idx])
+            continue;
+        int grid_x = static_cast<int>(std::floor(pts[cur_idx].x / grid_size));
+        int grid_y = static_cast<int>(std::floor(pts[cur_idx].y / grid_size));
+        for(int dx = -1; dx <= 1; dx++)
+        {
+            for(int dy = -1; dy <= 1; dy++)
+            {
+                int neighbor_x = grid_x + dx;
+                int neighbor_y = grid_y + dy;
+                if(grid_umap.find(grid_id(neighbor_x, neighbor_y)) == grid_umap.end())
+                    continue;
+                for(auto index : grid_umap[grid_id(neighbor_x, neighbor_y)])
+                {
+                    if(suppressed[index])
+                        continue;
+                    if(cv::norm(pts[cur_idx] - pts[index]) < dist_thresh)
+                        suppressed[index] = true;
+                }
+            }
+        }
+        id_pts.emplace_back(cur_idx, pts[cur_idx]);
+    }
+    return id_pts;
+}
+
+//从heatmap中提取特征点
+void FeatureTracker::extractKeyPoints(vector<cv::Point2f>& new_pts)
+{
+	new_pts.clear();
+	std::vector<float> scores_v;
+	std::vector<cv::Point2f> kpts;
+
+	scores_v.reserve(feature_tracker_config.max_cnt * 4);
+	kpts.reserve(feature_tracker_config.max_cnt * 4);
+	int w = feature_tracker_config.col;
+	int h = feature_tracker_config.row;
+	
+	int heat_map_size = w * h;
+
+	int min_x = feature_tracker_config.borders;
+	int min_y = feature_tracker_config.borders;
+	int max_x = w - feature_tracker_config.borders;
+	int max_y = h - feature_tracker_config.borders;
+
+	for(int i = 0; i < heat_map_size; ++i)
+	{
+		if(*(cur_heatmap+i) < feature_tracker_config.new_kpts_threshold) continue;
+
+		int y = int(i / w);
+		int x = i - y * w;
+
+		if(x < min_x || x > max_x || y < min_y || y > max_y) continue;
+
+		scores_v.push_back(*(cur_heatmap+i));
+		kpts.emplace_back(float(x), float(y));
+	}
+	std::vector<int> indexes = sort_indexes(scores_v);
+	if(scores_v.size() > feature_tracker_config.max_cnt)
+	{
+		indexes.resize(feature_tracker_config.max_cnt);
+	}
+    ROS_DEBUG("xp: detect %d points", indexes.size());
+	auto id_pts_reserved = nms_process(kpts, indexes, feature_tracker_config.nms_threshold);
+	int reserved_size = id_pts_reserved.size();
+	for (auto &id_pt : id_pts_reserved) 
+	{
+		new_pts.push_back(id_pt.second);
+	}
+    ROS_DEBUG("xp: %d points reserved after nms.", reserved_size);
+}
+
+//将目标描述子与一堆描述子进行匹配，返回匹配上的描述子id，若为-1表示没有匹配点
+pair<int, float> FeatureTracker::matchSingleDesc(const DescV& target_desc, vector<DescV>& descs)
+{
+	float max_cosm = static_cast<float>(track_assist_args.min_match_dist);
+	int match_id = -1;
+	for(int i = 0; i < descs.size(); i++)
+	{
+		DescV candi_desc = descs[i];
+		float cos_dist = target_desc.transpose() * candi_desc;
+		if(cos_dist > max_cosm)
+		{
+			max_cosm = cos_dist;
+			match_id = i;
+		}
+	}
+	return pair<int, float>(match_id, max_cosm);
+}
+
+//提取特征点的描述子
+void FeatureTracker::extractDescriptors(const vector<cv::Point2f>& pts, vector<DescV>& descs)
+{
+	if(!descs.empty())
+		descs.clear();
+	int w = feature_tracker_config.col / 8;
+	int h = feature_tracker_config.row / 8;
+	int s = 8;
+	float sx = 2.f / (w * s - s / 2 - 0.5);
+	float bx = (1 - s) / (w * s - s / 2 - 0.5) - 1;
+
+	float sy = 2.f / (h * s - s / 2 - 0.5);
+	float by = (1 - s) / (h * s - s / 2 - 0.5) - 1;
+
+	vector<cv::Point2f> pts_norm;
+	for(int i = 0; i < pts.size(); i++)
+	{
+		float norm_x = (pts[i].x * sx + bx + 1) * 0.5;
+		float norm_y = (pts[i].y * sy + by + 1) * 0.5;
+		pts_norm.emplace_back(norm_x, norm_y);
+	}
+
+	for(int j = 0; j < pts_norm.size(); ++j)
+	{
+		float ix = pts_norm[j].x * (w - 1);
+		float iy = pts_norm[j].y * (h - 1);
+
+		int ix_nw = clip(std::floor(ix), w);
+		int iy_nw = clip(std::floor(iy), h);
+
+		int ix_ne = clip(ix_nw + 1, w);
+		int iy_ne = clip(iy_nw, h);
+
+		int ix_sw = clip(ix_nw, w);
+		int iy_sw = clip(iy_nw + 1, h);
+
+		int ix_se = clip(ix_nw + 1, w);
+		int iy_se = clip(iy_nw + 1, h);
+
+		float nw = (ix_se - ix) * (iy_se - iy);
+		float ne = (ix - ix_sw) * (iy_sw - iy);
+		float sw = (ix_ne - ix) * (iy - iy_ne);
+		float se = (ix - ix_nw) * (iy - iy_nw);
+
+		DescV desc;
+		for (int i = 0; i < 64; ++i) 
+		{
+		// x * height * depth + y * depth + z
+		float nw_val = cur_desc[i * h * w + iy_nw * w + ix_nw];
+		float ne_val = cur_desc[i * h * w + iy_ne * w + ix_ne];
+		float sw_val = cur_desc[i * h * w + iy_sw * w + ix_sw];
+		float se_val = cur_desc[i * h * w + iy_se * w + ix_se];
+		desc(i,0) = nw_val * nw + ne_val * ne + sw_val * sw + se_val * se;
+		//features(i+3, j) = nw_val * nw + ne_val * ne + sw_val * sw + se_val * se;
+		}
+		desc.colwise().normalize();
+		descs.push_back(desc);
+  	}
+}
+
+//提取目标ROI的特征点和描述子
+void FeatureTracker::extractSquareROIPtsDesc(const cv::Point2f& ori_pt, int half_len, vector<cv::Point2f>& pts, vector<DescV>& descs)
+{
+	if(cur_heatmap == nullptr || cur_desc == nullptr)
+		return;
+	int w = feature_tracker_config.col;
+	int h = feature_tracker_config.row;
+	int ori_x = std::floor(ori_pt.x);
+	int ori_y = std::floor(ori_pt.y);
+	int min_x = feature_tracker_config.borders;
+	int min_y = feature_tracker_config.borders;;
+	int max_x = w - feature_tracker_config.borders;
+	int max_y = h - feature_tracker_config.borders;
+	//extract pts
+	for(int i = ori_x - half_len; i <= ori_x + half_len; i++)
+	{
+		for(int j = ori_y - half_len; j <= ori_y + half_len; j++)
+		{
+			if(i < min_x || i > max_x || j < min_y || j > max_y) continue;
+			if(cur_heatmap[j * w + i] > track_assist_args.roi_pts_threshold)
+				pts.emplace_back(float(i), float(j));
+		}
+	}
+	//extract desc
+	extractDescriptors(pts, descs);
+}
+//基于描述子匹配实现重追踪，输入光流追踪结果，输出重追踪后的当前帧特征点和status
+void FeatureTracker::retrackThroughDescMatch(const vector<cv::Point2f>& prev_pts, vector<DescV> prev_desc, vector<cv::Point2f>& cur_pts, vector<uchar>& status)
+{
+	ROS_ASSERT((prev_pts.szie() == cur_pts.size()) && (prev_pts.size() == status.size()));
+	int retarck_counts = 0;
+	for(int i = 0; i < status.size(); i++)
+	{
+		if(status[i]) continue;
+		int f_id = i;
+		ROS_DEBUG("retrack: retrack for ptId-%d start.", f_id);
+		//find the nearest point
+		double nearest_dist = -1;
+		int nearest_id = -1;
+		for(int j = 0; j < status.size(); j++)
+		{
+			if(!status[j] || j == f_id) continue;
+			double cur_dist = distance(prev_pts[f_id], prev_pts[j]);
+			if(nearest_dist == -1)
+			{
+				nearest_dist = cur_dist;
+				nearest_id = j;
+			}
+			else
+			{
+				if(cur_dist < nearest_dist)
+				{
+					nearest_dist = cur_dist;
+					nearest_id = j;
+				}
+			}
+		}
+		if(nearest_dist < 0 || nearest_id < 0 || nearest_dist > track_assist_args.max_search_dist)
+			continue;
+		ROS_DEBUG("retrack: find nearest point: (%f, %f).", prev_pts[nearest_id].x, prev_pts[nearest_id].y);
+		//predict the cur point
+		cv::Point2f predict_pt;
+		float nearest_x_shift = cur_pts[nearest_id].x - prev_pts[nearest_id].x;
+		float nearest_y_shift = cur_pts[nearest_id].y - prev_pts[nearest_id].y;
+		predict_pt.x = prev_pts[f_id].x + nearest_x_shift;
+		predict_pt.y = prev_pts[f_id].y + nearest_y_shift;
+		if(!inBorder(predict_pt)) continue;
+		ROS_DEBUG("retrack: find predict point: (%f, %f) ===> (%f, %f)", prev_pts[f_id].x, prev_pts[f_id].y, predict_pt.x, predict_pt.y);
+
+		//set ROI, extract pts and descs
+		int roi_half_len = static_cast<int>(track_assist_args.max_roi_len / 2);
+		vector<cv::Point2f> candi_pts;
+		vector<DescV> candi_desc;
+		extractSquareROIPtsDesc(predict_pt, roi_half_len, candi_pts, candi_desc);
+		ROS_DEBUG("retrack: find %d candi_pts.", candi_pts.size());
+
+		//match the candidate
+		DescV target_desc = prev_desc[f_id];
+		auto match_id_score = matchSingleDesc(target_desc, candi_desc);
+		if(match_id_score.first < 0) continue;
+		cur_pts[f_id] = candi_pts[match_id_score.first];
+		status[f_id] = true;
+		retarck_counts ++;
+		ROS_DEBUG("retrack: match candidates successfully, the match score is %f.", match_id_score.second);
+	}
+	ROS_DEBUG("retrack: retracked %d points.", retarck_counts);
+}
+
+//cnn提取特征点+光流
 void FeatureTracker::track_img_use_opticalflow(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1)
 {
 	cur_time = _cur_time;
@@ -165,6 +435,8 @@ void FeatureTracker::track_img_use_opticalflow(double _cur_time, const cv::Mat &
 	cur_pts.clear();
 	cur_features.setZero();
 	cout << "*********** current frame ***********" << endl;
+	if(feature_tracker_config.use_retrack)
+		feature_detector->DetectHDUseXfeat(cur_img, cur_heatmap, cur_desc);
 	if(prev_pts.size() > 0)
 	{
 		vector<uchar> status;
@@ -196,15 +468,26 @@ void FeatureTracker::track_img_use_opticalflow(double _cur_time, const cv::Mat &
 		vector<uchar> reverse_status(reverse_gpu_status.cols);
 		reverse_gpu_status.download(reverse_status);
 
+		int tracked_counts = 0;
 		for(size_t i = 0; i < status.size(); i++)
 		{
 			if(status[i] && reverse_status[i] && distance(prev_pts[i], reverse_pts[i]) <= 0.5)
 			{
 				status[i] = 1;
+				tracked_counts++;
 			}
 			else
 				status[i] = 0;
 		}
+		ROS_DEBUG("opticalflow for left image  tracked %d features, cost %f ms", tracked_counts, t_og.toc());
+		//retrack
+		if(feature_tracker_config.use_retrack)
+		{	
+			TicToc tic_rt;
+			retrackThroughDescMatch(prev_pts, prev_xdesc, cur_pts, status);
+			ROS_DEBUG("retrack cost %lf ms.", tic_rt.toc());
+		}
+
 		for (int i = 0; i < int(cur_pts.size()); i++)
         	if (status[i] && !inBorder(cur_pts[i]))
                 status[i] = 0;
@@ -220,33 +503,42 @@ void FeatureTracker::track_img_use_opticalflow(double _cur_time, const cv::Mat &
 	//add new points
 	int n_max_cnt = feature_tracker_config.of_max_cnt - static_cast<int>(cur_pts.size());
 	if(n_max_cnt > 0)
-	{
-		//extract features
-		Eigen::Matrix<float, 2, Eigen::Dynamic> new_pts;
+	{	//extract features
+		vector<cv::Point2f> new_pts_v;
 		int new_pts_num = 0;
-		if(feature_detector->getDetectNetworkType() == 2)
-		{//xfeat
-			feature_detector->DetectUseXfeat(cur_img, cur_xfeatures);
-			new_pts_num = cur_xfeatures.cols();
-			new_pts.resize(2, new_pts_num);
-			new_pts = cur_xfeatures.block(1, 0, 2, new_pts_num);
+		if(feature_tracker_config.use_retrack)
+		{//retrack模式下，已经提取过heatmap
+			extractKeyPoints(new_pts_v);
+			new_pts_num = new_pts_v.size();
 		}
 		else
-		{//superpoint
-			feature_detector->Detect(cur_img, cur_features);
-			new_pts_num = cur_features.cols();
-			new_pts.resize(2, new_pts_num);
-			new_pts = cur_features.block(1, 0, 2, new_pts_num);
+		{
+			Eigen::Matrix<float, 2, Eigen::Dynamic> new_pts;
+			if(feature_detector->getDetectNetworkType() == 2)
+			{//xfeat
+				feature_detector->DetectUseXfeat(cur_img, cur_xfeatures);
+				new_pts_num = cur_xfeatures.cols();
+				new_pts.resize(2, new_pts_num);
+				new_pts = cur_xfeatures.block(1, 0, 2, new_pts_num);
+			}
+			else
+			{//superpoint
+				feature_detector->Detect(cur_img, cur_features);
+				new_pts_num = cur_features.cols();
+				new_pts.resize(2, new_pts_num);
+				new_pts = cur_features.block(1, 0, 2, new_pts_num);
+			}
+			for(int i = 0; i < new_pts_num; i++)
+				new_pts_v.emplace_back(new_pts(0, i), new_pts(1, i));
 		}
 		//add features
 		int add_pts_nums = 0;
 		n_pts.clear();
 		for(int i = 0; i < new_pts_num && add_pts_nums < n_max_cnt; i++)
 		{
-			cv::Point2f n_pt(new_pts(0, i), new_pts(1, i));
-			if(mask.at<uchar>(n_pt) == 255)
+			if(mask.at<uchar>(new_pts_v[i]) == 255)
 			{
-				n_pts.push_back(n_pt);
+				n_pts.push_back(new_pts_v[i]);
 				add_pts_nums++;
 			}
 		}
@@ -334,6 +626,11 @@ void FeatureTracker::track_img_use_opticalflow(double _cur_time, const cv::Mat &
     prevLeftPtsMap.clear();
     for(size_t i = 0; i < cur_pts.size(); i++)
         prevLeftPtsMap[cur_ids[i]] = cur_pts[i];
+	//update descriptors
+	if(feature_tracker_config.use_retrack)
+	{
+		extractDescriptors(prev_pts, prev_xdesc);
+	}
 }
 
 void FeatureTracker::track_img(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1)
@@ -694,6 +991,8 @@ void FeatureTracker::readConfigParameter(const string &config_file, const string
 	if(!plugin_path.empty())
 		point_matcher_config.setPluginPath(plugin_path);
 	point_matcher = make_shared<PointMatcher>(point_matcher_config);
+	//tracker assist config
+	track_assist_args.load(config_file);
 	// //prewarm
 	// feature_detector->prewarmInference();
 	// point_matcher->prewarmInference();
@@ -818,4 +1117,20 @@ void FeatureTracker::printTrackCnt()
     }
     std::cout << "good track cnt is " << good_track_cnt << std::endl;
     //std::cout << "current track cnt: " << cnt_str << ", good track cnt is "<< good_track_cnt << std::endl;
+	//record cur_pts.size() to csv
+	if(feature_tracker_config.record_csv)
+	{
+		if(!feature_tracker_config.csv_file_path.empty())
+		{
+			std::ofstream ofs;
+			ofs.open(feature_tracker_config.csv_file_path, std::ios_base::app);
+			if(ofs.is_open())
+			{
+				ofs << cur_time << " ";
+				ofs << cur_pts.size() << " ";
+				ofs << good_track_cnt << "\n";
+				ofs.close();
+			}
+		}
+	}
 }

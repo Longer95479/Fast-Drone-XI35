@@ -263,7 +263,7 @@ std::vector<int> Xfeat::sort_indexes(std::vector<float> &data) {
   sort(indexes.begin(), indexes.end(), [&data](int i1, int i2) { return data[i1] > data[i2]; });
   return indexes;
 }
-//nms
+//nms based grid
 std::vector<std::pair<int, cv::Point2f>> Xfeat::nms_process(const std::vector<cv::Point2f>& pts, const std::vector<int>& sorted_idx, float dist_thresh)
 {   
     int grid_size = dist_thresh;

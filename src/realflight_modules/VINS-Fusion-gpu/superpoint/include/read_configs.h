@@ -45,6 +45,11 @@ struct FeatureTrackerConfig
 		of_min_dist = fsSettings["plnet"]["of_min_dist"];
 		of_max_cnt = fsSettings["plnet"]["of_max_cnt"];
 		F_threshold = fsSettings["point_matcher"]["fsSettings"];
+		use_retrack = fsSettings["plnet"]["use_retrack"];
+		new_kpts_threshold = fsSettings["plnet"]["keypoint_threshold"];
+		nms_threshold = fsSettings["plnet"]["dist_thresh"];
+		record_csv = fsSettings["plnet"]["record_csv"];
+		fsSettings["plnet"]["csv_file_path"] >> csv_file_path;
 	}
 
 	std::string image0_topic, image1_topic;
@@ -59,6 +64,11 @@ struct FeatureTrackerConfig
 	int of_min_dist;
 	int of_max_cnt;
 	double F_threshold;
+	int use_retrack;
+	float new_kpts_threshold;
+	float nms_threshold;
+	int record_csv;
+	std::string csv_file_path;
 };
 
 struct PLNetConfig
@@ -155,6 +165,30 @@ struct XfeatConfig
 	std::vector<std::string> output_tensor_names;
 	std::string onnx_file;
 	std::string engine_file;
+};
+
+struct tarckAssistArg
+{
+	void load(const std::string &config_file)
+	{
+		FILE *fh = fopen(config_file.c_str(), "r");
+		if(fh == NULL)
+		{
+			ROS_WARN("config file does not exist; wrong file path");
+			ROS_BREAK();
+			return;
+		}
+		cv::FileStorage fsSettings(config_file, cv::FileStorage::READ);
+
+		max_search_dist = fsSettings["xfeat_opticalflow"]["max_search_dist"];
+		max_roi_len = fsSettings["xfeat_opticalflow"]["max_roi_len"];
+		min_match_dist = fsSettings["xfeat_opticalflow"]["min_match_dist"];
+		roi_pts_threshold = fsSettings["xfeat_opticalflow"]["roi_pts_threshold"];
+	}
+	double max_search_dist;
+	double max_roi_len;
+	double min_match_dist;
+	double roi_pts_threshold;
 };
 
 struct PointMatcherConfig 
