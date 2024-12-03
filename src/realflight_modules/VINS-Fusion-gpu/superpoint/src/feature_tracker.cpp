@@ -369,12 +369,14 @@ void FeatureTracker::extractSquareROIPtsDesc(const cv::Point2f& ori_pt, int half
 void FeatureTracker::retrackThroughDescMatch(const vector<cv::Point2f>& prev_pts, vector<DescV> prev_desc, vector<cv::Point2f>& cur_pts, vector<uchar>& status)
 {
 	ROS_ASSERT((prev_pts.szie() == cur_pts.size()) && (prev_pts.size() == status.size()));
-	int retarck_counts = 0;
+	int retarck_counts = 0, untrack_counts = 0;
+	retrack_ids.clear();//记录重跟踪成功的特征点id
 	for(int i = 0; i < status.size(); i++)
 	{
 		if(status[i]) continue;
+		untrack_counts++;
 		int f_id = i;
-		ROS_DEBUG("retrack: retrack for ptId-%d start.", f_id);
+		ROS_DEBUG("retrack: retrack for ptId-%d start.", cur_ids[f_id]);
 		//find the nearest point
 		double nearest_dist = -1;
 		int nearest_id = -1;
@@ -422,9 +424,10 @@ void FeatureTracker::retrackThroughDescMatch(const vector<cv::Point2f>& prev_pts
 		cur_pts[f_id] = candi_pts[match_id_score.first];
 		status[f_id] = true;
 		retarck_counts ++;
+		retrack_ids.insert(cur_ids[f_id]);
 		ROS_DEBUG("retrack: match candidates successfully, the match score is %f.", match_id_score.second);
 	}
-	ROS_DEBUG("retrack: retracked %d points.", retarck_counts);
+	ROS_DEBUG("retrack: retracked %d points. %d -> %d, %f", retarck_counts, untrack_counts, retarck_counts, float(retarck_counts) / float(untrack_counts));
 }
 
 //cnn提取特征点+光流
@@ -434,7 +437,7 @@ void FeatureTracker::track_img_use_opticalflow(double _cur_time, const cv::Mat &
 	cur_img = _img;
 	cur_pts.clear();
 	cur_features.setZero();
-	cout << "*********** current frame ***********" << endl;
+	cout << "*********** current frame ***********" << cur_time << endl;
 	if(feature_tracker_config.use_retrack)
 		feature_detector->DetectHDUseXfeat(cur_img, cur_heatmap, cur_desc);
 	if(prev_pts.size() > 0)
@@ -615,7 +618,7 @@ void FeatureTracker::track_img_use_opticalflow(double _cur_time, const cv::Mat &
 	}
 	//draw
 	if(feature_tracker_config.show_track)
-		DrawOpticalFlow(cur_img, right_img, cur_ids, cur_pts, cur_right_pts, prevLeftPtsMap);
+		DrawOpticalFlow(cur_img, right_img, cur_ids, cur_pts, cur_right_pts, prevLeftPtsMap, retrack_ids);
 	printTrackCnt();
 	prev_img = cur_img;
     prev_pts = cur_pts;
@@ -922,7 +925,8 @@ void FeatureTracker::DrawOpticalFlow(const cv::Mat &imLeft, const cv::Mat &imRig
                                vector<int> &curLeftIds,
                                vector<cv::Point2f> &curLeftPts, 
                                vector<cv::Point2f> &curRightPts,
-                               map<int, cv::Point2f> &prevLeftPtsMap)
+                               map<int, cv::Point2f> &prevLeftPtsMap,
+							   set<int> &cur_retrack_id)
 {
     int rows = imLeft.rows;
     int cols = imLeft.cols;
@@ -956,7 +960,10 @@ void FeatureTracker::DrawOpticalFlow(const cv::Mat &imLeft, const cv::Mat &imRig
         mapIt = prevLeftPtsMap.find(id);
         if(mapIt != prevLeftPtsMap.end())
         {
-            cv::arrowedLine(imTrack, curLeftPts[i], mapIt->second, cv::Scalar(0, 255, 0), 1, 8, 0, 0.2);
+			if(retrack_ids.find(id) != retrack_ids.end())
+            	cv::arrowedLine(imTrack, curLeftPts[i], mapIt->second, cv::Scalar(0, 0, 255), 1, 8, 0, 0.2);
+			else
+				cv::arrowedLine(imTrack, curLeftPts[i], mapIt->second, cv::Scalar(0, 255, 0), 1, 8, 0, 0.2);
         }
     }
     cv::resize(imTrack, imTrack, cv::Size(cols, rows / 2));

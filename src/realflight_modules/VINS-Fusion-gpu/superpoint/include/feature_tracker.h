@@ -70,7 +70,8 @@ public:
                                vector<int> &curLeftIds,
                                vector<cv::Point2f> &curLeftPts, 
                                vector<cv::Point2f> &curRightPts,
-                               map<int, cv::Point2f> &prevLeftPtsMap);
+                               map<int, cv::Point2f> &prevLeftPtsMap,
+							   set<int> &cur_retrack_id);
 	bool inBorder(const cv::Point2f &pt);
 	void prewarmForTracker();
 	cv::Mat getTrackImage();
@@ -114,6 +115,8 @@ public:
 
 	vector<camodocal::CameraPtr> m_camera;
 	FeatureTrackerConfig feature_tracker_config;
+
+	set<int> retrack_ids;
 
 	float *cur_heatmap = nullptr, *cur_desc = nullptr;
 

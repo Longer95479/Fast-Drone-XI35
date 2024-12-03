@@ -230,7 +230,12 @@ int main(int argc, char** argv)
 {
 	ros::init(argc, argv, "feature_tracker_node");
 	ros::NodeHandle nh;
-	ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug);
+	int log_level_debug;
+	nh.param<int>("/feature_tracker_node/print_debug", log_level_debug, 0);
+	if(log_level_debug)
+		ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug);
+	else
+		ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
 
 	string model_path, lightglue_plugin_path;
 	nh.param<string>("/feature_tracker_node/model_path", model_path, "model");

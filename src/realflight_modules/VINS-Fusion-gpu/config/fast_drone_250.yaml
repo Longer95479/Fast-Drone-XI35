@@ -117,7 +117,7 @@ csv_file_path: "/home/nx05/csv/vins_backend/xp_opticalflow_retrack.csv" #sp_opti
 plnet:
     use_opticalflow: 1 #0：匹配使用lightglue 1：使用光流
     use_superpoint: 2   #1: superpoint 2: xfeat
-    use_retrack: 0 #1: 使用描述子匹配进行重跟踪
+    use_retrack: 1 #1: 使用描述子匹配进行重跟踪
     max_keypoints: 250  #200 sp或xfeat提取特征点数量上限
     keypoint_threshold: 0.1 #0.004 0.001 for superpoint 0.05 ~ 0.1for xfeat
     remove_borders: 4
@@ -129,7 +129,7 @@ plnet:
     use_opticalflow_stereo: 1 #0：左右目匹配使用superpoint+lightglue 1：左右目匹配使用光流
 
     record_csv: 0 # 记录当前帧成功追踪的特征点数量
-    csv_file_path: "/home/nx05/csv/vins-frontend/xp_opticalflow.csv" # xp_opticalflow.csv
+    csv_file_path: "/home/nx05/csv/vins-frontend/xp_opticalflow_retrack.csv" # xp_opticalflow.csv
 
     of_max_cnt: 200 # max feature number in feature tracking for opticalflow
     of_min_dist: 20 # min distance between two features for opticalflow 光流nms半径
@@ -147,7 +147,7 @@ plnet:
 xfeat_opticalflow:
     max_search_dist: 100 #搜寻最近成功点的最大搜寻距离，超过这个距离视为搜寻失败
     max_roi_len: 40 #预测点的最大ROI边长
-    min_match_dist: 0.85 #匹配成功的最小余弦距离
+    min_match_dist: 0.9 #匹配成功的最小余弦距离
     roi_pts_threshold: 0.05 #roi内视为特征点的heatmap阈值
     
 point_matcher:
