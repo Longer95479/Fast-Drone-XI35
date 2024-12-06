@@ -40,15 +40,15 @@ gain:
     Kp0: 0.8
     Kp1: 0.8
     Kp2: 0.5
-    Kv0: 1.67
-    Kv1: 1.67
-    Kv2: 1.25
+    Kv0: 1.8
+    Kv1: 1.8
+    Kv2: 1.5
     # ↓↓↓ No use now --
     Kvi0: 0.0046
     Kvi1: 0.0046
     Kvi2: 0.002
-    Kvd0: 0.0
-    Kvd1: 0.0
+    Kvd0: 100.0
+    Kvd1: 100.0
     Kvd2: 0.0
     # ↓↓↓ Only used in rate control mode.
     KAngR: 20.0
