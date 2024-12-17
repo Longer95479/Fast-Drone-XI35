@@ -15,6 +15,7 @@ ros::Publisher pub_odometry, pub_latest_odometry;
 ros::Publisher pub_path, pub_imu_path;
 ros::Publisher pub_point_cloud, pub_margin_cloud;
 ros::Publisher pub_key_poses;
+ros::Publisher pub_key_poses_arrow;
 ros::Publisher pub_camera_pose;
 ros::Publisher pub_camera_pose_right;
 ros::Publisher pub_rectify_pose_left;
@@ -43,6 +44,7 @@ void registerPub(ros::NodeHandle &n)
     pub_point_cloud = n.advertise<sensor_msgs::PointCloud>("point_cloud", 1000);
     pub_margin_cloud = n.advertise<sensor_msgs::PointCloud>("margin_cloud", 1000);
     pub_key_poses = n.advertise<visualization_msgs::Marker>("key_poses", 1000);
+    pub_key_poses_arrow = n.advertise<visualization_msgs::MarkerArray>("key_poses_arrow", 1000);
     pub_camera_pose = n.advertise<nav_msgs::Odometry>("camera_pose", 1000);
     pub_camera_pose_right = n.advertise<nav_msgs::Odometry>("camera_pose_right", 1000);
     pub_rectify_pose_left = n.advertise<geometry_msgs::PoseStamped>("rectify_pose_left", 1000);
@@ -235,6 +237,47 @@ void pubKeyPoses(const Estimator &estimator, const std_msgs::Header &header)
         key_poses.points.push_back(pose_marker);
     }
     pub_key_poses.publish(key_poses);
+}
+
+void pubKeyPoses_v2(const Estimator &estimator, const std_msgs::Header &header)
+{
+    if (estimator.key_poses.size() == 0)
+        return;
+    visualization_msgs::MarkerArray marker_array;
+
+    for (int i = 0; i <= WINDOW_SIZE; i++)
+    {
+        visualization_msgs::Marker key_poses;
+        key_poses.header = header;
+        key_poses.header.frame_id = "world";
+        key_poses.ns = "key_poses";
+        key_poses.type = visualization_msgs::Marker::ARROW;
+        key_poses.action = visualization_msgs::Marker::ADD;
+        key_poses.pose.orientation.w = 1.0;
+        key_poses.lifetime = ros::Duration();
+
+        //static int key_poses_id = 0;
+        key_poses.id = i; //key_poses_id++;
+        key_poses.scale.x = 0.03;
+        key_poses.scale.y = 0.06;
+        key_poses.scale.z = 0.06;
+        key_poses.color.r = 1.0;
+        key_poses.color.a = 1.0;
+        geometry_msgs::Point start_point, end_point;
+        start_point.x = estimator.Ps[i].x();
+        start_point.y = estimator.Ps[i].y();
+        start_point.z = estimator.Ps[i].z();
+        Vector3d eulerAngles = estimator.Rs[i].eulerAngles(2, 1, 0);
+        double yaw = eulerAngles[0];
+        end_point.x = start_point.x + 0.2*cos(yaw);
+        end_point.y = start_point.y + 0.2*sin(yaw);
+        end_point.z = start_point.z;
+
+        key_poses.points.push_back(start_point);
+        key_poses.points.push_back(end_point);
+        marker_array.markers.push_back(key_poses);
+    }
+    pub_key_poses_arrow.publish(marker_array);
 }
 
 void pubCameraPose(const Estimator &estimator, const std_msgs::Header &header)

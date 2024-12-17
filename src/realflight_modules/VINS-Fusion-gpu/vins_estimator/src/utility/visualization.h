@@ -53,6 +53,8 @@ void pubInitialGuess(const Estimator &estimator, const std_msgs::Header &header)
 
 void pubKeyPoses(const Estimator &estimator, const std_msgs::Header &header);
 
+void pubKeyPoses_v2(const Estimator &estimator, const std_msgs::Header &header);
+
 void pubCameraPose(const Estimator &estimator, const std_msgs::Header &header);
 
 void pubPointCloud(const Estimator &estimator, const std_msgs::Header &header);

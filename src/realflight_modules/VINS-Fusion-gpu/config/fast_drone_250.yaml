@@ -113,7 +113,7 @@ enable_pub_imu_path: 1
 enable_imu_odom_smooth: 1
 velocity_limit: 1.5
 
-use_external_front_end: 0 #0：前端使用自带的光流跟踪，1：使用外部特征跟踪器
+use_external_front_end: 1 #0：前端使用自带的光流跟踪，1：使用外部特征跟踪器
 
 record_csv: 0 #记录滑窗优化最新帧的时间戳、滑窗内可用的特征点数目、xyz、td
 csv_file_path: "/home/nx05/csv/vins_backend/xp_opticalflow_retrack.csv" #sp_opticalflow.csv, sp_lg_version.csv, original_version.csv, xp_opticalflow.csv

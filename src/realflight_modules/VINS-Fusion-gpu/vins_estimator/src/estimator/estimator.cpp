@@ -222,6 +222,7 @@ void Estimator::processMeasurements()
 
             pubOdometry(*this, header);
             pubKeyPoses(*this, header);
+            //pubKeyPoses_v2(*this, header);
             pubCameraPose(*this, header);
             pubPointCloud(*this, header);
             pubKeyframe(*this);
