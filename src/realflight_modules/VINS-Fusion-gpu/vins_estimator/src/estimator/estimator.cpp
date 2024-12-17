@@ -24,6 +24,8 @@ Estimator::Estimator(): f_manager{Rs}
     // sum_t_feature = 0.0;
     // begin_time_count = 10;
     initFirstPoseFlag = false;
+    temp_cur_time = 0;
+    temp_last_time = 0;
 }
 
 void Estimator::setParameter()
@@ -240,6 +242,11 @@ void Estimator::processMeasurements()
                         ofs << Ps[WINDOW_SIZE].x() << " ";
                         ofs << Ps[WINDOW_SIZE].y() << " ";
                         ofs << Ps[WINDOW_SIZE].z() << " ";
+                        ofs << pnp_P.x() << " ";
+                        ofs << pnp_P.y() << " ";
+                        ofs << pnp_P.z() << " ";
+                        ofs << cur_removed_counts << " ";
+                        ofs << temp_cur_V_norm << " ";
                         ofs << td << "\n";
                         ofs.close();
                     }
@@ -374,6 +381,8 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
 {
     ROS_DEBUG("new image coming ------------------------------------------");
     ROS_DEBUG("Adding feature points %lu", image.size());
+    cur_rep_err = calCurRepErrAtImuPose(frame_count, image);
+    calCurPoseByPNP(frame_count, image, pnp_R, pnp_P);
     if (f_manager.addFeatureCheckParallax(frame_count, image, td))
     {
         marginalization_flag = MARGIN_OLD;
@@ -502,6 +511,7 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
         set<int> removeIndex;
         outliersRejection(removeIndex);
         f_manager.removeOutlier(removeIndex);
+        cur_removed_counts = removeIndex.size();
         if (! MULTIPLE_THREAD)
         {
             featureTracker.removeOutliers(removeIndex);
@@ -531,7 +541,22 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
         last_P = Ps[WINDOW_SIZE];
         last_R0 = Rs[0];
         last_P0 = Ps[0];
-        updateLatestStates();
+        if(enable_imu_odom_smooth)
+        {
+            calCurVelocity(header, Ps[WINDOW_SIZE]);
+            if(temp_cur_V_norm > velocity_limit && !have_dropped_one_frame)
+            {
+                ROS_WARN("Curretn velocity exceed limitation! would not update the latest states.");
+                have_dropped_one_frame = true;
+            }
+            else
+            {
+                updateLatestStates();
+                have_dropped_one_frame = false;
+            }
+        }
+        else
+            updateLatestStates();
     }  
 }
 
@@ -1520,7 +1545,7 @@ void Estimator::outliersRejection(set<int> &removeIndex)
             }
         }
         double ave_err = err / errCnt;
-        if(ave_err * FOCAL_LENGTH > 3)
+        if(ave_err * FOCAL_LENGTH > 3)//3
             removeIndex.insert(it_per_id.feature_id);
 
     }
@@ -1564,4 +1589,84 @@ void Estimator::updateLatestStates()
         tmp_gyrBuf.pop();
     }
     mBuf.unlock();
+}
+//计算imu预测位姿下的平均重投影误差
+double Estimator::calCurRepErrAtImuPose(int frame_count, const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &cur_features)
+{
+    double err = 0;
+    int errCnt = 0;
+    auto &feature = f_manager.feature;
+    for (auto &id_pts : cur_features)
+    {
+        int feature_id = id_pts.first;
+        auto it = find_if(feature.begin(), feature.end(), [feature_id](const FeaturePerId& id_f){
+            return id_f.feature_id == feature_id;
+        });
+        if(it == feature.end()) continue;
+        int used_num = it->feature_per_frame.size();
+        if(used_num < 4) continue;
+
+        Vector3d pts_j;
+        pts_j.x() = id_pts.second[0].second(0);
+        pts_j.y() = id_pts.second[0].second(1);
+        pts_j.z() = id_pts.second[0].second(2);
+        int imu_i = it->start_frame;
+        double depth = it->estimated_depth;
+        Vector3d pts_i = it->feature_per_frame[0].point; 
+        err += reprojectionError(Rs[imu_i], Ps[imu_i], ric[0], tic[0],
+                                Rs[frame_count], Ps[frame_count], ric[0], tic[0],
+                                depth, pts_i, pts_j);
+        errCnt++;
+    }
+    if(!errCnt)
+        return 0;
+    err = err / errCnt * FOCAL_LENGTH;
+    return err;
+}
+//计算最新帧的PNP位姿
+void Estimator::calCurPoseByPNP(int frame_count, const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &cur_features, Eigen::Matrix3d &R, Eigen::Vector3d &P)
+{
+    vector<cv::Point3f> pts3D;
+    vector<cv::Point2f> pts2D;
+    auto &feature = f_manager.feature;
+    for(auto &id_pts : cur_features)
+    {
+        int feature_id = id_pts.first;
+        auto it = find_if(feature.begin(), feature.end(), [feature_id](const FeaturePerId& id_f){
+            return id_f.feature_id == feature_id;
+        });
+        if(it == feature.end()) continue;
+        int used_num = it->feature_per_frame.size();
+        if(used_num < 4) continue;
+
+        Vector3d ptsInImu = ric[0] * (it->estimated_depth * it->feature_per_frame[0].point) + tic[0];
+        Vector3d ptsInWorld = Rs[it->start_frame] * ptsInImu + Ps[it->start_frame];
+
+        cv::Point3f point3d(ptsInWorld.x(), ptsInWorld.y(), ptsInWorld.z());
+        cv::Point2f point2d(id_pts.second[0].second(0), id_pts.second[0].second(1));
+        pts3D.push_back(point3d);
+        pts2D.push_back(point2d);
+    }
+    Matrix3d RCam = Rs[frame_count] * ric[0];
+    Vector3d PCam = Rs[frame_count] * tic[0] + Ps[frame_count];
+    if(f_manager.solvePoseByPnP(RCam, PCam, pts2D, pts3D))
+    {
+        R = RCam * ric[0].transpose();
+        P = -RCam *ric[0].transpose() * tic[0] + PCam;
+    }
+}
+
+void Estimator::calCurVelocity(double cur_time_, Vector3d &cur_P_)
+{
+    temp_cur_time = cur_time_;
+    temp_cur_P = cur_P_;
+    if(temp_last_time != 0)
+    {
+        double dt = temp_cur_time - temp_last_time;
+        ROS_ASSERT(dt != 0);
+        temp_cur_V = (temp_cur_P - temp_last_P) / dt;
+        temp_cur_V_norm = temp_cur_V.norm();
+    }
+    temp_last_P = temp_cur_P;
+    temp_last_time = temp_cur_time;
 }

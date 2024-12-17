@@ -78,6 +78,9 @@ class Estimator
     void fastPredictIMU(double t, Eigen::Vector3d linear_acceleration, Eigen::Vector3d angular_velocity);
     bool IMUAvailable(double t);
     void initFirstIMUPose(vector<pair<double, Eigen::Vector3d>> &accVector);
+    double calCurRepErrAtImuPose(int frame_count, const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &cur_features);
+    void calCurPoseByPNP(int frame_count, const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &cur_features, Eigen::Matrix3d &R, Eigen::Vector3d &P);
+    void calCurVelocity(double cur_time_, Vector3d &cur_P_);
 
     enum SolverFlag
     {
@@ -133,6 +136,10 @@ class Estimator
     int inputImageCnt;
     float sum_t_feature;
     int begin_time_count;
+    int cur_removed_counts; //debug
+    double cur_rep_err; //debug
+    Matrix3d pnp_R; //debug
+    Vector3d pnp_P;
 
     FeatureManager f_manager;
     MotionEstimator m_estimator;
@@ -170,6 +177,10 @@ class Estimator
     double latest_time;
     Eigen::Vector3d latest_P, latest_V, latest_Ba, latest_Bg, latest_acc_0, latest_gyr_0;
     Eigen::Quaterniond latest_Q;
+
+    Eigen::Vector3d temp_last_P, temp_cur_P, temp_cur_V;
+    double temp_last_time, temp_cur_time, temp_cur_V_norm;
+    bool have_dropped_one_frame = false;
 
     bool initFirstPoseFlag;
 };

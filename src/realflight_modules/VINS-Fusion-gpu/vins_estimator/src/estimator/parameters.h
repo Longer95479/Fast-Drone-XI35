@@ -78,6 +78,11 @@ extern int USE_EXTERNAL_TRACKER;
 extern int record_csv;
 extern std::string csv_file_path;
 
+extern int enable_pub_imu_path;
+
+extern int enable_imu_odom_smooth;
+extern double velocity_limit;
+
 void readParameters(std::string config_file);
 
 enum SIZE_PARAMETERIZATION

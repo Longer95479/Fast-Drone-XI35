@@ -12,7 +12,7 @@
 using namespace ros;
 using namespace Eigen;
 ros::Publisher pub_odometry, pub_latest_odometry;
-ros::Publisher pub_path;
+ros::Publisher pub_path, pub_imu_path;
 ros::Publisher pub_point_cloud, pub_margin_cloud;
 ros::Publisher pub_key_poses;
 ros::Publisher pub_camera_pose;
@@ -20,7 +20,7 @@ ros::Publisher pub_camera_pose_right;
 ros::Publisher pub_rectify_pose_left;
 ros::Publisher pub_rectify_pose_right;
 ros::Publisher pub_camera_pose_visual;
-nav_msgs::Path path;
+nav_msgs::Path path, imu_path;
 
 ros::Publisher pub_keyframe_pose;
 ros::Publisher pub_keyframe_point;
@@ -38,6 +38,7 @@ void registerPub(ros::NodeHandle &n)
 {
     pub_latest_odometry = n.advertise<nav_msgs::Odometry>("imu_propagate", 1000);
     pub_path = n.advertise<nav_msgs::Path>("path", 1000);
+    pub_imu_path = n.advertise<nav_msgs::Path>("imu_path", 1000);
     pub_odometry = n.advertise<nav_msgs::Odometry>("odometry", 1000);
     pub_point_cloud = n.advertise<sensor_msgs::PointCloud>("point_cloud", 1000);
     pub_margin_cloud = n.advertise<sensor_msgs::PointCloud>("margin_cloud", 1000);
@@ -82,6 +83,17 @@ void pubLatestOdometry(const Eigen::Vector3d &P, const Eigen::Quaterniond &Q, co
         offset_odom = odometry;
         offset_odom.pose.pose.position.y -= (DRONE_ID - 1.0) * SINGLE_OFFSET;
         pub_latest_odometry.publish(offset_odom);
+    }
+    if(enable_pub_imu_path)
+    {
+        geometry_msgs::PoseStamped pose_stamped;
+        pose_stamped.header.frame_id = "world";
+        pose_stamped.header.stamp = ros::Time(t);
+        pose_stamped.pose = odometry.pose.pose;
+        imu_path.header.stamp = ros::Time(t);
+        imu_path.header.frame_id = "world";
+        imu_path.poses.push_back(pose_stamped);
+        pub_imu_path.publish(imu_path);
     }
  }
 
