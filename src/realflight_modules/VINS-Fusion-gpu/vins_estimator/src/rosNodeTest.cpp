@@ -147,33 +147,44 @@ void imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
     return;
 }
 
-
+//adjust the line<ps_x, ps_y, pe_x, pe_y, ps_velo_x, ps_velo_y, pe_velo_x, pe_velo_y>
 void feature_callback(const sensor_msgs::PointCloudConstPtr &feature_msg)
 {
-    map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
+    pair< map<int, vector<pair<int, Eigen::Matrix<double, 7, 1> > > >, map<int, Eigen::Matrix<double, 8, 1> > > featureFrame;
+
     for (unsigned int i = 0; i < feature_msg->points.size(); i++)
     {
-        int feature_id = feature_msg->channels[0].values[i];
-        int camera_id = feature_msg->channels[1].values[i];
-        double x = feature_msg->points[i].x;
-        double y = feature_msg->points[i].y;
-        double z = feature_msg->points[i].z;
-        double p_u = feature_msg->channels[2].values[i];
-        double p_v = feature_msg->channels[3].values[i];
-        double velocity_x = feature_msg->channels[4].values[i];
-        double velocity_y = feature_msg->channels[5].values[i];
-        if(feature_msg->channels.size() > 6)
-        {
-            double gx = feature_msg->channels[6].values[i];
-            double gy = feature_msg->channels[7].values[i];
-            double gz = feature_msg->channels[8].values[i];
-            pts_gt[feature_id] = Eigen::Vector3d(gx, gy, gz);
-            //printf("receive pts gt %d %f %f %f\n", feature_id, gx, gy, gz);
+        if(feature_msg->channels.size() > 7 && feature_msg->channels[7].values[i] == 1)
+        {//line features
+            int feature_id = feature_msg->channels[0].values[i];
+            double start_x = feature_msg->points[i].x;
+            double start_y = feature_msg->points[i].y;
+            double end_x = feature_msg->channels[1].values[i];
+            double end_y = feature_msg->channels[2].values[i];
+            double start_x_velocity = feature_msg->channels[3].values[i];
+            double start_y_velocity = feature_msg->channels[4].values[i];
+            double end_x_velocity = feature_msg->channels[5].values[i];
+            double end_y_velocity = feature_msg->channels[6].values[i];
+            Eigen::Matrix<double, 8, 1> line_start_end;
+            line_start_end << start_x, start_y, end_x, end_y, start_x_velocity, start_y_velocity, end_x_velocity, end_y_velocity;
+            featureFrame.second[feature_id] = line_start_end;
         }
-        ROS_ASSERT(z == 1);
-        Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
-        xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y;
-        featureFrame[feature_id].emplace_back(camera_id,  xyz_uv_velocity);
+        else
+        {//points
+            int feature_id = feature_msg->channels[0].values[i];
+            int camera_id = feature_msg->channels[1].values[i];
+            double x = feature_msg->points[i].x;
+            double y = feature_msg->points[i].y;
+            double z = feature_msg->points[i].z;
+            double p_u = feature_msg->channels[2].values[i];
+            double p_v = feature_msg->channels[3].values[i];
+            double velocity_x = feature_msg->channels[4].values[i];
+            double velocity_y = feature_msg->channels[5].values[i];
+            ROS_ASSERT(z == 1);
+            Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
+            xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y;
+            featureFrame.first[feature_id].emplace_back(camera_id,  xyz_uv_velocity);
+        }
     }
     double t = feature_msg->header.stamp.toSec();
     estimator.inputFeature(t, featureFrame);
@@ -201,7 +212,7 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "vins_estimator");
     ros::NodeHandle n("~");
-    ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
+    ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug);
 
     if(argc != 2)
     {

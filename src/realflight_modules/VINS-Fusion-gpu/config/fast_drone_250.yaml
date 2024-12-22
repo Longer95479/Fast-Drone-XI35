@@ -162,3 +162,9 @@ point_matcher:
     image_height: 480
     onnx_file: "superpoint_lightglue.onnx"
     engine_file: "superpoint_lightglue.engine"
+
+line_config:
+    line_min_obs: 5 #三角化线特征所需最小的观测数
+    line_max_cosine_dist: 0.985 #参与的三角化两个平面法向量的最大余弦距离
+    equalize: 1 #直方图均衡化（仅lsd需要）
+    

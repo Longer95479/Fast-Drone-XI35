@@ -83,13 +83,17 @@ extern int enable_pub_imu_path;
 extern int enable_imu_odom_smooth;
 extern double velocity_limit;
 
+extern double line_min_obs;
+extern double line_max_cosine_dist;
+
 void readParameters(std::string config_file);
 
 enum SIZE_PARAMETERIZATION
 {
     SIZE_POSE = 7,
     SIZE_SPEEDBIAS = 9,
-    SIZE_FEATURE = 1
+    SIZE_FEATURE = 1,
+    SIZE_LINE = 4
 };
 
 enum StateOrder

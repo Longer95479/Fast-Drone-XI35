@@ -35,6 +35,9 @@
 #include "../factor/projectionTwoFrameTwoCamFactor.h"
 #include "../factor/projectionOneFrameTwoCamFactor.h"
 #include "../featureTracker/feature_tracker.h"
+#include "line_feature_manager.h"
+#include "../factor/line_parameterization.h"
+#include "../factor/line_projection_factor.h"
 
 
 class Estimator
@@ -47,10 +50,10 @@ class Estimator
     // interface
     void initFirstPose(Eigen::Vector3d p, Eigen::Matrix3d r);
     void inputIMU(double t, const Vector3d &linearAcceleration, const Vector3d &angularVelocity);
-    void inputFeature(double t, const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &featureFrame);
+    void inputFeature(double t, const pair< map<int, vector<pair<int, Eigen::Matrix<double, 7, 1> > > >, map<int, Eigen::Matrix<double, 8, 1> > > &featureFrame);
     void inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1 = cv::Mat());
     void processIMU(double t, double dt, const Vector3d &linear_acceleration, const Vector3d &angular_velocity);
-    void processImage(const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &image, const double header);
+    void processImage(const pair<map<int, vector<pair<int, Eigen::Matrix<double, 7, 1> > > >, map<int, Eigen::Matrix<double, 8, 1> > > &image, const double header);
     void processMeasurements();
 
     // internal
@@ -62,6 +65,7 @@ class Estimator
     void slideWindowNew();
     void slideWindowOld();
     void optimization();
+    void onlyLinesOptimization();
     void vector2double();
     void double2vector();
     bool failureDetection();
@@ -71,9 +75,11 @@ class Estimator
     void getPoseInWorldFrame(int index, Eigen::Matrix4d &T);
     void predictPtsInNextFrame();
     void outliersRejection(set<int> &removeIndex);
+    void lineOutliersRejection(set<int> &removeIndex);
     double reprojectionError(Matrix3d &Ri, Vector3d &Pi, Matrix3d &rici, Vector3d &tici,
                                      Matrix3d &Rj, Vector3d &Pj, Matrix3d &ricj, Vector3d &ticj, 
                                      double depth, Vector3d &uvi, Vector3d &uvj);
+    double lineReprojectionError(const Matrix3d &Ri, const Vector3d &Pi, const Vector3d &pt_start, const Vector3d &pt_end, const Vector6d &line_w_pluk);
     void updateLatestStates();
     void fastPredictIMU(double t, Eigen::Vector3d linear_acceleration, Eigen::Vector3d angular_velocity);
     bool IMUAvailable(double t);
@@ -97,7 +103,7 @@ class Estimator
     std::mutex mBuf;
     queue<pair<double, Eigen::Vector3d>> accBuf;
     queue<pair<double, Eigen::Vector3d>> gyrBuf;
-    queue<pair<double, map<int, vector<pair<int, Eigen::Matrix<double, 7, 1> > > > > > featureBuf;
+    queue<pair<double, pair<map<int, vector<pair<int, Eigen::Matrix<double, 7, 1> > > >, map<int, Eigen::Matrix<double, 8, 1> > > > > featureBuf;
     double prevTime, curTime;
     bool openExEstimation;
 
@@ -142,6 +148,7 @@ class Estimator
     Vector3d pnp_P;
 
     FeatureManager f_manager;
+    LineFeatureManager line_manager;
     MotionEstimator m_estimator;
     InitialEXRotation initial_ex_rotation;
 
@@ -158,6 +165,7 @@ class Estimator
     double para_Pose[WINDOW_SIZE + 1][SIZE_POSE];
     double para_SpeedBias[WINDOW_SIZE + 1][SIZE_SPEEDBIAS];
     double para_Feature[NUM_OF_F][SIZE_FEATURE];
+    double para_Line[NUM_OF_F][SIZE_LINE];
     double para_Ex_Pose[2][SIZE_POSE];
     double para_Retrive_Pose[SIZE_POSE];
     double para_Td[1][1];

@@ -16,7 +16,9 @@ find_package(catkin REQUIRED COMPONENTS
     tf
     cv_bridge_454
     camera_models
-    image_transport)
+    image_transport
+    thread_pool
+    line_descriptor)
 
 set(OpenCV_DIR /usr/local/opencv-4.5.4/lib/cmake/opencv4)
 find_package(OpenCV REQUIRED)
@@ -57,6 +59,8 @@ add_library(vins_lib
     src/factor/projectionTwoFrameTwoCamFactor.cpp
     src/factor/projectionOneFrameTwoCamFactor.cpp
     src/factor/marginalization_factor.cpp
+    src/factor/line_parameterization.cpp
+    src/factor/line_projection_factor.cpp
     src/utility/utility.cpp
     src/utility/visualization.cpp
     src/utility/CameraPoseVisualization.cpp
@@ -64,7 +68,10 @@ add_library(vins_lib
     src/initial/initial_aligment.cpp
     src/initial/initial_sfm.cpp
     src/initial/initial_ex_rotation.cpp
-    src/featureTracker/feature_tracker.cpp)
+    src/featureTracker/feature_tracker.cpp
+    src/estimator/line_feature_manager.cpp
+    src/utility/line_geometry.cpp)
+    
 target_link_libraries(vins_lib ${OpenCV_LIBS} ${catkin_LIBRARIES}  ${CERES_LIBRARIES})
 
 

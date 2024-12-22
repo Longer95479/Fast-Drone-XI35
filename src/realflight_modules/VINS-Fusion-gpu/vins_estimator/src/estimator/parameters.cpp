@@ -65,6 +65,9 @@ int enable_pub_imu_path;
 int enable_imu_odom_smooth;
 double velocity_limit;
 
+double line_min_obs;
+double line_max_cosine_dist;
+
 template <typename T>
 T readParam(ros::NodeHandle &n, std::string name)
 {
@@ -237,5 +240,9 @@ void readParameters(std::string config_file)
     enable_pub_imu_path = fsSettings["enable_pub_imu_path"];
     enable_imu_odom_smooth = fsSettings["enable_imu_odom_smooth"];
     velocity_limit = fsSettings["velocity_limit"];
+
+    line_min_obs = fsSettings["line_config"]["line_min_obs"];
+    line_max_cosine_dist = fsSettings["line_config"]["line_max_cosine_dist"];
+    
     fsSettings.release();
 }

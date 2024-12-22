@@ -15,6 +15,8 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge_454
   camera_models
   image_transport
+  thread_pool
+  line_descriptor
 )
 add_subdirectory(${PROJECT_SOURCE_DIR}/3rdparty/tensorrtbuffer)
 
@@ -58,6 +60,7 @@ add_library(${PROJECT_NAME}_lib SHARED
     src/super_point.cpp
     src/utils.cpp
     src/xfeat.cpp
+    src/line_feature_tracker.cpp
 )
 
 # cuda_add_library(custom_layernorm SHARED

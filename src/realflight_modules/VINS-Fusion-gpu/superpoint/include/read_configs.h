@@ -70,6 +70,36 @@ struct FeatureTrackerConfig
 	int record_csv;
 	std::string csv_file_path;
 };
+struct LineTrackerConfig
+{
+	LineTrackerConfig(){}
+	void load(const std::string &config_file)
+	{
+		FILE *fh = fopen(config_file.c_str(), "r");
+		if(fh == NULL)
+		{
+			ROS_WARN("config file does not exist; wrong file path");
+			ROS_BREAK();
+			return;
+		}
+		cv::FileStorage fsSettings(config_file, cv::FileStorage::READ);
+		int pn = config_file.find_last_of('/');
+		std::string configPath = config_file.substr(0, pn);
+		std::string cam0Calib, cam1Calib;
+		fsSettings["cam0_calib"] >> cam0Calib;
+		std::string cam0Path = configPath + "/" + cam0Calib;
+		camera_config_file.push_back(cam0Path);
+        fsSettings["cam1_calib"] >> cam1Calib;
+        std::string cam1Path = configPath + "/" + cam1Calib; 
+        //printf("%s cam1 path\n", cam1Path.c_str() );
+        camera_config_file.push_back(cam1Path);
+
+		equalize = fsSettings["line_config"]["equalize"];
+	}
+
+	std::vector<std::string> camera_config_file;
+	int equalize;
+};
 
 struct PLNetConfig
 {
