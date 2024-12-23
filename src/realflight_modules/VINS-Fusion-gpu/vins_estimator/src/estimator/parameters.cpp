@@ -67,6 +67,7 @@ double velocity_limit;
 
 double line_min_obs;
 double line_max_cosine_dist;
+int enable_triang_opti;
 
 template <typename T>
 T readParam(ros::NodeHandle &n, std::string name)
@@ -243,6 +244,7 @@ void readParameters(std::string config_file)
 
     line_min_obs = fsSettings["line_config"]["line_min_obs"];
     line_max_cosine_dist = fsSettings["line_config"]["line_max_cosine_dist"];
+    enable_triang_opti = fsSettings["line_config"]["enable_triang_opti"];
     
     fsSettings.release();
 }

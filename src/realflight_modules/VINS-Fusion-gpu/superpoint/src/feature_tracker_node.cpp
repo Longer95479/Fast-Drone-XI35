@@ -274,7 +274,7 @@ void sync_process()
 
 					id_of_line.values.push_back(line_id[i]);
 					end_x_of_line.values.push_back(line_se[i][2]);
-					end_x_of_line.values.push_back(line_se[i][3]);
+					end_y_of_line.values.push_back(line_se[i][3]);
 					start_x_vel_of_line.values.push_back(line_vel[i][0]);
 					start_y_vel_of_line.values.push_back(line_vel[i][1]);
 					end_x_vel_of_line.values.push_back(line_vel[i][2]);

@@ -44,20 +44,27 @@ void LineFeatureManager::line_triangulate(Matrix3d Rs[], Vector3d Ps[], Vector3d
             Vector3d p1_w = R_wc * it_per_frame.pt_start + t_wc;
             Vector3d p2_w = R_wc * it_per_frame.pt_end + t_wc;
             Vector3d p3_w = t_wc;
+            // ROS_DEBUG("line-%d at %d frame's start is (%lf, %lf, %lf), end is (%lf, %lf, %lf)", it_per_id.feature_id, imu_j, 
+            //         it_per_frame.pt_start[0], it_per_frame.pt_start[1], it_per_frame.pt_start[2], 
+            //         it_per_frame.pt_end[0], it_per_frame.pt_end[1], it_per_frame.pt_end[2]);
+            // ROS_DEBUG("p1_w:(%lf, %lf, %lf), p2_w:(%lf, %lf, %lf), p3_w:(%lf, %lf, %lf)", p1_w[0], p1_w[1], p1_w[2], p2_w[0], p2_w[1], p2_w[2], p3_w[0], p3_w[1], p3_w[2]);
             if(imu_j == imu_i)
             {
                 pi_i = pointsToPlane(p3_w, p1_w, p2_w);
                 n_pi_i = pi_i.head(3).normalized();
+                ROS_DEBUG("line-%d has %d frame", it_per_id.feature_id, it_per_id.used_num);
+                ROS_DEBUG("pi_i:(%lf, %lf, %lf ,%lf)", pi_i[0], pi_i[1], pi_i[2], pi_i[3]);
                 continue;
             }
             //select the plane that has the minimum cosine distance with the pi_i
             Vector4d pi_j_candi = pointsToPlane(p3_w, p1_w, p2_w);
-            Vector3d n_pi_j = pi_j.head(3).normalized();
+            Vector3d n_pi_j = pi_j_candi.head(3).normalized();
             double n_cosine_dist = fabs(n_pi_i.dot(n_pi_j));
             if(n_cosine_dist < min_cosine_dist)
             {
                 min_cosine_dist = n_cosine_dist;
                 pi_j = pi_j_candi;
+                ROS_DEBUG("pi_j:(%lf, %lf, %lf, %lf), cosine_dist is %lf", pi_j[0], pi_j[1], pi_j[2], pi_j[3], n_cosine_dist);
             }
         }
         if(min_cosine_dist > line_max_cosine_dist)
@@ -66,6 +73,8 @@ void LineFeatureManager::line_triangulate(Matrix3d Rs[], Vector3d Ps[], Vector3d
         it_per_id.line_pluk = planesToLine(pi_i, pi_j);
         it_per_id.is_triangulated = true;
         counts++;
+        ROS_DEBUG("line id-%d triangulate result is (%lf, %lf, %lf, %lf, %lf, %lf)", it_per_id.feature_id, it_per_id.line_pluk[0], it_per_id.line_pluk[1], it_per_id.line_pluk[2], 
+                                                                                                          it_per_id.line_pluk[3], it_per_id.line_pluk[4], it_per_id.line_pluk[5]);
     }
     ROS_DEBUG("line triangulate successfully counts: %d", counts);
 }

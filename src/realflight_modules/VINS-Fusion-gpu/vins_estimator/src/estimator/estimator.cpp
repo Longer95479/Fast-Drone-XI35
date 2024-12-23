@@ -514,7 +514,8 @@ void Estimator::processImage(const pair<map<int, vector<pair<int, Eigen::Matrix<
         f_manager.triangulate(frame_count, Ps, Rs, tic, ric);
         line_manager.line_triangulate(Rs, Ps, tic, ric);
         //optimization
-        onlyLinesOptimization();
+        if(enable_triang_opti)
+            onlyLinesOptimization();
         optimization();
         //remove points outliers
         set<int> removeIndex;
@@ -529,7 +530,7 @@ void Estimator::processImage(const pair<map<int, vector<pair<int, Eigen::Matrix<
         //remove line outliers
         removeIndex.clear();
         lineOutliersRejection(removeIndex);
-        line_manager.removeOutlier(removeIndex);
+        //line_manager.removeOutlier(removeIndex);
         ROS_DEBUG("line remove outliers counts: %d", removeIndex.size());
             
         ROS_DEBUG("solver costs: %fms", t_solve.toc());
@@ -859,6 +860,7 @@ void Estimator::vector2double()
         para_Feature[i][0] = dep(i);
 
     para_Td[0][0] = td;
+    #if 1
     //line
     MatrixXd line_orth_mat = line_manager.getLineOrthMat();
     for(int i = 0; i < line_manager.getFeatureCount(); i++)
@@ -868,6 +870,7 @@ void Estimator::vector2double()
         para_Line[i][2] = line_orth_mat.row(i)[2];
         para_Line[i][3] = line_orth_mat.row(i)[3];
     }
+    #endif
 }
 
 void Estimator::double2vector()
@@ -943,6 +946,7 @@ void Estimator::double2vector()
         }
         
         td = para_Td[0][0];
+        #if 1
         //line 
         MatrixXd line_orth_mat(line_manager.getFeatureCount(), 4);
         for(int i = 0; i < line_orth_mat.rows(); i++)
@@ -955,6 +959,7 @@ void Estimator::double2vector()
             line_orth_mat.row(i) = orth;
         }
         line_manager.setLineFeature(line_orth_mat);
+        #endif
     }
     else
     {
@@ -1129,6 +1134,7 @@ void Estimator::optimization()
         }
     }
     ROS_DEBUG("point measurements that add to ceres count: %d", f_m_cnt);
+    #if 0
     //line reprojection factor
     int line_m_cnt = 0;
     int line_index = -1;
@@ -1157,6 +1163,7 @@ void Estimator::optimization()
         } 
     }
     ROS_DEBUG("line measurements that add to ceres count: %d", line_m_cnt);
+    #endif
 
     //printf("prepare for ceres: %f \n", t_prepare.toc());
 
@@ -1275,7 +1282,7 @@ void Estimator::optimization()
                 }
             }
         }
-
+        #if 0
         {
             int line_index = -1;
             for(auto &it_per_id : line_manager.line_features)
@@ -1303,6 +1310,7 @@ void Estimator::optimization()
                 }
             }
         }
+        #endif
 
         TicToc t_pre_margin;
         marginalization_info->preMarginalize();
@@ -1433,7 +1441,7 @@ void Estimator::onlyLinesOptimization()
     for(auto &it_per_id : line_manager.line_features)
     {
         it_per_id.used_num = it_per_id.line_feature_per_frame.size();
-        if(!(it_per_id.used_num > line_min_obs && it_per_id.start_frame < WINDOW_SIZE - 2 && it_per_id.is_triangulated))
+        if(!(it_per_id.used_num >= line_min_obs && it_per_id.start_frame < WINDOW_SIZE - 2 && it_per_id.is_triangulated))
             continue;
 
         feature_index++;
@@ -1453,6 +1461,9 @@ void Estimator::onlyLinesOptimization()
                                     para_Td[0]);
         }
     }
+
+    if(feature_index < 3)
+        return;
 
     ceres::Solver::Options options;
     options.linear_solver_type = ceres::DENSE_SCHUR;
