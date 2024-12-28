@@ -98,12 +98,16 @@ struct LineTrackerConfig
 		col = fsSettings["image_width"];
 		row = fsSettings["image_height"];
 		borders = fsSettings["plnet"]["remove_borders"];
+		two_line_ang_thresh = fsSettings["line_config"]["two_line_ang_thresh"];
+		two_line_dist_thresh = fsSettings["line_config"]["two_line_dist_thresh"];
 	}
 
 	std::vector<std::string> camera_config_file;
 	int equalize;
 	int col, row;
 	int borders;
+	double two_line_ang_thresh;
+	double two_line_dist_thresh;
 };
 
 struct PLNetConfig

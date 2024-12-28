@@ -2,7 +2,7 @@
 
 const double FOCAL_LENGTH = 460.0;
 
-double distance(cv::Point2f pt1, cv::Point2f pt2)
+static double distance(cv::Point2f pt1, cv::Point2f pt2)
 {
     //printf("pt1: %f %f pt2: %f %f\n", pt1.x, pt1.y, pt2.x, pt2.y);
     double dx = pt1.x - pt2.x;

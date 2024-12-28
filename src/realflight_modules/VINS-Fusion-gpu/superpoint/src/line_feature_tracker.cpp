@@ -1,4 +1,13 @@
 #include "line_feature_tracker.h"
+#include <numeric>
+#include <algorithm>
+
+static double distance(cv::Point2f pt1, cv::Point2f pt2)
+{
+    double dx = pt1.x - pt2.x;
+    double dy = pt1.y - pt2.y;
+    return sqrt(dx * dx + dy * dy);
+}
 
 LineFeatureTracker::LineFeatureTracker()
 {
@@ -19,6 +28,48 @@ bool LineFeatureTracker::inBorder(const KeyLine &line)
 		
 }
 
+//返回两条线的角度差(0~π/2)
+double LineFeatureTracker::getTwoLinesAbsAngle(const KeyLine &line0, const KeyLine &line1)
+{
+    Vector2d l0(line0.getEndPoint().x - line0.getStartPoint().x, line0.getEndPoint().y - line0.getStartPoint().y);
+    Vector2d l1(line1.getEndPoint().x - line1.getStartPoint().x, line1.getEndPoint().y - line1.getStartPoint().y);
+    l0.normalize();
+    l1.normalize();
+    return acos(fabs(l0.dot(l1)));
+}
+//返回line1两个端点到直线line0的平均距离(像素系下)
+double LineFeatureTracker::getTwoLinesDistByP2L(const KeyLine &line0, const KeyLine &line1)
+{
+    double x0 = line0.getStartPoint().x;
+    double y0 = line0.getStartPoint().y;
+    double x1 = line0.getEndPoint().x;
+    double y1 = line0.getEndPoint().y;
+    Vector3d l0(y1 - y0, x0 - x1, x1*y0 - x0*y1);
+    double l0_norm = l0.head(2).norm();
+    Vector3d l1_sp(line1.getStartPoint().x, line1.getStartPoint().y, 1.0);
+    Vector3d l1_ep(line1.getEndPoint().x, line1.getEndPoint().y, 1.0);
+    double dist_s = l0.dot(l1_sp) / l0_norm;
+    double dist_e = l0.dot(l1_ep) / l0_norm;
+    return (dist_s + dist_e) / 2;
+}
+//返回两个线段端点之间的距离
+double LineFeatureTracker::getTwoLinesDistByP2P(const KeyLine &line0, const KeyLine &line1)
+{
+    cv::Point2f l0_sp = line0.getStartPoint();
+    cv::Point2f l0_ep = line0.getEndPoint();
+    cv::Point2f l1_sp = line1.getStartPoint();
+    cv::Point2f l1_ep = line1.getEndPoint();
+    if(distance(l0_sp, l1_sp) < distance(l0_sp, l1_ep))
+        return (distance(l0_sp, l1_sp) + distance(l0_ep, l1_ep)) / 2;
+    else
+        return (distance(l0_sp, l1_ep) + distance(l0_ep, l1_sp)) / 2;
+}
+double LineFeatureTracker::getTwoLinesDistByMid(const KeyLine &line0, const KeyLine &line1)
+{
+    cv::Point2f l0_mid = (line0.getStartPoint() + line0.getEndPoint()) / 2;
+    cv::Point2f l1_mid = (line1.getStartPoint() + line1.getEndPoint()) / 2;
+    return distance(l0_mid, l1_mid);
+}
 void LineFeatureTracker::readConfigParameter(const string &config_file)
 {
     line_tracker_config.load(config_file);
@@ -101,6 +152,65 @@ void LineFeatureTracker::calCurVelocity()
         for(int i = 0; i < curFrame->lineID.size(); i++)
             curFrame->lineVelocity.push_back(Vector4d(0, 0, 0, 0));
     }
+}
+//process NMS for new lines
+vector<int> LineFeatureTracker::lineNMSProcess(const vector<KeyLine> &vecTracked, const vector<KeyLine> &vecNew)
+{
+    vector<int> indexes(vecNew.size());
+    iota(indexes.begin(), indexes.end(), 0);
+    //remove lines that close to tracked
+    int remove_cnt = 0;
+    for(auto it = indexes.begin(); it != indexes.end();)
+    {
+        bool remove_it = false;
+        int cur_id = *it;
+        for(auto &k_line : vecTracked)
+        {
+            double diff_ang = getTwoLinesAbsAngle(k_line, vecNew[cur_id]);
+            double diff_dist = getTwoLinesDistByP2P(k_line, vecNew[cur_id]);
+            double diff_dist_mid = getTwoLinesDistByMid(k_line, vecNew[cur_id]);
+            if(diff_ang < line_tracker_config.two_line_ang_thresh && (diff_dist < line_tracker_config.two_line_dist_thresh || diff_dist_mid < line_tracker_config.two_line_dist_thresh))
+            {
+                remove_it = true;
+                remove_cnt++;
+                break;
+            }
+        }
+        if(remove_it)
+            it = indexes.erase(it);
+        else
+            it++;
+    }
+    ROS_DEBUG("nms process-1 remove %d points", remove_cnt);
+    //sort by length
+    sort(indexes.begin(), indexes.end(), [&vecNew](const int i1, const int i2)
+        {
+            return distance(vecNew[i1].getStartPoint(), vecNew[i1].getEndPoint()) > distance(vecNew[i2].getStartPoint(), vecNew[i2].getEndPoint());
+        });
+    //nms for new lines
+    remove_cnt = 0;
+    vector<int> res;
+    while(!indexes.empty())
+    {
+        res.push_back(indexes.front());
+        indexes.erase(indexes.begin());
+        int cur_id = res.back();
+        for(auto it = indexes.begin(); it != indexes.end();)
+        {
+            double diff_ang = getTwoLinesAbsAngle(vecNew[cur_id], vecNew[*it]);
+            double diff_dist = getTwoLinesDistByP2P(vecNew[cur_id], vecNew[*it]);
+            double diff_dist_mid = getTwoLinesDistByMid(vecNew[cur_id], vecNew[*it]);
+            if(diff_ang < line_tracker_config.two_line_ang_thresh && (diff_dist < line_tracker_config.two_line_dist_thresh || diff_dist_mid < line_tracker_config.two_line_dist_thresh))
+            {
+                it = indexes.erase(it);
+                remove_cnt++;
+            }
+            else
+                it++;
+        }
+    }
+    ROS_DEBUG("nms process-2 remove %d points", remove_cnt);
+    return res;
 }
 
 void LineFeatureTracker::readImage(double _cur_time, const cv::Mat &_img)
@@ -222,64 +332,16 @@ void LineFeatureTracker::readImage(double _cur_time, const cv::Mat &_img)
                 DescTracked.push_back( curFrame->lbdDesc.row(i));
             }
         }
-        //devide h and v in new lines
-        vector<KeyLine> h_line_new, v_line_new;
-        vector< int > h_lineId_new,v_lineId_new;
-        Mat h_desc_new,v_desc_new;
-        for (size_t i = 0; i < vecLineNew.size(); ++i)
+        //NMS
+        vector<int> nms_res = lineNMSProcess(vecLineTracked, vecLineNew);
+        ROS_INFO("Before NMS new points: %d, after NMS points: %d, remove points %d", vecLineNew.size(), nms_res.size(), vecLineNew.size() - nms_res.size());
+        for(auto id : nms_res)
         {
-            if((((vecLineNew[i].angle >= 3.14/4 && vecLineNew[i].angle <= 3*3.14/4))||(vecLineNew[i].angle <= -3.14/4 && vecLineNew[i].angle >= -3*3.14/4)))
-            {
-                h_line_new.push_back(vecLineNew[i]);
-                h_lineId_new.push_back(lineIdNew[i]);
-                h_desc_new.push_back(DescNew.row( i ));
-            }
-            else
-            {
-                v_line_new.push_back(vecLineNew[i]);
-                v_lineId_new.push_back(lineIdNew[i]);
-                v_desc_new.push_back(DescNew.row( i ));
-            }      
+            vecLineTracked.push_back(vecLineNew[id]);
+            lineIdTracked.push_back(lineIdNew[id]);
+            DescTracked.push_back(DescNew.row(id));
         }
-        int h_line,v_line;
-        h_line = v_line =0;
-        for (size_t i = 0; i < vecLineTracked.size(); ++i)
-        {
-            if((((vecLineTracked[i].angle >= 3.14/4 && vecLineTracked[i].angle <= 3*3.14/4))||(vecLineTracked[i].angle <= -3.14/4 && vecLineTracked[i].angle >= -3*3.14/4)))
-            {
-                h_line ++;
-            }
-            else
-            {
-                v_line ++;
-            }
-        }
-        int diff_h = 35 - h_line;
-        int diff_v = 35 - v_line;
-        //add lines
-        if(diff_h > 0)
-        {
-            if(diff_h > h_line_new.size())
-                diff_h = h_line_new.size();
-            for (int k = 0; k < diff_h; ++k) 
-            {
-                vecLineTracked.push_back(h_line_new[k]);
-                lineIdTracked.push_back(h_lineId_new[k]);
-                DescTracked.push_back(h_desc_new.row(k));
-            }
-        }
-        if(diff_v > 0)    // 补充线条
-        {
-            if(diff_v > v_line_new.size())
-                diff_v = v_line_new.size();
-            for (int k = 0; k < diff_v; ++k)  
-            {
-                vecLineTracked.push_back(v_line_new[k]);
-                lineIdTracked.push_back(v_lineId_new[k]);
-                DescTracked.push_back(v_desc_new.row(k));
-            }  
-        }
-
+        
         curFrame->keyLsd = vecLineTracked;
         curFrame->lineID = lineIdTracked;
         curFrame->lbdDesc = DescTracked;

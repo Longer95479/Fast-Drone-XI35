@@ -170,4 +170,6 @@ line_config:
     outliers_thresh: 3.0
     enable_triang_opti_only: 1 #三角化后进行只针对线的优化
     enable_triang_opti: 1 #线特征是否加入滑窗优化
+    two_line_ang_thresh: 0.1047 #rad 0.1047
+    two_line_dist_thresh: 20 #pixels 5
     
