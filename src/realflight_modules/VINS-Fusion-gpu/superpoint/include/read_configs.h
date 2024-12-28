@@ -95,10 +95,15 @@ struct LineTrackerConfig
         camera_config_file.push_back(cam1Path);
 
 		equalize = fsSettings["line_config"]["equalize"];
+		col = fsSettings["image_width"];
+		row = fsSettings["image_height"];
+		borders = fsSettings["plnet"]["remove_borders"];
 	}
 
 	std::vector<std::string> camera_config_file;
 	int equalize;
+	int col, row;
+	int borders;
 };
 
 struct PLNetConfig

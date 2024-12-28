@@ -85,7 +85,9 @@ extern double velocity_limit;
 
 extern double line_min_obs;
 extern double line_max_cosine_dist;
+extern int enable_triang_opti_only;
 extern int enable_triang_opti;
+extern double outliers_thresh;
 
 void readParameters(std::string config_file);
 

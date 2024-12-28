@@ -514,7 +514,7 @@ void Estimator::processImage(const pair<map<int, vector<pair<int, Eigen::Matrix<
         f_manager.triangulate(frame_count, Ps, Rs, tic, ric);
         line_manager.line_triangulate(Rs, Ps, tic, ric);
         //optimization
-        if(enable_triang_opti)
+        if(enable_triang_opti_only)
             onlyLinesOptimization();
         optimization();
         //remove points outliers
@@ -530,7 +530,7 @@ void Estimator::processImage(const pair<map<int, vector<pair<int, Eigen::Matrix<
         //remove line outliers
         removeIndex.clear();
         lineOutliersRejection(removeIndex);
-        //line_manager.removeOutlier(removeIndex);
+        line_manager.removeOutlier(removeIndex);
         ROS_DEBUG("line remove outliers counts: %d", removeIndex.size());
             
         ROS_DEBUG("solver costs: %fms", t_solve.toc());
@@ -860,17 +860,19 @@ void Estimator::vector2double()
         para_Feature[i][0] = dep(i);
 
     para_Td[0][0] = td;
-    #if 1
+    
     //line
-    MatrixXd line_orth_mat = line_manager.getLineOrthMat();
-    for(int i = 0; i < line_manager.getFeatureCount(); i++)
+    if(enable_triang_opti || enable_triang_opti_only)
     {
-        para_Line[i][0] = line_orth_mat.row(i)[0];
-        para_Line[i][1] = line_orth_mat.row(i)[1];
-        para_Line[i][2] = line_orth_mat.row(i)[2];
-        para_Line[i][3] = line_orth_mat.row(i)[3];
+        MatrixXd line_orth_mat = line_manager.getLineOrthMat();
+        for(int i = 0; i < line_manager.getFeatureCount(); i++)
+        {
+            para_Line[i][0] = line_orth_mat.row(i)[0];
+            para_Line[i][1] = line_orth_mat.row(i)[1];
+            para_Line[i][2] = line_orth_mat.row(i)[2];
+            para_Line[i][3] = line_orth_mat.row(i)[3];
+        }
     }
-    #endif
 }
 
 void Estimator::double2vector()
@@ -898,9 +900,6 @@ void Estimator::double2vector()
         double y_diff = origin_R0.x() - origin_R00.x();
         //TODO
         Matrix3d rot_diff = Utility::ypr2R(Vector3d(y_diff, 0, 0));
-        Vector3d ps0(para_Pose[0][0],para_Pose[0][1],para_Pose[0][2]);
-        Matrix3d Rwn_wo(rot_diff);//旧世界系到新世界系的旋转
-        Vector3d twn_wo = -Rwn_wo * ps0 + origin_P0;//旧世界系到新世界系的位移
         if (abs(abs(origin_R0.y()) - 90) < 1.0 || abs(abs(origin_R00.y()) - 90) < 1.0)
         {
             ROS_DEBUG("euler singular point!");
@@ -909,6 +908,10 @@ void Estimator::double2vector()
                                            para_Pose[0][4],
                                            para_Pose[0][5]).toRotationMatrix().transpose();
         }
+
+        Vector3d ps0(para_Pose[0][0],para_Pose[0][1],para_Pose[0][2]);
+        Matrix3d Rwn_wo(rot_diff);//旧世界系到新世界系的旋转
+        Vector3d twn_wo = -Rwn_wo * ps0 + origin_P0;//旧世界系到新世界系的位移
 
         for (int i = 0; i <= WINDOW_SIZE; i++)
         {
@@ -946,20 +949,24 @@ void Estimator::double2vector()
         }
         
         td = para_Td[0][0];
-        #if 1
         //line 
-        MatrixXd line_orth_mat(line_manager.getFeatureCount(), 4);
-        for(int i = 0; i < line_orth_mat.rows(); i++)
+        if(enable_triang_opti || enable_triang_opti_only)
         {
-            //需要把优化后的线特征转到原来的世界坐标系（优化过程过程中由于yaw和position不可观导致世界坐标系向这些方向漂移）
-            Vector4d line_wo_orth(para_Line[i][0], para_Line[i][1], para_Line[i][2], para_Line[i][3]);
-            Vector6d line_wo_pluk = orthToPluk(line_wo_orth);
-            Vector6d line_wn_pluk = plukTransformPose(line_wo_pluk, Rwn_wo, twn_wo);
-            Vector4d orth = plukToOrth(line_wn_pluk);
-            line_orth_mat.row(i) = orth;
+            MatrixXd line_orth_mat(line_manager.getFeatureCount(), 4);
+            for(int i = 0; i < line_orth_mat.rows(); i++)
+            {
+                //需要把优化后的线特征转到原来的世界坐标系（优化过程过程中由于yaw和position不可观导致世界坐标系向这些方向漂移）
+                Vector4d line_wo_orth(para_Line[i][0], para_Line[i][1], para_Line[i][2], para_Line[i][3]);
+                Vector6d line_wo_pluk = orthToPluk(line_wo_orth);
+                Vector6d line_wn_pluk = plukTransformPose(line_wo_pluk, Rwn_wo, twn_wo);
+                Vector4d orth = plukToOrth(line_wn_pluk);
+                if(enable_triang_opti_only && !enable_triang_opti)
+                    line_orth_mat.row(i) = line_wo_orth;
+                else 
+                    line_orth_mat.row(i) = orth;
+            }
+            line_manager.setLineFeature(line_orth_mat);
         }
-        line_manager.setLineFeature(line_orth_mat);
-        #endif
     }
     else
     {
@@ -1134,36 +1141,38 @@ void Estimator::optimization()
         }
     }
     ROS_DEBUG("point measurements that add to ceres count: %d", f_m_cnt);
-    #if 0
-    //line reprojection factor
-    int line_m_cnt = 0;
-    int line_index = -1;
-    for(auto &it_per_id : line_manager.line_features)
-    {
-        it_per_id.used_num = it_per_id.line_feature_per_frame.size();
-        if (!(it_per_id.used_num >= line_min_obs && it_per_id.start_frame < WINDOW_SIZE - 2 && it_per_id.is_triangulated))
-            continue;
-        
-        line_index++;
-        ceres::LocalParameterization *local_parameterization = new LineOrthParameterization();
-        problem.AddParameterBlock(para_Line[line_index], SIZE_LINE, local_parameterization);
 
-        int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
-        for(auto &it_per_frame : it_per_id.line_feature_per_frame)
+    //line reprojection factor
+    if(enable_triang_opti)
+    {
+        int line_m_cnt = 0;
+        int line_index = -1;
+        for(auto &it_per_id : line_manager.line_features)
         {
-            imu_j++;
-            LineProjectionFactor *f = new LineProjectionFactor(it_per_frame.pt_start, it_per_frame.pt_end, 
-                                                               it_per_frame.velocity_start, it_per_frame.velocity_end, it_per_frame.cur_td);
-            problem.AddResidualBlock(f, loss_function, 
-                                     para_Pose[imu_j], 
-                                     para_Ex_Pose[0],
-                                     para_Line[line_index],
-                                     para_Td[0]);
-            line_m_cnt++;
-        } 
+            it_per_id.used_num = it_per_id.line_feature_per_frame.size();
+            if (!(it_per_id.used_num >= line_min_obs && it_per_id.start_frame < WINDOW_SIZE - 2 && it_per_id.is_triangulated))
+                continue;
+            
+            line_index++;
+            ceres::LocalParameterization *local_parameterization = new LineOrthParameterization();
+            problem.AddParameterBlock(para_Line[line_index], SIZE_LINE, local_parameterization);
+
+            int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
+            for(auto &it_per_frame : it_per_id.line_feature_per_frame)
+            {
+                imu_j++;
+                LineProjectionFactor *f = new LineProjectionFactor(it_per_frame.pt_start, it_per_frame.pt_end, 
+                                                                it_per_frame.velocity_start, it_per_frame.velocity_end, it_per_frame.cur_td);
+                problem.AddResidualBlock(f, loss_function, 
+                                        para_Pose[imu_j], 
+                                        para_Ex_Pose[0],
+                                        para_Line[line_index],
+                                        para_Td[0]);
+                line_m_cnt++;
+            } 
+        }
+        ROS_DEBUG("line measurements that add to ceres count: %d", line_m_cnt);
     }
-    ROS_DEBUG("line measurements that add to ceres count: %d", line_m_cnt);
-    #endif
 
     //printf("prepare for ceres: %f \n", t_prepare.toc());
 
@@ -1176,10 +1185,10 @@ void Estimator::optimization()
     //options.use_explicit_schur_complement = true;
     //options.minimizer_progress_to_stdout = true;
     //options.use_nonmonotonic_steps = true;
-    if (marginalization_flag == MARGIN_OLD)
-        options.max_solver_time_in_seconds = SOLVER_TIME * 4.0 / 5.0;
-    else
-        options.max_solver_time_in_seconds = SOLVER_TIME;
+    // if (marginalization_flag == MARGIN_OLD)
+    //     options.max_solver_time_in_seconds = SOLVER_TIME * 4.0 / 5.0;
+    // else
+    //     options.max_solver_time_in_seconds = SOLVER_TIME;
     TicToc t_solver;
     ceres::Solver::Summary summary;
     ceres::Solve(options, &problem, &summary);
@@ -1282,7 +1291,7 @@ void Estimator::optimization()
                 }
             }
         }
-        #if 0
+        if(enable_triang_opti)
         {
             int line_index = -1;
             for(auto &it_per_id : line_manager.line_features)
@@ -1310,7 +1319,6 @@ void Estimator::optimization()
                 }
             }
         }
-        #endif
 
         TicToc t_pre_margin;
         marginalization_info->preMarginalize();
@@ -1464,12 +1472,13 @@ void Estimator::onlyLinesOptimization()
 
     if(feature_index < 3)
         return;
-
+    TicToc tic_ol;
     ceres::Solver::Options options;
     options.linear_solver_type = ceres::DENSE_SCHUR;
     options.max_num_iterations = NUM_ITERATIONS;
     ceres::Solver::Summary summary;
     ceres::Solve(options, &problem, &summary);
+    ROS_DEBUG("onlyOptimize line cost %fms", tic_ol.toc());
 
     //double to vector
     MatrixXd line_orth_mat(line_manager.getFeatureCount(), 4);
@@ -1664,7 +1673,7 @@ double Estimator::reprojectionError(Matrix3d &Ri, Vector3d &Pi, Matrix3d &rici, 
     double ry = residual.y();
     return sqrt(rx * rx + ry * ry);
 }
-
+//两个端点到线的平均距离
 double Estimator::lineReprojectionError(const Matrix3d &Ri, const Vector3d &Pi, const Vector3d &pt_start, const Vector3d &pt_end, const Vector6d &line_w_pluk)
 {
     double err = 0;
@@ -1732,7 +1741,7 @@ void Estimator::outliersRejection(set<int> &removeIndex)
             }
         }
         double ave_err = err / errCnt;
-        if(ave_err * FOCAL_LENGTH > 3)//3
+        if(ave_err * FOCAL_LENGTH > 3)//3个像素偏移
             removeIndex.insert(it_per_id.feature_id);
 
     }
@@ -1759,7 +1768,7 @@ void Estimator::lineOutliersRejection(set<int> &removeIndex)
             if(max_err < err)
                 max_err = err;
         }
-        if(max_err > 3.0 / 500.0)
+        if(max_err * FOCAL_LENGTH > outliers_thresh)
             removeIndex.insert(feature_id);
     }
 }

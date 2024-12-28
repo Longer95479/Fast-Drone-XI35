@@ -42,6 +42,7 @@ class LineFeatureTracker
 {
 public:
     LineFeatureTracker();
+    bool inBorder(const KeyLine &line);
     void readConfigParameter(const string &config_file);
     void readIntrinsicParameter();
     void readImage(double _cur_time, const cv::Mat &_img);

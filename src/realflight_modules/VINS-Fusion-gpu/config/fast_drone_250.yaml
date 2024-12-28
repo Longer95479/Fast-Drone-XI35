@@ -165,7 +165,9 @@ point_matcher:
 
 line_config:
     line_min_obs: 5 #三角化线特征所需最小的观测数
-    line_max_cosine_dist: 0.999 #参与的三角化两个平面法向量的最大余弦距离
+    line_max_cosine_dist: 0.998 #参与的三角化两个平面法向量的最大余弦距离
     equalize: 1 #直方图均衡化（仅lsd需要）
-    enable_triang_opti: 1 #三角化后进行优化
+    outliers_thresh: 3.0
+    enable_triang_opti_only: 1 #三角化后进行只针对线的优化
+    enable_triang_opti: 1 #线特征是否加入滑窗优化
     

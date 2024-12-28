@@ -7,7 +7,7 @@ bool LineOrthParameterization::Plus(const double *x, const double *delta, double
     Eigen::Map<const Eigen::Vector3d> x_so3(x);
     Eigen::Map<const Eigen::Vector3d> update_so3(delta);
     Sophus::SO3d x_SO3 = Sophus::SO3d::exp(x_so3);
-    x_SO3 =  Sophus::SO3d::exp(update_so3) * x_SO3; //左扰动
+    x_SO3 = x_SO3 * Sophus::SO3d::exp(update_so3); //右扰动
     Eigen::Map<Eigen::Vector3d> so3_updated(x_plus_delta);
     so3_updated = x_SO3.log();
 

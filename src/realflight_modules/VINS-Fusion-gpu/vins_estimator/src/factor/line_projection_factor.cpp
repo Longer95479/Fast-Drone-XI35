@@ -138,6 +138,7 @@ bool LineProjectionFactor::Evaluate(double const *const *parameters, double *res
             jacobian_e_td(0) = -pt_velocity_start.dot(nc) / ln_norm;
             jacobian_e_td(1) = -pt_velocity_end.dot(nc) / ln_norm;
             jacobian_e_td = sqrt_info * jacobian_e_td;
+            //jacobian_e_td.setZero();
         }
     }
     return true;

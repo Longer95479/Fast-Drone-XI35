@@ -7,6 +7,18 @@ LineFeatureTracker::LineFeatureTracker()
     cur_time = 0;
 }
 
+bool LineFeatureTracker::inBorder(const KeyLine &line)
+{
+    int BORDER_SIZE = line_tracker_config.borders;
+    int start_x = cvRound(line.getStartPoint().x);
+    int start_y = cvRound(line.getStartPoint().y);
+    int end_x = cvRound(line.getEndPoint().x);
+    int end_y = cvRound(line.getEndPoint().y);
+    return (BORDER_SIZE <= start_x && start_x < line_tracker_config.col - BORDER_SIZE && BORDER_SIZE <= start_y && start_y < line_tracker_config.row - BORDER_SIZE) || 
+           (BORDER_SIZE <= end_x && end_x < line_tracker_config.col - BORDER_SIZE && BORDER_SIZE <= end_y && end_y < line_tracker_config.row - BORDER_SIZE);
+		
+}
+
 void LineFeatureTracker::readConfigParameter(const string &config_file)
 {
     line_tracker_config.load(config_file);
@@ -24,17 +36,17 @@ void LineFeatureTracker::undistortedLineEndPoints(const vector<KeyLine> &key_lsd
 {
     line_undist.clear();
     line_undist.reserve(key_lsd.size());
-    float fx = K_.at<float>(0, 0);
-    float fy = K_.at<float>(1, 1);
-    float cx = K_.at<float>(0, 2);
-    float cy = K_.at<float>(1, 2);
     for(auto &line : key_lsd)
     {   
-        double start_x = (line.getStartPoint().x - cx) / fx;
-        double start_y = (line.getStartPoint().y - cy) / fy;
-        double end_x = (line.getEndPoint().x - cx) / fx;
-        double end_y = (line.getEndPoint().y - cy) / fy;
-        line_undist.emplace_back(start_x, start_y, end_x, end_y);
+        Vector2d pts_s, pts_e;
+        Vector3d un_pts_s, un_pts_e;
+        pts_s << line.getStartPoint().x, line.getStartPoint().y;
+        pts_e << line.getEndPoint().x, line.getEndPoint().y;
+        m_camera->liftProjective(pts_s, un_pts_s);
+        m_camera->liftProjective(pts_e, un_pts_e);
+        un_pts_s /= un_pts_s.z();
+        un_pts_e /= un_pts_e.z();
+        line_undist.emplace_back(un_pts_s.x(), un_pts_s.y(), un_pts_e.x(), un_pts_e.y());
     }
 }
 
@@ -94,9 +106,7 @@ void LineFeatureTracker::calCurVelocity()
 void LineFeatureTracker::readImage(double _cur_time, const cv::Mat &_img)
 {
     cur_time = _cur_time;
-    cv::Mat img;
-    //global undistortion
-    cv::remap(_img, img, undist_map1, undist_map2, INTER_LINEAR);
+    cv::Mat img = _img;
     //equalize
     if(line_tracker_config.equalize)
     {
