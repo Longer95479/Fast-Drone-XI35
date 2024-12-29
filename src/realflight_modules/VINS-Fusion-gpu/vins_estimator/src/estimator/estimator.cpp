@@ -106,7 +106,10 @@ void Estimator::inputIMU(double t, const Vector3d &linearAcceleration, const Vec
 
     fastPredictIMU(t, linearAcceleration, angularVelocity);
     if (solver_flag == NON_LINEAR)
+    {
         pubLatestOdometry(latest_P, latest_Q, latest_V, t);
+        pubWorldZinCamera(latest_Q, ric[0], t);
+    }
 }
 
 void Estimator::inputFeature(double t, const pair< map<int, vector<pair<int, Eigen::Matrix<double, 7, 1> > > >, map<int, Eigen::Matrix<double, 8, 1> > > &featureFrame)
@@ -401,8 +404,9 @@ void Estimator::processImage(const pair<map<int, vector<pair<int, Eigen::Matrix<
     all_image_frame.insert(make_pair(header, imageframe));
     tmp_pre_integration = new IntegrationBase{acc_0, gyr_0, Bas[frame_count], Bgs[frame_count]};
 
+    //add line
     if(!image.second.empty())
-    {//add line
+    {
         line_manager.addLineFeature(frame_count, image.second, td);
     }
 

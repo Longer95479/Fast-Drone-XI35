@@ -350,6 +350,7 @@ int main(int argc, char** argv)
 	//subscriber
 	ros::Subscriber sub_img0 = nh.subscribe(tracker.feature_tracker_config.image0_topic, 100, img0_callback);
 	ros::Subscriber sub_img1 = nh.subscribe(tracker.feature_tracker_config.image1_topic, 100, img1_callback);
+	ros::Subscriber sub_zc = nh.subscribe<sensor_msgs::PointCloud>("/vins_fusion/world_z_in_camera", 100, std::bind(&LineFeatureTracker::zAxisInCameraCallback, &line_tracker, std::placeholders::_1));
 
 	std::thread sync_thread{sync_process};
 

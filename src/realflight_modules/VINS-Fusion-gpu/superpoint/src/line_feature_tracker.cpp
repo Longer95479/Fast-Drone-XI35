@@ -14,6 +14,20 @@ LineFeatureTracker::LineFeatureTracker()
     line_id = 0;
     prev_time = 0;
     cur_time = 0;
+    curFrame.reset(new FrameLines);
+    prevFrame.reset(new FrameLines);
+}
+
+void LineFeatureTracker::zAxisInCameraCallback(const sensor_msgs::PointCloudConstPtr &zc_msg)
+{
+    mtx_z.lock();
+    cur_z[0] = zc_msg->points[0].x;
+    cur_z[1] = zc_msg->points[0].y;
+    cur_z[2] = zc_msg->points[0].z;
+    cur_z.normalize();
+    mtx_z.unlock();
+    if(!is_z_usable)
+        is_z_usable = true;
 }
 
 bool LineFeatureTracker::inBorder(const KeyLine &line)
@@ -27,15 +41,37 @@ bool LineFeatureTracker::inBorder(const KeyLine &line)
            (BORDER_SIZE <= end_x && end_x < line_tracker_config.col - BORDER_SIZE && BORDER_SIZE <= end_y && end_y < line_tracker_config.row - BORDER_SIZE);
 		
 }
-
+//返回z轴消失点在归一化坐标系中的坐标
+cv::Point2f LineFeatureTracker::getVpzFromZc()
+{
+    mtx_z.lock();
+    double scalar;
+    if(fabs(cur_z.z()) < 1e-6)
+        scalar = cur_z.z() < 0 ? -1e6 : 1e6;
+    else
+        scalar = 1 / cur_z.z();
+    cv::Point2f vpz(cur_z.x(), cur_z.y());
+    vpz *= scalar;
+    mtx_z.unlock();
+    return vpz;
+}
 //返回两条线的角度差(0~π/2)
 double LineFeatureTracker::getTwoLinesAbsAngle(const KeyLine &line0, const KeyLine &line1)
 {
-    Vector2d l0(line0.getEndPoint().x - line0.getStartPoint().x, line0.getEndPoint().y - line0.getStartPoint().y);
-    Vector2d l1(line1.getEndPoint().x - line1.getStartPoint().x, line1.getEndPoint().y - line1.getStartPoint().y);
-    l0.normalize();
-    l1.normalize();
-    return acos(fabs(l0.dot(l1)));
+    Vector2d l0_vec(line0.getEndPoint().x - line0.getStartPoint().x, line0.getEndPoint().y - line0.getStartPoint().y);
+    Vector2d l1_vec(line1.getEndPoint().x - line1.getStartPoint().x, line1.getEndPoint().y - line1.getStartPoint().y);
+    l0_vec.normalize();
+    l1_vec.normalize();
+    return acos(fabs(l0_vec.dot(l1_vec)));
+}
+//归一化坐标系下
+double LineFeatureTracker::getTwoLinesAbsAngle(const Vector4d &line0, const Vector4d &line1)
+{
+    Vector2d l0_vec(line0[2] - line0[0], line0[3] - line0[1]);
+    Vector2d l1_vec(line1[2] - line1[0], line1[3] - line1[1]);
+    l0_vec.normalize();
+    l1_vec.normalize();
+    return acos(fabs(l0_vec.dot(l1_vec)));
 }
 //返回line1两个端点到直线line0的平均距离(像素系下)
 double LineFeatureTracker::getTwoLinesDistByP2L(const KeyLine &line0, const KeyLine &line1)
@@ -48,10 +84,26 @@ double LineFeatureTracker::getTwoLinesDistByP2L(const KeyLine &line0, const KeyL
     double l0_norm = l0.head(2).norm();
     Vector3d l1_sp(line1.getStartPoint().x, line1.getStartPoint().y, 1.0);
     Vector3d l1_ep(line1.getEndPoint().x, line1.getEndPoint().y, 1.0);
-    double dist_s = l0.dot(l1_sp) / l0_norm;
-    double dist_e = l0.dot(l1_ep) / l0_norm;
+    double dist_s = fabs(l0.dot(l1_sp) / l0_norm);
+    double dist_e = fabs(l0.dot(l1_ep) / l0_norm);
     return (dist_s + dist_e) / 2;
 }
+//归一化坐标系下
+double LineFeatureTracker::getTwoLinesDistByP2L(const Vector4d &line0, const Vector4d &line1)
+{
+    double x0 = line0[0];
+    double y0 = line0[1];
+    double x1 = line0[2];
+    double y1 = line0[3];
+    Vector3d l0(y1 - y0, x0 - x1, x1*y0 - x0*y1);
+    double l0_norm = l0.head(2).norm();
+    Vector3d l1_sp(line1[0], line1[1], 1.0);
+    Vector3d l1_ep(line1[2], line1[3], 1.0);
+    double dist_s = fabs(l0.dot(l1_sp) / l0_norm);
+    double dist_e = fabs(l0.dot(l1_ep) / l0_norm);
+    return (dist_s + dist_e) / 2;
+}
+
 //返回两个线段端点之间的距离
 double LineFeatureTracker::getTwoLinesDistByP2P(const KeyLine &line0, const KeyLine &line1)
 {
@@ -70,6 +122,7 @@ double LineFeatureTracker::getTwoLinesDistByMid(const KeyLine &line0, const KeyL
     cv::Point2f l1_mid = (line1.getStartPoint() + line1.getEndPoint()) / 2;
     return distance(l0_mid, l1_mid);
 }
+
 void LineFeatureTracker::readConfigParameter(const string &config_file)
 {
     line_tracker_config.load(config_file);
@@ -153,7 +206,7 @@ void LineFeatureTracker::calCurVelocity()
             curFrame->lineVelocity.push_back(Vector4d(0, 0, 0, 0));
     }
 }
-//process NMS for new lines
+//NMS实现
 vector<int> LineFeatureTracker::lineNMSProcess(const vector<KeyLine> &vecTracked, const vector<KeyLine> &vecNew)
 {
     vector<int> indexes(vecNew.size());
@@ -181,7 +234,7 @@ vector<int> LineFeatureTracker::lineNMSProcess(const vector<KeyLine> &vecTracked
         else
             it++;
     }
-    ROS_DEBUG("nms process-1 remove %d points", remove_cnt);
+    ROS_DEBUG("nms process-1 remove %d lines", remove_cnt);
     //sort by length
     sort(indexes.begin(), indexes.end(), [&vecNew](const int i1, const int i2)
         {
@@ -209,12 +262,32 @@ vector<int> LineFeatureTracker::lineNMSProcess(const vector<KeyLine> &vecTracked
                 it++;
         }
     }
-    ROS_DEBUG("nms process-2 remove %d points", remove_cnt);
+    ROS_DEBUG("nms process-2 remove %d lines", remove_cnt);
     return res;
+}
+//划分出垂直线段
+vector<LineType> LineFeatureTracker::lineClassify(const vector<Vector4d> &key_lsd, const cv::Point2f &vp_z)
+{
+    vector<LineType> type_res(key_lsd.size(), Hold);
+    for(int i = 0; i < key_lsd.size(); i++)
+    {
+        double mid_x = (key_lsd[i][0] + key_lsd[i][2]) / 2;
+        double mid_y = (key_lsd[i][1] + key_lsd[i][3]) / 2;
+        Vector4d line_v(mid_x, mid_y, vp_z.x, vp_z.y);
+        double diff_ang = getTwoLinesAbsAngle(line_v, key_lsd[i]);
+        double diff_dist = getTwoLinesDistByP2L(line_v, key_lsd[i]);
+        diff_dist *= 460.0;
+        if(diff_ang < line_tracker_config.vertical_judge_ang && diff_dist < line_tracker_config.vertical_judge_dist)
+            type_res[i] = VERTICAL;
+    }
+    return type_res;
 }
 
 void LineFeatureTracker::readImage(double _cur_time, const cv::Mat &_img)
 {
+    if(!is_z_usable)
+        return;
+    
     cur_time = _cur_time;
     cv::Mat img = _img;
     //equalize
@@ -226,8 +299,6 @@ void LineFeatureTracker::readImage(double _cur_time, const cv::Mat &_img)
 
     if (first_image_flag) 
     {
-        curFrame.reset(new FrameLines);
-        prevFrame.reset(new FrameLines);
         curFrame->img = img;
         prevFrame->img = img;
     }
@@ -273,6 +344,7 @@ void LineFeatureTracker::readImage(double _cur_time, const cv::Mat &_img)
     }
     curFrame->keyLsd = keylsd;
     curFrame->lbdDesc = keylbd_desc;
+    curFrame->lineType = vector<LineType>(keylsd.size(), Hold);
     for (int i = 0; i < curFrame->keyLsd.size(); ++i) 
     {
         if(first_image_flag)
@@ -280,8 +352,6 @@ void LineFeatureTracker::readImage(double _cur_time, const cv::Mat &_img)
         else
             curFrame->lineID.push_back(-1);   // give a negative id
     }
-    if(first_image_flag)
-        first_image_flag = false;
     
     if(prevFrame->keyLsd.size() > 0)
     {
@@ -309,52 +379,103 @@ void LineFeatureTracker::readImage(double _cur_time, const cv::Mat &_img)
                     good_matches.push_back(lsd_matches[i]);
             }
         }
-        //assign id
+        //assign id and type
         for(auto match : good_matches)
+        {
             curFrame->lineID[match.queryIdx] = prevFrame->lineID[match.trainIdx];
+            curFrame->lineType[match.queryIdx] = prevFrame->lineType[match.trainIdx];
+        }
 
         //devide tracked and new
         vector<KeyLine> vecLineTracked, vecLineNew;
         vector<int> lineIdTracked, lineIdNew;
         Mat DescTracked, DescNew;
+        vector<LineType> lineTypeTracked;
         for (size_t i = 0; i < curFrame->keyLsd.size(); ++i)
         {
             if( curFrame->lineID[i] == -1)
             {//new
                 vecLineNew.push_back(curFrame->keyLsd[i]);
                 lineIdNew.push_back(line_id++);
-                DescNew.push_back( curFrame->lbdDesc.row(i));
+                DescNew.push_back(curFrame->lbdDesc.row(i));
             }
             else
             {
                 vecLineTracked.push_back(curFrame->keyLsd[i]);
                 lineIdTracked.push_back(curFrame->lineID[i]);
-                DescTracked.push_back( curFrame->lbdDesc.row(i));
+                DescTracked.push_back(curFrame->lbdDesc.row(i));
+                lineTypeTracked.push_back(curFrame->lineType[i]);
             }
         }
         //NMS
-        vector<int> nms_res = lineNMSProcess(vecLineTracked, vecLineNew);
-        ROS_INFO("Before NMS new points: %d, after NMS points: %d, remove points %d", vecLineNew.size(), nms_res.size(), vecLineNew.size() - nms_res.size());
+        vector<int> nms_res;
+        if(line_tracker_config.enable_line_nms)
+        {
+            nms_res = lineNMSProcess(vecLineTracked, vecLineNew);
+            ROS_INFO("Before NMS new lines: %d, after NMS lines: %d, remove lines %d", vecLineNew.size(), nms_res.size(), vecLineNew.size() - nms_res.size());
+        }
+        else
+        {
+            nms_res = vector<int>(vecLineNew.size());
+            iota(nms_res.begin(), nms_res.end(), 0);
+        }
+        //judge vertical for new line
+        vector<KeyLine> vecLineNMS;
+        vector<int> lineIdNMS;
+        Mat DescNMS;
+        vector<LineType> lineTypeNMS;
         for(auto id : nms_res)
         {
-            vecLineTracked.push_back(vecLineNew[id]);
-            lineIdTracked.push_back(lineIdNew[id]);
-            DescTracked.push_back(DescNew.row(id));
+            vecLineNMS.push_back(vecLineNew[id]);
+            lineIdNMS.push_back(lineIdNew[id]);
+            DescNMS.push_back(DescNew.row(id));
+        }
+        vector<Vector4d> lineNMSUndist;
+        undistortedLineEndPoints(vecLineNMS, lineNMSUndist);
+        cv::Point2f vpz = getVpzFromZc();
+        lineTypeNMS = lineClassify(lineNMSUndist, vpz);
+
+        for(int i = 0; i < vecLineNMS.size(); i++)
+        {
+            vecLineTracked.push_back(vecLineNMS[i]);
+            lineIdTracked.push_back(lineIdNMS[i]);
+            DescTracked.push_back(DescNMS.row(i));
+            lineTypeTracked.push_back(lineTypeNMS[i]);
         }
         
         curFrame->keyLsd = vecLineTracked;
         curFrame->lineID = lineIdTracked;
         curFrame->lbdDesc = DescTracked;
+        curFrame->lineType = lineTypeTracked;
     }
 
     //undistort
     undistortedLineEndPoints(curFrame->keyLsd, curFrame->lineSpEpUndist);
+    //judge vertical at first image
+    if(first_image_flag)
+    {
+        cv::Point2f vpz = getVpzFromZc();
+        curFrame->lineType = lineClassify(curFrame->lineSpEpUndist, vpz);
+    }
     //calculate velocity
     calCurVelocity();
     //calculate track-cnts
     calCurTrackCnt();
     //draw line
-    DrawLine();
+    switch (line_tracker_config.show_line)
+    {
+    case 1:
+        DrawLine();
+        break;
+    case 2:
+        DrawLineWithType();
+        break;
+    default:
+        break;
+    }
+    
+    if(first_image_flag)
+        first_image_flag = false;
 
     prev_time = cur_time;
     prevFrame = curFrame;
@@ -376,6 +497,23 @@ void LineFeatureTracker::DrawLine()
         cv::line(rgba_image, curFrame->keyLsd[i].getStartPoint(), curFrame->keyLsd[i].getEndPoint(), cv::Scalar(255 * (1 - len), 0, 255 * len), 2);
 	}
 	cv::cvtColor(rgba_image, imTrack, cv::COLOR_BGRA2BGR); 
+}
+
+void LineFeatureTracker::DrawLineWithType()
+{
+   	cv::Mat rgba_image;
+	cv::cvtColor(curFrame->img, rgba_image, cv::COLOR_BGR2BGRA);
+    //draw line
+    for(int i = 0; i < curFrame->lineID.size(); i++)
+    {
+        if(curFrame->lineType[i] == VERTICAL)
+            cv::line(rgba_image, curFrame->keyLsd[i].getStartPoint(), curFrame->keyLsd[i].getEndPoint(), cv::Scalar(255, 0, 0), 2);//BGR
+        else
+            cv::line(rgba_image, curFrame->keyLsd[i].getStartPoint(), curFrame->keyLsd[i].getEndPoint(), cv::Scalar(0, 255, 0), 2);
+    }
+    //draw vpz
+
+    cv::cvtColor(rgba_image, imTrack, cv::COLOR_BGRA2BGR); 
 }
 
 cv::Mat LineFeatureTracker::getTrackImage()

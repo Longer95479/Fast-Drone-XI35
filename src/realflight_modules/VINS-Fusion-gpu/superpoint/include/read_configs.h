@@ -94,20 +94,28 @@ struct LineTrackerConfig
         //printf("%s cam1 path\n", cam1Path.c_str() );
         camera_config_file.push_back(cam1Path);
 
+		show_line = fsSettings["line_config"]["show_line"];
 		equalize = fsSettings["line_config"]["equalize"];
 		col = fsSettings["image_width"];
 		row = fsSettings["image_height"];
 		borders = fsSettings["plnet"]["remove_borders"];
+		enable_line_nms = fsSettings["line_config"]["enable_line_nms"];
 		two_line_ang_thresh = fsSettings["line_config"]["two_line_ang_thresh"];
 		two_line_dist_thresh = fsSettings["line_config"]["two_line_dist_thresh"];
+		vertical_judge_dist = fsSettings["line_config"]["vertical_judge_dist"];
+		vertical_judge_ang = fsSettings["line_config"]["vertical_judge_ang"];
 	}
 
 	std::vector<std::string> camera_config_file;
+	int show_line;
 	int equalize;
 	int col, row;
 	int borders;
+	int enable_line_nms;
 	double two_line_ang_thresh;
 	double two_line_dist_thresh;
+	double vertical_judge_dist;
+	double vertical_judge_ang;
 };
 
 struct PLNetConfig

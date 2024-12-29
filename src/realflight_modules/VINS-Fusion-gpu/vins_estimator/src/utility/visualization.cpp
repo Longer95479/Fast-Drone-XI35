@@ -29,6 +29,8 @@ ros::Publisher pub_extrinsic;
 
 ros::Publisher pub_image_track;
 
+ros::Publisher pub_world_z;
+
 CameraPoseVisualization cameraposevisual(1, 0, 0, 1);
 static double sum_of_path = 0;
 static Vector3d last_path(0.0, 0.0, 0.0);
@@ -41,6 +43,7 @@ void registerPub(ros::NodeHandle &n)
     pub_path = n.advertise<nav_msgs::Path>("path", 1000);
     pub_imu_path = n.advertise<nav_msgs::Path>("imu_path", 1000);
     pub_odometry = n.advertise<nav_msgs::Odometry>("odometry", 1000);
+    pub_world_z = n.advertise<sensor_msgs::PointCloud>("world_z_in_camera", 1000);
     pub_point_cloud = n.advertise<sensor_msgs::PointCloud>("point_cloud", 1000);
     pub_margin_cloud = n.advertise<sensor_msgs::PointCloud>("margin_cloud", 1000);
     pub_lines = n.advertise<visualization_msgs::Marker>("lines_cloud", 1000);
@@ -59,6 +62,23 @@ void registerPub(ros::NodeHandle &n)
 
     cameraposevisual.setScale(0.1);
     cameraposevisual.setLineWidth(0.01);
+}
+
+void pubWorldZinCamera(const Eigen::Quaterniond &Q_wi, const Eigen::Matrix3d &R_ic, double t)
+{
+    Matrix3d R_wi = Q_wi.matrix();
+    Vector3d z_w(0, 0, 1.0);
+    Vector3d z_c = R_ic.transpose() * R_wi.transpose() * z_w;
+
+    sensor_msgs::PointCloudPtr zc_msg(new sensor_msgs::PointCloud);
+    zc_msg->header.stamp = ros::Time(t);
+	zc_msg->header.frame_id = "world";
+    geometry_msgs::Point32 p;
+    p.x = z_c.x();
+    p.y = z_c.y();
+    p.z = z_c.z();
+    zc_msg->points.push_back(p);
+    pub_world_z.publish(zc_msg);
 }
 
 void pubLatestOdometry(const Eigen::Vector3d &P, const Eigen::Quaterniond &Q, const Eigen::Vector3d &V, double t)

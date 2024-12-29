@@ -164,12 +164,16 @@ point_matcher:
     engine_file: "superpoint_lightglue.engine"
 
 line_config:
+    show_line: 2 #0：不显示 1：显示追踪次数 2：显示垂直线条
     line_min_obs: 5 #三角化线特征所需最小的观测数
     line_max_cosine_dist: 0.998 #参与的三角化两个平面法向量的最大余弦距离
     equalize: 1 #直方图均衡化（仅lsd需要）
     outliers_thresh: 3.0
     enable_triang_opti_only: 1 #三角化后进行只针对线的优化
     enable_triang_opti: 1 #线特征是否加入滑窗优化
-    two_line_ang_thresh: 0.1047 #rad 0.1047
-    two_line_dist_thresh: 20 #pixels 5
+    enable_line_nms: 1 #是否对新提取的线进行非极大抑制
+    two_line_ang_thresh: 0.1047 #rad nms
+    two_line_dist_thresh: 20 #nms
+    vertical_judge_dist: 5
+    vertical_judge_ang: 0.1047 #5° 0.0873  
     
