@@ -62,6 +62,7 @@ public:
     void removeOutliers(set<int> &removePtsIds);
     cv::Mat getTrackImage();
     bool inBorder(const cv::Point2f &pt);
+    void printTrackCnt();
 
     int row, col;
     cv::Mat imTrack;

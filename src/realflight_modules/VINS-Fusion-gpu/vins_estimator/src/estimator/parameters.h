@@ -22,7 +22,7 @@ using namespace std;
 
 const double FOCAL_LENGTH = 460.0;
 const int WINDOW_SIZE = 10;
-const int NUM_OF_F = 1000;
+const int NUM_OF_F = 2000;
 //#define UNIT_SPHERE_ERROR
 
 extern double INIT_DEPTH;
@@ -72,6 +72,12 @@ extern int FLOW_BACK;
 extern int ODOM_TYPE;
 extern int DRONE_ID;
 extern double SINGLE_OFFSET;
+
+extern int USE_EXTERNAL_TRACKER;
+
+extern int record_csv;
+extern std::string csv_file_path;
+
 void readParameters(std::string config_file);
 
 enum SIZE_PARAMETERIZATION

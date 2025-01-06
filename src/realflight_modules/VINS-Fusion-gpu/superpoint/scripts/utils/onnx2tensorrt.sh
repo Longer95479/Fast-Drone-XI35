@@ -1,0 +1,1 @@
+trtexec --onnx=../sp_model.onnx --saveEngine=sp_model.engine --fp16

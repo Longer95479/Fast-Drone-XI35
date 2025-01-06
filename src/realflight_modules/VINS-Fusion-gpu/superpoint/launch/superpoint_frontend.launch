@@ -1,0 +1,8 @@
+<launch>
+	<!-- <node pkg="superpoint" type="feature_match_node.py" name="superpoint" output="screen"/> -->
+	<node name="feature_tracker_node" pkg="superpoint"  type="feature_tracker_node" output="screen" args="$(find vins)/../config/fast_drone_250.yaml">
+		<param name="model_path" value="$(find superpoint)/model" type="string"/>
+		<param name="lightglue_plugin_path" value="$(find superpoint)/scripts/utils/trt_plugins/libcustom_layernorm.so" type="string"/>
+		<param name="print_debug" value="0" type="int"/>
+	</node>
+</launch>

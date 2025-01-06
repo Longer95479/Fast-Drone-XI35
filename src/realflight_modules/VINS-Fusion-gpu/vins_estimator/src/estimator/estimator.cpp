@@ -9,6 +9,7 @@
 
 #include "estimator.h"
 #include "../utility/visualization.h"
+#include <fstream>
 
 Estimator::Estimator(): f_manager{Rs}
 {
@@ -54,7 +55,7 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
 //     if(begin_time_count<=0)
     inputImageCnt++;
     map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
-    // TicToc featureTrackerTime;
+    TicToc featureTrackerTime;
     if(_img1.empty())
         featureFrame = featureTracker.trackImage(t, _img);
     else
@@ -64,7 +65,7 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
     //     sum_t_feature += featureTrackerTime.toc();
     //     printf("featureTracker time: %f\n", sum_t_feature/(float)inputImageCnt);
     // }
-
+    //ROS_INFO("Track cost %f ms.", featureTrackerTime.toc());
     if (SHOW_TRACK)
     {
         cv::Mat imgTrack = featureTracker.getTrackImage();
@@ -177,7 +178,7 @@ void Estimator::processMeasurements()
                     break;
                 else
                 {
-                    printf("wait for imu ... \n");
+                    printf("wait for imu ... ,td is %lf\n", td);
                     if (! MULTIPLE_THREAD)
                         return;
                     std::chrono::milliseconds dura(5);
@@ -223,7 +224,27 @@ void Estimator::processMeasurements()
             pubPointCloud(*this, header);
             pubKeyframe(*this);
             pubTF(*this, header);
+            printf("current used features counts: %d.\n", f_manager.getFeatureCount());
             printf("process measurement time: %f\n", t_process.toc());
+            if(record_csv)
+            {
+                double cur_timestamp = feature.first;
+                if(!csv_file_path.empty())
+                {
+                    std::ofstream ofs;
+                    ofs.open(csv_file_path, std::ios_base::app);
+                    if(ofs.is_open())
+                    {
+                        ofs << cur_timestamp << " ";
+                        ofs << f_manager.getFeatureCount() << " ";
+                        ofs << Ps[WINDOW_SIZE].x() << " ";
+                        ofs << Ps[WINDOW_SIZE].y() << " ";
+                        ofs << Ps[WINDOW_SIZE].z() << " ";
+                        ofs << td << "\n";
+                        ofs.close();
+                    }
+                }
+            }
         }
 
         if (! MULTIPLE_THREAD)

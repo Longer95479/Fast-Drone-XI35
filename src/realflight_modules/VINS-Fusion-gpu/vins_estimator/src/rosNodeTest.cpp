@@ -20,6 +20,7 @@
 #include "estimator/estimator.h"
 #include "estimator/parameters.h"
 #include "utility/visualization.h"
+#include "utility/tic_toc.h"
 
 Estimator estimator;
 
@@ -161,7 +162,7 @@ void feature_callback(const sensor_msgs::PointCloudConstPtr &feature_msg)
         double p_v = feature_msg->channels[3].values[i];
         double velocity_x = feature_msg->channels[4].values[i];
         double velocity_y = feature_msg->channels[5].values[i];
-        if(feature_msg->channels.size() > 5)
+        if(feature_msg->channels.size() > 6)
         {
             double gx = feature_msg->channels[6].values[i];
             double gy = feature_msg->channels[7].values[i];
@@ -226,11 +227,16 @@ int main(int argc, char **argv)
 
     ros::Subscriber sub_imu = n.subscribe(IMU_TOPIC, 2000, imu_callback, ros::TransportHints().tcpNoDelay());
     ros::Subscriber sub_feature = n.subscribe("/feature_tracker/feature", 2000, feature_callback);
-    ros::Subscriber sub_img0 = n.subscribe(IMAGE0_TOPIC, 100, img0_callback);
-    ros::Subscriber sub_img1 = n.subscribe(IMAGE1_TOPIC, 100, img1_callback);
+    if(USE_EXTERNAL_TRACKER == 0)
+    {
+        ros::Subscriber sub_img0 = n.subscribe(IMAGE0_TOPIC, 100, img0_callback);
+        ros::Subscriber sub_img1 = n.subscribe(IMAGE1_TOPIC, 100, img1_callback);
 
-    std::thread sync_thread{sync_process};
-    ros::spin();
+        std::thread sync_thread{sync_process};
+        ros::spin();
+    }
+    else
+        ros::spin();
 
     return 0;
 }

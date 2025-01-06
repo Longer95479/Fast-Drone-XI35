@@ -12,6 +12,7 @@ install(TARGETS ${PROJECT_NAME}
 
 if(NOT ANDROID)
 # add a Boost Python library
+set(PYTHON_EXECUTABLE /usr/bin/python3)
 find_package(PythonInterp REQUIRED)
 find_package(PythonLibs "${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}")
 
