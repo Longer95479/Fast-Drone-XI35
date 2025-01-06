@@ -2,6 +2,7 @@
 #define LINE_FEATURE_MANAGER__H
 #include "../utility/line_geometry.h"
 #include "parameters.h"
+#include <sstream>
 #include <vector>
 #include <list>
 #include <map>
@@ -77,6 +78,84 @@ public:
     void removeOutlier(set<int> &outlierIndex);
 };
 
+class StructLineFeaturePerId : public LineFeaturePerId
+{
+public:
+    StructLineFeaturePerId(int feature_id_, int start_frame_, LineType line_type_): LineFeaturePerId(feature_id_, start_frame_), line_type(line_type_) {}
 
+    void setParam(const Vector2d &vec_param)
+    {
+        inv_depth = vec_param[0];
+        phi = vec_param[1];
+    }
 
+    Vector6d getPlukInWorldFromParam(const double local_mht, const Matrix3d Rs[], const Vector3d Ps[], const Vector3d tic[], const Matrix3d ric[])
+    {
+        assert(is_triangulated = true);
+
+        Matrix3d R_wi = Rs[start_frame];
+        Vector3d t_wi = Ps[start_frame];
+        Vector3d t_ws = R_wi * tic[0] + t_wi;
+        Matrix3d R_ws;
+        if(line_type == VERTICAL)
+            R_ws.setIdentity();
+        else
+            R_ws << cos(local_mht), -sin(local_mht), 0, 
+                    sin(local_mht), cos(local_mht), 0,
+                    0, 0, 1;
+        Matrix3d R_sl = getRslByType(line_type);
+        Vector6d pluk_l = getPlukInLocalFromParam(inv_depth, phi);
+        Vector6d pluk_s = plukTransformPose(pluk_l, R_sl, Vector3d(0, 0, 0));
+        Vector6d pluk_w = plukTransformPose(pluk_s, R_ws, t_ws);
+        
+        line_pluk = pluk_w;
+        return line_pluk;
+    }
+
+    LineType line_type;
+    double inv_depth;
+    double phi;
+};
+
+class StructLineFeatureManager
+{
+public:
+    list<StructLineFeaturePerId> struct_line_features;
+
+    bool isLineUsable(const StructLineFeaturePerId& line);
+    void addTrackedStructLine(const map<int, Eigen::Matrix<double, 8, 1>> &img_line, double td, vector<pair<int, Eigen::Matrix<double, 8, 1>>> &new_lines);
+    void addTrackedStructLineAndGetHorizon(const map<int, Eigen::Matrix<double, 8, 1>> &img_line, double td, vector<pair<int, Eigen::Matrix<double, 8, 1>>> &h_lines, vector<pair<int, Eigen::Matrix<double, 8, 1>>> &new_lines);
+    void structLineTriangulate(double local_mht, Matrix3d Rs[], Vector3d Ps[], Vector3d tic[], Matrix3d ric[]);
+    void onlyVerticalLineTriangulate(Matrix3d Rs[], Vector3d Ps[], Vector3d tic[], Matrix3d ric[]);
+    Vector2d lineParamInitializationByPluk(double local_mht, const Vector3d &t_ws, const Vector6d &line_w, const LineType &line_type);
+    void addNewStrcutLine(int frame_cnt, const vector<pair<int, Eigen::Matrix<double, 8, 1>>> &new_lines, 
+                        const vector<LineType> &lines_type, double td);
+    void removeBackShiftParam(Vector3d &marge_P, Vector3d &new_P);
+    void removeBack();
+    void removeFront(int frame_count);
+    int getFeatureCount();
+    MatrixXd getLineParamMat();
+    void setLineFeature(const MatrixXd &lines_param_mat);
+    void removeOutlier(set<int> &outlierIndex);
+};
+
+class MHTManager
+{
+public:
+    MHTManager()
+    {
+        local_mht_vec = vector<double>(WINDOW_SIZE + 1, -1);
+    }
+
+    void clear();
+    void slideMHTWindowOld();
+    void slideMHTWindowNew();
+    void insertNewMHT(int frame_count, double new_mht);
+    bool checkMHTWindow();
+    double getMeanMHT();
+    void printMHTWindow();
+    double getLatestMHT();
+
+    vector<double> local_mht_vec;
+};
 #endif

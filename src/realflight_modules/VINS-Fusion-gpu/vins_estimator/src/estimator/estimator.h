@@ -8,7 +8,8 @@
  *******************************************************/
 
 #pragma once
- 
+
+#include <random>
 #include <thread>
 #include <mutex>
 #include <std_msgs/Header.h>
@@ -38,6 +39,9 @@
 #include "line_feature_manager.h"
 #include "../factor/line_parameterization.h"
 #include "../factor/line_projection_factor.h"
+#include "../factor/mht_theta_parameterization.h"
+#include "../factor/struct_line_parameterization.h"
+#include "../factor/struct_line_projection_factor.h"
 
 
 class Estimator
@@ -54,6 +58,7 @@ class Estimator
     void inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1 = cv::Mat());
     void processIMU(double t, double dt, const Vector3d &linear_acceleration, const Vector3d &angular_velocity);
     void processImage(const pair<map<int, vector<pair<int, Eigen::Matrix<double, 7, 1> > > >, map<int, Eigen::Matrix<double, 8, 1> > > &image, const double header);
+    void processImageWithPointsAndStructLines(const pair<map<int, vector<pair<int, Eigen::Matrix<double, 7, 1> > > >, map<int, Eigen::Matrix<double, 8, 1> > > &image, const double header);
     void processMeasurements();
 
     // internal
@@ -76,6 +81,7 @@ class Estimator
     void predictPtsInNextFrame();
     void outliersRejection(set<int> &removeIndex);
     void lineOutliersRejection(set<int> &removeIndex);
+    void structLineOutliersRejection(set<int> &removeIndex);
     double reprojectionError(Matrix3d &Ri, Vector3d &Pi, Matrix3d &rici, Vector3d &tici,
                                      Matrix3d &Rj, Vector3d &Pj, Matrix3d &ricj, Vector3d &ticj, 
                                      double depth, Vector3d &uvi, Vector3d &uvj);
@@ -87,11 +93,28 @@ class Estimator
     double calCurRepErrAtImuPose(int frame_count, const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &cur_features);
     void calCurPoseByPNP(int frame_count, const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &cur_features, Eigen::Matrix3d &R, Eigen::Vector3d &P);
     void calCurVelocity(double cur_time_, Vector3d &cur_P_);
+    //struct line
+    pair<bool, double> getTwoLineSimScore(const Vector4d &line0, const Vector4d &line1);
+    bool structLineClassify(const vector<pair<int, Eigen::Matrix<double, 8, 1>>> &new_lines, vector<pair<int, Eigen::Matrix<double, 8, 1>>> &out_lines, vector<LineType> &lines_type);
+    void onlyClassifyVerticalLine(const vector<pair<int, Eigen::Matrix<double, 8, 1>>> &new_lines, 
+                                  vector<pair<int, Eigen::Matrix<double, 8, 1>>> &vertical_lines, vector<pair<int, Eigen::Matrix<double, 8, 1>>> &other_lines);
+    void onlyClassifyHorizonLine(double ransac_local_mht, const vector<pair<int, Eigen::Matrix<double, 8, 1>>> &h_lines, vector<pair<int, Eigen::Matrix<double, 8, 1>>> &out_lines, vector<LineType> &h_lines_type);
+    vector<Vector2d> lineParamInitialization(int frame_count, const vector<pair<int, Eigen::Matrix<double, 8, 1>>> &new_lines, const vector<LineType> &lines_type);
+    pair<bool, double> recognizeMHTUsingRANSAC(int frame_count, const vector<pair<int, Eigen::Matrix<double, 8, 1>>> &cur_lines_all);
+    int countNumForHorizonClassify(const vector<pair<int, Eigen::Matrix<double, 8, 1>>> &cur_lines_all, const Vector2d &vp_x, const Vector2d &vp_y);
+    Vector3d vpxNormalize(Vector3d vpx_in);
+    void onlyOptimizeMhtAndLines();
 
     enum SolverFlag
     {
         INITIAL,
         NON_LINEAR
+    };
+
+    enum MHTState
+    {
+        UPDATING,
+        HOLD
     };
 
     enum MarginalizationFlag
@@ -113,6 +136,7 @@ class Estimator
     FeatureTracker featureTracker;
 
     SolverFlag solver_flag;
+    MHTState mht_state; //初始为UPDATING
     MarginalizationFlag  marginalization_flag;
     Vector3d g;
 
@@ -125,6 +149,8 @@ class Estimator
     Vector3d        Bas[(WINDOW_SIZE + 1)];
     Vector3d        Bgs[(WINDOW_SIZE + 1)];
     double td;
+
+    double local_mht;
 
     Matrix3d back_R0, last_R, last_R0;
     Vector3d back_P0, last_P, last_P0;
@@ -149,6 +175,9 @@ class Estimator
 
     FeatureManager f_manager;
     LineFeatureManager line_manager;
+    StructLineFeatureManager struct_line_manager;
+    MHTManager mht_manager;
+
     MotionEstimator m_estimator;
     InitialEXRotation initial_ex_rotation;
 
@@ -166,6 +195,8 @@ class Estimator
     double para_SpeedBias[WINDOW_SIZE + 1][SIZE_SPEEDBIAS];
     double para_Feature[NUM_OF_F][SIZE_FEATURE];
     double para_Line[NUM_OF_F][SIZE_LINE];
+    double para_Struct_Line[NUM_OF_F][SIZE_STRUCT_LINE];
+    double para_Local_MHT[1][SIZE_MHT];
     double para_Ex_Pose[2][SIZE_POSE];
     double para_Retrive_Pose[SIZE_POSE];
     double para_Td[1][1];

@@ -61,6 +61,9 @@ add_library(vins_lib
     src/factor/marginalization_factor.cpp
     src/factor/line_parameterization.cpp
     src/factor/line_projection_factor.cpp
+    src/factor/struct_line_parameterization.cpp
+    src/factor/struct_line_projection_factor.cpp
+    src/factor/mht_theta_parameterization.cpp
     src/utility/utility.cpp
     src/utility/visualization.cpp
     src/utility/CameraPoseVisualization.cpp

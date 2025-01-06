@@ -86,8 +86,15 @@ extern double velocity_limit;
 extern double line_min_obs;
 extern double line_max_cosine_dist;
 extern int enable_triang_opti_only;
-extern int enable_triang_opti;
+extern int enable_line_opti;
 extern double outliers_thresh;
+
+extern int USE_STRUCT_LINE;
+extern double LINE_SIM_ANGLE_THRESH;
+extern double LINE_SIM_DIST_THRESH;
+extern double NEW_MHT_DETECT_THRESH;
+extern int RANSAC_MAX_ITERATIONS;
+extern double MHT_NEIGHBOR_DIFF_THRESH;
 
 void readParameters(std::string config_file);
 
@@ -96,7 +103,9 @@ enum SIZE_PARAMETERIZATION
     SIZE_POSE = 7,
     SIZE_SPEEDBIAS = 9,
     SIZE_FEATURE = 1,
-    SIZE_LINE = 4
+    SIZE_LINE = 4,
+    SIZE_STRUCT_LINE = 2,
+    SIZE_MHT = 1
 };
 
 enum StateOrder

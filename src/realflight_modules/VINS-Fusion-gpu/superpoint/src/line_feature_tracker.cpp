@@ -285,8 +285,11 @@ vector<LineType> LineFeatureTracker::lineClassify(const vector<Vector4d> &key_ls
 
 void LineFeatureTracker::readImage(double _cur_time, const cv::Mat &_img)
 {
-    if(!is_z_usable)
-        return;
+    if(line_tracker_config.detect_vertical_at_front)
+    {
+        if(!is_z_usable)
+            return;
+    }
     
     cur_time = _cur_time;
     cv::Mat img = _img;
@@ -430,17 +433,30 @@ void LineFeatureTracker::readImage(double _cur_time, const cv::Mat &_img)
             lineIdNMS.push_back(lineIdNew[id]);
             DescNMS.push_back(DescNew.row(id));
         }
-        vector<Vector4d> lineNMSUndist;
-        undistortedLineEndPoints(vecLineNMS, lineNMSUndist);
-        cv::Point2f vpz = getVpzFromZc();
-        lineTypeNMS = lineClassify(lineNMSUndist, vpz);
-
-        for(int i = 0; i < vecLineNMS.size(); i++)
+        if(line_tracker_config.detect_vertical_at_front)
         {
-            vecLineTracked.push_back(vecLineNMS[i]);
-            lineIdTracked.push_back(lineIdNMS[i]);
-            DescTracked.push_back(DescNMS.row(i));
-            lineTypeTracked.push_back(lineTypeNMS[i]);
+            vector<Vector4d> lineNMSUndist;
+            undistortedLineEndPoints(vecLineNMS, lineNMSUndist);
+            cv::Point2f vpz = getVpzFromZc();
+            lineTypeNMS = lineClassify(lineNMSUndist, vpz);
+
+            for(int i = 0; i < vecLineNMS.size(); i++)
+            {
+                vecLineTracked.push_back(vecLineNMS[i]);
+                lineIdTracked.push_back(lineIdNMS[i]);
+                DescTracked.push_back(DescNMS.row(i));
+                lineTypeTracked.push_back(lineTypeNMS[i]);
+            }
+        }
+        else
+        {
+            for(int i = 0; i < vecLineNMS.size(); i++)
+            {
+                vecLineTracked.push_back(vecLineNMS[i]);
+                lineIdTracked.push_back(lineIdNMS[i]);
+                DescTracked.push_back(DescNMS.row(i));
+                lineTypeTracked.push_back(Hold);
+            }
         }
         
         curFrame->keyLsd = vecLineTracked;
@@ -454,8 +470,15 @@ void LineFeatureTracker::readImage(double _cur_time, const cv::Mat &_img)
     //judge vertical at first image
     if(first_image_flag)
     {
-        cv::Point2f vpz = getVpzFromZc();
-        curFrame->lineType = lineClassify(curFrame->lineSpEpUndist, vpz);
+        if(line_tracker_config.detect_vertical_at_front)
+        {
+            cv::Point2f vpz = getVpzFromZc();
+            curFrame->lineType = lineClassify(curFrame->lineSpEpUndist, vpz);
+        }
+        else
+        {
+            curFrame->lineType = vector<LineType>(curFrame->keyLsd.size(), Hold);
+        }
     }
     //calculate velocity
     calCurVelocity();

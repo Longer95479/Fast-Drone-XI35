@@ -67,9 +67,16 @@ double velocity_limit;
 
 double line_min_obs;
 double line_max_cosine_dist;
-int enable_triang_opti;
+int enable_line_opti;
 int enable_triang_opti_only;
 double outliers_thresh;
+
+int USE_STRUCT_LINE;
+double LINE_SIM_ANGLE_THRESH;
+double LINE_SIM_DIST_THRESH;
+double NEW_MHT_DETECT_THRESH;
+int RANSAC_MAX_ITERATIONS;
+double MHT_NEIGHBOR_DIFF_THRESH;
 
 template <typename T>
 T readParam(ros::NodeHandle &n, std::string name)
@@ -246,9 +253,15 @@ void readParameters(std::string config_file)
 
     line_min_obs = fsSettings["line_config"]["line_min_obs"];
     line_max_cosine_dist = fsSettings["line_config"]["line_max_cosine_dist"];
-    enable_triang_opti = fsSettings["line_config"]["enable_triang_opti"];
+    enable_line_opti = fsSettings["line_config"]["enable_line_opti"];
     enable_triang_opti_only = fsSettings["line_config"]["enable_triang_opti_only"];
     outliers_thresh = fsSettings["line_config"]["outliers_thresh"];
     
+    USE_STRUCT_LINE = fsSettings["line_config"]["use_struct_line"];
+    LINE_SIM_ANGLE_THRESH = fsSettings["line_config"]["vertical_judge_ang"];
+    LINE_SIM_DIST_THRESH = fsSettings["line_config"]["vertical_judge_dist"];
+    NEW_MHT_DETECT_THRESH = fsSettings["line_config"]["new_mht_detect_thresh"];
+    RANSAC_MAX_ITERATIONS = fsSettings["line_config"]["ransac_max_iterations"];
+    MHT_NEIGHBOR_DIFF_THRESH = fsSettings["line_config"]["mht_Window_neighbor_diff_thresh"];
     fsSettings.release();
 }

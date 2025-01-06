@@ -164,16 +164,21 @@ point_matcher:
     engine_file: "superpoint_lightglue.engine"
 
 line_config:
-    show_line: 2 #0：不显示 1：显示追踪次数 2：显示垂直线条
+    show_line: 1 #0：不显示 1：显示追踪次数 2：显示垂直线条
+    detect_vertical_at_front: 0 #是否在前端检测垂直线段
     line_min_obs: 5 #三角化线特征所需最小的观测数
     line_max_cosine_dist: 0.998 #参与的三角化两个平面法向量的最大余弦距离
     equalize: 1 #直方图均衡化（仅lsd需要）
     outliers_thresh: 3.0
     enable_triang_opti_only: 1 #三角化后进行只针对线的优化
-    enable_triang_opti: 1 #线特征是否加入滑窗优化
+    enable_line_opti: 1 #线特征是否加入滑窗优化
     enable_line_nms: 1 #是否对新提取的线进行非极大抑制
     two_line_ang_thresh: 0.1047 #rad nms
     two_line_dist_thresh: 20 #nms
-    vertical_judge_dist: 5
+
+    use_struct_line: 1 #0：普通线特征 1：结构化线特征
+    vertical_judge_dist: 5 #用于结构线划分
     vertical_judge_ang: 0.1047 #5° 0.0873  
-    
+    new_mht_detect_thresh: 0.5 #划分成功线条比例小于阈值时检测新的局部曼哈顿
+    ransac_max_iterations: 10 
+    mht_Window_neighbor_diff_thresh: 0.174 #mht窗口内相邻mht相差阈值

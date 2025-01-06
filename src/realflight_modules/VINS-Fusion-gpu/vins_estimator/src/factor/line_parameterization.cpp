@@ -18,7 +18,9 @@ bool LineOrthParameterization::Plus(const double *x, const double *delta, double
     double delta_phi = delta[3];
     delta_w << cos(delta_phi), -sin(delta_phi), sin(delta_phi), cos(delta_phi);
     w = w * delta_w;
-    x_plus_delta[3] = acos(w(0, 0));
+    double w11 = w(0, 0);
+    double w21 = w(1, 0);
+    x_plus_delta[3] = atan2(w21, w11);
     return true;
 }
 

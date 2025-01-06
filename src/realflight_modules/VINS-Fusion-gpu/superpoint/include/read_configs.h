@@ -95,6 +95,7 @@ struct LineTrackerConfig
         camera_config_file.push_back(cam1Path);
 
 		show_line = fsSettings["line_config"]["show_line"];
+		detect_vertical_at_front = fsSettings["line_config"]["detect_vertical_at_front"];
 		equalize = fsSettings["line_config"]["equalize"];
 		col = fsSettings["image_width"];
 		row = fsSettings["image_height"];
@@ -108,6 +109,7 @@ struct LineTrackerConfig
 
 	std::vector<std::string> camera_config_file;
 	int show_line;
+	int detect_vertical_at_front;
 	int equalize;
 	int col, row;
 	int borders;
