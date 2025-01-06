@@ -108,7 +108,22 @@ categories:
 
 ### 1.3 CSI 相机的固定安装 （chz 补充）
 ### 1.4 3070无线网卡安装（hh 补充）
+
+- 拆下网卡外壳，网卡主板贴上绝缘胶带
+
+- 将网卡放置于开发板下方，用Type-C公头转USB母头连接线将网卡与开发板侧面Type-C接口相连
+
+- 用扎带将网卡天线固定在白色立柱上
+  
 ### 1.5 4G/5G 模块安装 （hh 补充）
+
+- 将5G模块核心板安装在底板上，在核心板上安装散热片
+
+- 初次使用5G模块时，需要对5G模块进行配置，在电脑上安装5G模块串口驱动，将模块与电脑连接，打开串口调试程序，连接模块的AT端口，依次输入：AT+QCFG="usbnet",5（设置网卡拨号方式为NCM网卡）、AT+QCFG="nat",0（配置拨号模式为网卡模式）、AT+QCFG="ethernet",0（禁用Ethernet网卡）、AT+CFUN=1,1（重启模块）、AT+QNETDEVCTL=1,3,1（进行拨号保存配置，开启自动连接）
+
+- 将组装好的5G模块用螺丝固定在3D打印件上，由于模块下方有SIM卡座，因此需要在模块下方使用铜柱垫高
+
+- 将3D打印件安装于开发板上方，使5G模块的电源接口朝向无人机电池一侧，使用Type-C数据线将5G模块与开发板前方Type-C接口相连
 
 ## 2 飞控配置 （kxr、hyy、lym 检查补充）
 
@@ -343,10 +358,10 @@ sudo ifconfig wlan1 multicast
 sudo route add -net 224.0.0.0 netmask 240.0.0.0 dev wlan1
 ```
 
-### 3.10 安装 onnxruntime
+### 3.10 安装 onnxruntime-gpu
 
 ```shell
-pip install onnxruntime
+pip install onnxruntime_gpu-1.12.1-cp38-cp38-linux_aarch64.whl
 ```
 
 ### 3.11 安装 skimage
