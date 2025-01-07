@@ -496,7 +496,7 @@ sudo docker exec -it  fd_runtime bash
 ./update_jetson.sh
 ```
 
-## 5 代码编译与启动流程 （bkr 检查）
+## 5 代码编译与启动流程 （bkr 检查,已完成20250107）
 
 - ssh 连接到 orin 板，如 `ssh orin01@10.10.10.11`
 
