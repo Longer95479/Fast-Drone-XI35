@@ -119,9 +119,10 @@ bool StructLineProjectionOneFrameFactor::operator()(const T *const line_st_ptr, 
     T ln_square = nc(0) * nc(0) + nc(1) * nc(1);
     T ln_norm = ceres::sqrt(ln_square);
 
-    Vector3T pt_start_td = pt_start.cast<T>() - (td - T(td_i)) * pt_velocity_start.cast<T>();
-    Vector3T pt_end_td = pt_end.cast<T>() - (td - T(td_i)) * pt_velocity_end.cast<T>();
-
+    // Vector3T pt_start_td = pt_start.cast<T>() - (td - T(td_i)) * pt_velocity_start.cast<T>();
+    // Vector3T pt_end_td = pt_end.cast<T>() - (td - T(td_i)) * pt_velocity_end.cast<T>();
+    Vector3T pt_start_td = pt_start.cast<T>();
+    Vector3T pt_end_td = pt_end.cast<T>();
     T e1 = pt_start_td.dot(nc);
     T e2 = pt_end_td.dot(nc);
     Eigen::Map<Vector2T> residual(residual_ptr);
@@ -226,8 +227,10 @@ bool StructLineProjectionTwoFrameFactor::operator()(const T *const line_st_ptr, 
     T ln_square = nc(0) * nc(0) + nc(1) * nc(1);
     T ln_norm = ceres::sqrt(ln_square);
 
-    Vector3T pt_start_td = pt_start.cast<T>() - (td - T(td_i)) * pt_velocity_start.cast<T>();
-    Vector3T pt_end_td = pt_end.cast<T>() - (td - T(td_i)) * pt_velocity_end.cast<T>();
+    // Vector3T pt_start_td = pt_start.cast<T>() - (td - T(td_i)) * pt_velocity_start.cast<T>();
+    // Vector3T pt_end_td = pt_end.cast<T>() - (td - T(td_i)) * pt_velocity_end.cast<T>();
+    Vector3T pt_start_td = pt_start.cast<T>();
+    Vector3T pt_end_td = pt_end.cast<T>();
 
     T e1 = pt_start_td.dot(nc);
     T e2 = pt_end_td.dot(nc);

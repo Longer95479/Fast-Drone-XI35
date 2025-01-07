@@ -1,6 +1,7 @@
 #include "line_geometry.h"
 #include "../sophus/so3.hpp"
 #include <ros/ros.h>
+#include <Eigen/LU>
 
 Matrix3d skewSymmetric(const Vector3d &v) 
 {
@@ -201,6 +202,6 @@ Vector2d getIntersecByTwoLine(const Vector3d &l0, const Vector3d &l1)
     Vector2d b;
     A << l0(0), l0(1), l1(0), l1(1);
     b << -l0(2), -l1(2);
-    Vector2d x = A.ldlt().solve(b);
+    Vector2d x = A.lu().solve(b);
     return x;
 }

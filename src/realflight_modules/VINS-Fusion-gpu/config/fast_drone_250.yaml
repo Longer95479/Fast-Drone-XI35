@@ -166,7 +166,7 @@ point_matcher:
 line_config:
     show_line: 1 #0：不显示 1：显示追踪次数 2：显示垂直线条
     detect_vertical_at_front: 0 #是否在前端检测垂直线段
-    line_min_obs: 5 #三角化线特征所需最小的观测数
+    line_min_obs: 3 #三角化线特征所需最小的观测数
     line_max_cosine_dist: 0.998 #参与的三角化两个平面法向量的最大余弦距离
     equalize: 1 #直方图均衡化（仅lsd需要）
     outliers_thresh: 3.0

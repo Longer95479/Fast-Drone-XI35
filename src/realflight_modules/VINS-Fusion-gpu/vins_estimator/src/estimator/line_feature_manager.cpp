@@ -183,6 +183,7 @@ bool StructLineFeatureManager::isLineUsable(const StructLineFeaturePerId& line)
 void StructLineFeatureManager::addTrackedStructLine(const map<int, Eigen::Matrix<double, 8, 1>> &img_line, double td, vector<pair<int, Eigen::Matrix<double, 8, 1>>> &new_lines)
 {
     new_lines.clear();
+    int tracked_counts = 0;
     for(auto& line_per_id : img_line)
     {
         int line_id = line_per_id.first;
@@ -190,6 +191,7 @@ void StructLineFeatureManager::addTrackedStructLine(const map<int, Eigen::Matrix
                     [line_id](const StructLineFeaturePerId& line){return line.feature_id == line_id;});
         if(it != struct_line_features.end())
         {
+            tracked_counts++;
             it->pushFrame(line_per_id.second, td);
         }
         else
@@ -197,6 +199,7 @@ void StructLineFeatureManager::addTrackedStructLine(const map<int, Eigen::Matrix
             new_lines.emplace_back(line_id, line_per_id.second);
         }
     }
+    ROS_DEBUG("addTrackedStructLine: Input %d lines, %d tracked, %d new lines.", img_line.size(), tracked_counts, new_lines.size());
 }
 //添加已存在的结构线条，返回追踪到的水平线以及新线段
 void StructLineFeatureManager::addTrackedStructLineAndGetHorizon(const map<int, Eigen::Matrix<double, 8, 1>> &img_line, double td,
@@ -204,6 +207,7 @@ void StructLineFeatureManager::addTrackedStructLineAndGetHorizon(const map<int, 
 {
     h_lines.clear();
     new_lines.clear();
+    int tracked_counts = 0;
     for(auto& it_per_id : img_line)
     {
         int line_id = it_per_id.first;
@@ -211,6 +215,7 @@ void StructLineFeatureManager::addTrackedStructLineAndGetHorizon(const map<int, 
             [line_id](const StructLineFeaturePerId& line){return line.feature_id == line_id;});
         if(it != struct_line_features.end())
         {
+            tracked_counts++;
             it->pushFrame(it_per_id.second, td);
             if(it->line_type == HORIZON_X || it->line_type == HORIZON_Y)
             {
@@ -222,6 +227,7 @@ void StructLineFeatureManager::addTrackedStructLineAndGetHorizon(const map<int, 
             new_lines.emplace_back(line_id, it_per_id.second);
         }
     }
+    ROS_DEBUG("addTrackedStructLineAndGetHorizon: Input %d lines, %d tracked, %d tracked horizon, %d new lines.", img_line.size(), tracked_counts, h_lines.size(), new_lines.size());
 }
 //向list中添加新的线条 TODO：如果已存在则跳过
 void StructLineFeatureManager::addNewStrcutLine(int frame_cnt, const vector<pair<int, Eigen::Matrix<double, 8, 1>>> &new_lines, 

@@ -777,7 +777,7 @@ void Estimator::processImageWithPointsAndStructLines(const pair<map<int, vector<
             {
                 mht_state = UPDATING;
                 mht_manager.clear();
-                ROS_WARN("Trigger new mht detection!");
+                ROS_WARN("Trigger new mht detection! The old local mht is %lf", local_mht);
             }
             //add to manager
             struct_line_manager.addNewStrcutLine(frame_count, add_lines, add_lines_type, td);
@@ -821,7 +821,7 @@ void Estimator::processImageWithPointsAndStructLines(const pair<map<int, vector<
                 //only optimize the local mht and lines
                 onlyOptimizeMhtAndLines();
                 mht_state = HOLD;
-                ROS_INFO("local mht updating finish!");
+                ROS_INFO("Local mht updating finish! The new local mht is %lf", local_mht);
             }
         }
         //remove points outliers
@@ -2528,6 +2528,7 @@ void Estimator::onlyClassifyVerticalLine(const vector<pair<int, Eigen::Matrix<do
         else
             other_lines.push_back(it_per_id);
     }
+    ROS_DEBUG("onlyClassifyVerticalLine: Input %d new lines, classified %d vertical lines, %d other lines", new_lines.size(), vertical_lines.size(), other_lines.size());
 }
 //给定局部曼哈顿对水平线条进行划分
 void Estimator::onlyClassifyHorizonLine(double ransac_local_mht, const vector<pair<int, Eigen::Matrix<double, 8, 1>>> &h_lines, vector<pair<int, Eigen::Matrix<double, 8, 1>>> &out_lines, vector<LineType> &h_lines_type)
@@ -2574,6 +2575,7 @@ void Estimator::onlyClassifyHorizonLine(double ransac_local_mht, const vector<pa
             h_lines_type.push_back(cur_line_type);
         }
     }
+    ROS_DEBUG("onlyClassifyHorizonLine: Input %d lines, classified %d horizon lines at the new mht:%lf", h_lines.size(), out_lines.size(), ransac_local_mht);
 }
 //
 int Estimator::countNumForHorizonClassify(const vector<pair<int, Eigen::Matrix<double, 8, 1>>> &cur_lines_all, const Vector2d &vp_x, const Vector2d &vp_y)
@@ -2598,11 +2600,13 @@ pair<bool, double> Estimator::recognizeMHTUsingRANSAC(int frame_count, const vec
 {
     if(cur_lines_all.empty())
         return pair<bool, double>(false, 0);
+    ROS_DEBUG("recognizeMHTUsingRANSAC: Input %d lines", cur_lines_all.size());
     pair<bool, double> res;
     //cal the vanishing line of xy plane
     Matrix3d R_cw = ric[0].transpose() * Rs[frame_count].transpose();
     Vector3d l_v = R_cw * Vector3d(0, 0, 1.0);
     Vector3d z_w = Vector3d(0, 0, 1.0);
+    ROS_DEBUG("recognizeMHTUsingRANSAC: l_v is (%lf, %lf, %lf)", l_v(0), l_v(1), l_v(2));
     //gen rand
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -2617,15 +2621,25 @@ pair<bool, double> Estimator::recognizeMHTUsingRANSAC(int frame_count, const vec
         double random_number = dis(gen);
         int select_index = static_cast<int>(std::floor(random_number * cur_lines_all.size()));
         Vector4d cur_line = cur_lines_all[select_index].second.head(4);
+        ROS_DEBUG("recognizeMHTUsingRANSAC: select_index is %d, cur_line is (%lf, %lf, %lf, %lf)", select_index, cur_line(0), cur_line(1), cur_line(2), cur_line(3));
         //cal vpx_w and vpy_w
         Vector3d l_cur = getLineExpression(cur_line);
+        ROS_DEBUG("recognizeMHTUsingRANSAC: l_cur is (%lf, %lf, %lf)", l_cur(0), l_cur(1), l_cur(2));
         Vector2d vpx_l = getIntersecByTwoLine(l_v, l_cur);
+
+        Vector3d vpx_l_temp;
+        vpx_l_temp << vpx_l, 1.0;
+        double vp_l_its_e_1 = l_v.dot(vpx_l_temp);
+        double vp_l_its_e_2 = l_cur.dot(vpx_l_temp);
+        ROS_DEBUG("recognizeMHTUsingRANSAC: vp_l_its_e_1 is %lf, vp_l_its_e_2 is %lf", vp_l_its_e_1, vp_l_its_e_2);
+
         if(std::isinf(vpx_l(0)) || std::isinf(vpx_l(1)) || std::isnan(vpx_l(0)) || std::isnan(vpx_l(1)))
             continue;
         Vector3d vpx_n;
         vpx_n << vpx_l, 1.0;
         vpx_n.normalize();
         Vector3d vpx_w = R_cw.transpose() * vpx_n;
+        ROS_DEBUG("recognizeMHTUsingRANSAC: current vanish point is (%lf, %lf), vpx_n is (%lf, %lf, %lf), vpx_w is (%lf, %lf, %lf)", vpx_l(0), vpx_l(1), vpx_n(0), vpx_n(1), vpx_n(2), vpx_w(0), vpx_w(1), vpx_w(2));
         vpx_w(2) = 0;
         vpx_w = vpxNormalize(vpx_w);
         Vector3d vpy_w = z_w.cross(vpx_w);
@@ -2634,10 +2648,12 @@ pair<bool, double> Estimator::recognizeMHTUsingRANSAC(int frame_count, const vec
         Vector3d vpy_c = R_cw * vpy_w;
         Vector2d vpx_r = getVpFromDDs(vpx_c);
         Vector2d vpy_r = getVpFromDDs(vpy_c);
+        ROS_DEBUG("recognizeMHTUsingRANSAC: vanish point after normalized is :vpx_r(%lf, %lf), vpy_r(%lf, %lf)", vpx_r(0), vpx_r(1), vpy_r(0), vpy_r(1));
         //cal counts for curretn vp
         int cur_counts = countNumForHorizonClassify(cur_lines_all, vpx_r, vpy_r);
+        ROS_DEBUG("recognizeMHTUsingRANSAC: current counts based on new normalized vp is %d", cur_counts);
         double cur_mht = atan2(vpx_w(1), vpx_w[0]);
-        if(cur_mht > max_classfied_counts)
+        if(cur_counts > max_classfied_counts)
         {
             optimal_mht = cur_mht;
             optimal_vpx = vpx_w;
@@ -2649,12 +2665,13 @@ pair<bool, double> Estimator::recognizeMHTUsingRANSAC(int frame_count, const vec
     ROS_DEBUG("MHT-RANSAC: the optimal_mht is %lf[deg], optimal_vpx is (%f, %f, %f).", optimal_mht / M_PI * 180.0, optimal_vpx(0), optimal_vpx(1), optimal_vpx(2));
     return res;
 }
-//将vpx限制在第一象限
+//将vpx_w限制在第一象限
 Vector3d Estimator::vpxNormalize(Vector3d vpx_in)
 {
     Vector3d vpx_out;
     vpx_in(2) = 0; //强制投影在xy平面上
     double phi = atan2(vpx_in(1), vpx_in(0));
+    ROS_DEBUG("vpxNormalize: original phi is %lf", phi);
     Vector3d v_z = Vector3d(0, 0, 1.0);
     if(phi >= 0 && phi <= (M_PI/2))
     {
@@ -2672,9 +2689,16 @@ Vector3d Estimator::vpxNormalize(Vector3d vpx_in)
     {
         vpx_out = -vpx_in;
     }
+    //如果vpx_w趋近与90°，则将其归0
     double normalized_phi = atan2(vpx_out(1), vpx_out(0));
-    ROS_DEBUG("normalized_phi is %lf", normalized_phi);
     assert(normalized_phi >= 0 && normalized_phi <=(M_PI/2));
+    if((M_PI/2 - normalized_phi) < 0.05236)//0.0872
+    {
+        normalized_phi = 0.;
+        vpx_out = Vector3d(1.0, 0, 0);
+    }
+    
+    ROS_DEBUG("vpxNormalize: normalized_phi is %lf", normalized_phi);
     return vpx_out;
 }
 
