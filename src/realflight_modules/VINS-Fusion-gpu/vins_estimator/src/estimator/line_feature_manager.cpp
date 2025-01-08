@@ -490,6 +490,23 @@ MatrixXd StructLineFeatureManager::getLineParamMat()
     return lines_param_mat;
 }
 
+MatrixXd StructLineFeatureManager::getLineParamMat(vector<LineType> &lines_type)
+{
+    lines_type.clear();
+    MatrixXd lines_param_mat(getFeatureCount(), 2);
+    int index = 0;
+    for(auto &it_per_id : struct_line_features)
+    {
+        if(isLineUsable(it_per_id))
+        {
+            Vector2d line_param(it_per_id.inv_depth, it_per_id.phi);
+            lines_param_mat.row(index++) = line_param;
+            lines_type.push_back(it_per_id.line_type);
+        }
+    }
+    return lines_param_mat;
+}
+
 void StructLineFeatureManager::setLineFeature(const MatrixXd &lines_param_mat)
 {
     int index = 0;
@@ -504,8 +521,9 @@ void StructLineFeatureManager::setLineFeature(const MatrixXd &lines_param_mat)
     }
 }
 
-void StructLineFeatureManager::removeOutlier(set<int> &outlierIndex)
+pair<int, int> StructLineFeatureManager::removeOutlier(set<int> &outlierIndex)
 {
+    int rm_h_cnt = 0, rm_v_cnt = 0;
     std::set<int>::iterator itSet;
     for (auto it = struct_line_features.begin(), it_next = struct_line_features.begin();
          it != struct_line_features.end(); it = it_next)
@@ -515,11 +533,30 @@ void StructLineFeatureManager::removeOutlier(set<int> &outlierIndex)
         itSet = outlierIndex.find(index);
         if(itSet != outlierIndex.end())
         {
+            if(it->line_type == VERTICAL)
+                rm_v_cnt++;
+            else if(it->line_type == HORIZON_X || it->line_type == HORIZON_Y)
+                rm_h_cnt++;
             struct_line_features.erase(it);
             //printf("remove line outlier %d \n", index);
         }
     }
+    return pair<int, int>(rm_v_cnt, rm_h_cnt);
 }
+pair<int, int> StructLineFeatureManager::getTriangulatedCount()
+{
+    int all_cnt = 0, tri_cnt = 0;
+    for(auto &it_per_id : struct_line_features)
+    {
+        if(it_per_id.line_type == OTHER)
+            continue;
+        if(it_per_id.is_triangulated)
+            tri_cnt++;
+        all_cnt++;
+    }
+    return pair<int, int>(all_cnt, tri_cnt);
+}
+
 /*********************************************************MHT Manager*********************************************************/
 void MHTManager::clear()
 {

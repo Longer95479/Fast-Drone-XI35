@@ -42,6 +42,9 @@ void Estimator::setParameter()
     ProjectionTwoFrameTwoCamFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
     ProjectionOneFrameTwoCamFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
     LineProjectionFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
+    StructLineProjectionOneFrameFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
+    StructLineProjectionTwoFrameFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
+
     td = TD;
     g = G;
     cout << "set g " << g.transpose() << endl;
@@ -767,8 +770,11 @@ void Estimator::processImageWithPointsAndStructLines(const pair<map<int, vector<
             struct_line_manager.addTrackedStructLine(image.second, td, new_lines);
             //line triangulate
             struct_line_manager.structLineTriangulate(local_mht, Rs, Ps, tic, ric);
+            double sline_err_bf = calAllStructLinesReprojectionError();
             //optimization
             optimization();
+            double sline_err_af = calAllStructLinesReprojectionError();
+            ROS_DEBUG("Strut line rep err changing after optimization: %lf ===> %lf", sline_err_bf, sline_err_af);
             //classify the new lines
             vector<pair<int, Eigen::Matrix<double, 8, 1>>> add_lines;
             vector<LineType> add_lines_type;
@@ -824,6 +830,8 @@ void Estimator::processImageWithPointsAndStructLines(const pair<map<int, vector<
                 ROS_INFO("Local mht updating finish! The new local mht is %lf", local_mht);
             }
         }
+        auto line_cnt = struct_line_manager.getTriangulatedCount();
+        ROS_DEBUG("Struct line manager has %d line features, %d is triangulated.", line_cnt.first, line_cnt.second);
         //remove points outliers
         set<int> removeIndex;
         outliersRejection(removeIndex);
@@ -837,8 +845,8 @@ void Estimator::processImageWithPointsAndStructLines(const pair<map<int, vector<
         //remove line outliers
         removeIndex.clear();
         structLineOutliersRejection(removeIndex);
-        struct_line_manager.removeOutlier(removeIndex);
-        ROS_DEBUG("struct line remove outliers counts: %d", removeIndex.size());
+        auto rm_cnt = struct_line_manager.removeOutlier(removeIndex);
+        ROS_DEBUG("struct line remove outliers counts: %d, remove %d vertical lines, %d horizon lines.", removeIndex.size(), rm_cnt.first, rm_cnt.second);
             
         ROS_DEBUG("solver costs: %fms", t_solve.toc());
 
@@ -1171,7 +1179,7 @@ void Estimator::vector2double()
     //line
     if(USE_STRUCT_LINE)
     {
-        MatrixXd sline_mat = struct_line_manager.getLineParamMat();
+        MatrixXd sline_mat = struct_line_manager.getLineParamMat(struct_lines_opt_type);
         for(int i = 0; i < struct_line_manager.getFeatureCount(); i++)
         {
             para_Struct_Line[i][0] = sline_mat.row(i)[0];
@@ -1215,6 +1223,8 @@ void Estimator::double2vector()
                                                           para_Pose[0][4],
                                                           para_Pose[0][5]).toRotationMatrix());
         double y_diff = origin_R0.x() - origin_R00.x();
+        double y_diff_rad = y_diff / 180.0 * M_PI;
+        ROS_DEBUG("Current y_diff_rad is %lf", y_diff_rad);
         //TODO
         Matrix3d rot_diff = Utility::ypr2R(Vector3d(y_diff, 0, 0));
         if (abs(abs(origin_R0.y()) - 90) < 1.0 || abs(abs(origin_R00.y()) - 90) < 1.0)
@@ -1268,22 +1278,29 @@ void Estimator::double2vector()
         td = para_Td[0][0];
         //line 
         if(USE_STRUCT_LINE)
-        {//使用结构线情况下只需要矫正local_mht
+        {
+            //如果有优化水平线，需要矫正local_mht
+            double local_mht_last = local_mht;
             local_mht = para_Local_MHT[0][0];
-            // Matrix3d R_ws;
-            // R_ws << cos(local_mht), -sin(local_mht), 0, 
-            //         sin(local_mht), cos(local_mht), 0,
-            //         0, 0, 1;
-            // R_ws = rot_diff * R_ws;
-            // double r11 = R_ws(0, 0);
-            // double r21 = R_ws(1, 0);
-            // local_mht = atan2(r21, r11);
-            local_mht += y_diff;
+            if(have_h_lines_opt)
+            {
+                local_mht += y_diff_rad;
+                local_mht = normalizeAngle(local_mht);
+                have_h_lines_opt = false;
+                ROS_DEBUG("Local mht changing: %lf ===> %lf ===> %lf", local_mht_last, para_Local_MHT[0][0], local_mht);
+            }
+
             MatrixXd sline_mat(struct_line_manager.getFeatureCount(), 2);
             for(int i = 0; i < sline_mat.rows(); i++)
             {
-                sline_mat.row(i)[0] = para_Struct_Line[i][0];
-                sline_mat.row(i)[1] = para_Struct_Line[i][1];
+                double inv_depth = para_Struct_Line[i][0];
+                double phi = para_Struct_Line[i][1];
+                //垂直线段参数需要进行矫正
+                if(struct_lines_opt_type[i] == VERTICAL)
+                    phi = normalizeAngle(phi + y_diff_rad);
+
+                sline_mat.row(i)[0] = inv_depth;
+                sline_mat.row(i)[1] = phi;
             }
             struct_line_manager.setLineFeature(sline_mat);
         }
@@ -1484,8 +1501,12 @@ void Estimator::optimization()
     {
         ceres::LocalParameterization *local_parameterization = new MHTParameterization();
         problem.AddParameterBlock(para_Local_MHT[0], SIZE_MHT, local_parameterization);
+        if(!ENABLE_MHT_OPT)
+            problem.SetParameterBlockConstant(para_Local_MHT[0]);
 
         int line_m_cnt = 0;
+        int line_h_cnt = 0;
+        int line_v_cnt = 0;
         int feature_index = -1;
         for(auto &it_per_id : struct_line_manager.struct_line_features)
         {
@@ -1494,6 +1515,14 @@ void Estimator::optimization()
                 continue;
 
             feature_index++;
+
+            if(it_per_id.line_type == VERTICAL)
+                line_v_cnt++;
+            else
+            {
+                line_h_cnt++;
+                have_h_lines_opt = true; 
+            }
             //add ParameterBlock
             ceres::LocalParameterization *local_parameterization = new StructLineParameterization();
             problem.AddParameterBlock(para_Struct_Line[feature_index], SIZE_STRUCT_LINE, local_parameterization);
@@ -1531,7 +1560,7 @@ void Estimator::optimization()
                 line_m_cnt++;
             }
         }
-        ROS_DEBUG("line measurements that add to ceres count: %d", line_m_cnt);
+        ROS_DEBUG("line measurements that add to ceres count: %d, line_v_cnt is %d, line_h_cnt is %d.", line_m_cnt, line_v_cnt, line_h_cnt);
     }
     else if(enable_line_opti)
     {
@@ -1565,6 +1594,8 @@ void Estimator::optimization()
     }
 
     //printf("prepare for ceres: %f \n", t_prepare.toc());
+    
+    double slines_err_bf = calAllStructLinesReprojectionErrorAtZeroSpace();
 
     ceres::Solver::Options options;
 
@@ -1585,6 +1616,9 @@ void Estimator::optimization()
     //cout << summary.BriefReport() << endl;
     ROS_DEBUG("Iterations : %d", static_cast<int>(summary.iterations.size()));
     //printf("solver costs: %f \n", t_solver.toc());
+
+    double slines_err_af = calAllStructLinesReprojectionErrorAtZeroSpace();
+    ROS_DEBUG("Struct lines rep err changing at ZERO Spece: %lf ===========> %lf", slines_err_bf, slines_err_af);
 
     double2vector();
     //printf("frame_count: %d \n", frame_count);
@@ -1910,6 +1944,8 @@ void Estimator::onlyOptimizeMhtAndLines()
     //local mht
     ceres::LocalParameterization *local_parameterization = new MHTParameterization();
     problem.AddParameterBlock(para_Local_MHT[0], SIZE_MHT, local_parameterization);
+    if(!ENABLE_MHT_OPT)
+        problem.SetParameterBlockConstant(para_Local_MHT[0]);
 
     //add residual block
     int feature_index = -1;
@@ -2300,6 +2336,76 @@ void Estimator::structLineOutliersRejection(set<int> &removeIndex)
         if(max_err * FOCAL_LENGTH > outliers_thresh)
             removeIndex.insert(feature_id);
     }
+}
+
+double Estimator::calAllStructLinesReprojectionError()
+{
+    double all_err = 0;
+    for(auto &it_per_id : struct_line_manager.struct_line_features)
+    {
+        it_per_id.used_num = it_per_id.line_feature_per_frame.size();
+        if(!struct_line_manager.isLineUsable(it_per_id))
+            continue;
+        int feature_id = it_per_id.feature_id;
+        int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
+        Vector6d line_w_pluk = it_per_id.getPlukInWorldFromParam(local_mht, Rs, Ps, tic, ric);
+        double max_err = 0;
+        for(auto &it_per_frame : it_per_id.line_feature_per_frame)
+        {
+            imu_j++;
+            Matrix3d Rwc = Rs[imu_j] * ric[0];
+            Vector3d twc = Rs[imu_j] * tic[0] + Ps[imu_j];
+            double err = lineReprojectionError(Rwc, twc, it_per_frame.pt_start, it_per_frame.pt_end, line_w_pluk);
+            all_err += err;
+        }
+    }
+    return all_err;   
+}
+
+double Estimator::calAllStructLinesReprojectionErrorAtZeroSpace()
+{
+    Matrix3d Rs_temp[WINDOW_SIZE+1];
+    Vector3d Ps_temp[WINDOW_SIZE+1];
+    Matrix3d ric_temp[2];
+    Vector3d tic_temp[2];
+    for(int i = 0; i < WINDOW_SIZE + 1; i++)
+    {
+        Rs_temp[i] = Quaterniond(para_Pose[i][6], para_Pose[i][3], para_Pose[i][4], para_Pose[i][5]).normalized().toRotationMatrix();
+        Ps_temp[i] = Vector3d(para_Pose[i][0], para_Pose[i][1], para_Pose[i][2]);
+    }
+    ric_temp[0] = Quaterniond(para_Ex_Pose[0][6], para_Ex_Pose[0][3], para_Ex_Pose[0][4], para_Ex_Pose[0][5]).normalized().toRotationMatrix();
+    tic_temp[0] = Vector3d(para_Ex_Pose[0][0], para_Ex_Pose[0][1], para_Ex_Pose[0][2]);
+
+    MatrixXd sline_mat(struct_line_manager.getFeatureCount(), 2);
+    for(int i = 0; i < sline_mat.rows(); i++)
+    {
+        sline_mat.row(i)[0] = para_Struct_Line[i][0];
+        sline_mat.row(i)[1] = para_Struct_Line[i][1];
+    }
+    struct_line_manager.setLineFeature(sline_mat);
+
+    local_mht = para_Local_MHT[0][0];
+    
+    double all_err = 0;
+    for(auto &it_per_id : struct_line_manager.struct_line_features)
+    {
+        it_per_id.used_num = it_per_id.line_feature_per_frame.size();
+        if(!struct_line_manager.isLineUsable(it_per_id))
+            continue;
+        int feature_id = it_per_id.feature_id;
+        int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
+        Vector6d line_w_pluk = it_per_id.getPlukInWorldFromParam(local_mht, Rs_temp, Ps_temp, tic_temp, ric_temp);
+        double max_err = 0;
+        for(auto &it_per_frame : it_per_id.line_feature_per_frame)
+        {
+            imu_j++;
+            Matrix3d Rwc = Rs_temp[imu_j] * ric_temp[0];
+            Vector3d twc = Rs_temp[imu_j] * tic_temp[0] + Ps_temp[imu_j];
+            double err = lineReprojectionError(Rwc, twc, it_per_frame.pt_start, it_per_frame.pt_end, line_w_pluk);
+            all_err += err;
+        }
+    }
+    return all_err;   
 }
 
 void Estimator::fastPredictIMU(double t, Eigen::Vector3d linear_acceleration, Eigen::Vector3d angular_velocity)

@@ -29,3 +29,4 @@ Vector6d getPlukInLocalFromParam(double inv_depth, double theta);
 Vector4d getIntersecByLineAndPlane(const Vector4d &pi, const Vector6d &line);
 Vector3d getLineExpression(const Vector4d &line);
 Vector2d getIntersecByTwoLine(const Vector3d &l0, const Vector3d &l1);
+double normalizeAngle(double angle);

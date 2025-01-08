@@ -135,8 +135,10 @@ public:
     void removeFront(int frame_count);
     int getFeatureCount();
     MatrixXd getLineParamMat();
+    MatrixXd getLineParamMat(vector<LineType> &lines_type);
     void setLineFeature(const MatrixXd &lines_param_mat);
-    void removeOutlier(set<int> &outlierIndex);
+    pair<int, int> removeOutlier(set<int> &outlierIndex);
+    pair<int, int> getTriangulatedCount();
 };
 
 class MHTManager

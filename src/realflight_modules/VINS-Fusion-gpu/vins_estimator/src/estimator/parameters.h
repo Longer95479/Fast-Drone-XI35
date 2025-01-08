@@ -95,6 +95,7 @@ extern double LINE_SIM_DIST_THRESH;
 extern double NEW_MHT_DETECT_THRESH;
 extern int RANSAC_MAX_ITERATIONS;
 extern double MHT_NEIGHBOR_DIFF_THRESH;
+extern int ENABLE_MHT_OPT;
 
 void readParameters(std::string config_file);
 

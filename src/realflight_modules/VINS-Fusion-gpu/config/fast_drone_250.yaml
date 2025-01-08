@@ -172,7 +172,7 @@ line_config:
     outliers_thresh: 3.0
     enable_triang_opti_only: 1 #三角化后进行只针对线的优化
     enable_line_opti: 1 #线特征是否加入滑窗优化
-    enable_line_nms: 1 #是否对新提取的线进行非极大抑制
+    enable_line_nms: 0 #是否对新提取的线进行非极大抑制
     two_line_ang_thresh: 0.1047 #rad nms
     two_line_dist_thresh: 20 #nms
 
@@ -182,3 +182,4 @@ line_config:
     new_mht_detect_thresh: 0.5 #划分成功线条比例小于阈值时检测新的局部曼哈顿
     ransac_max_iterations: 10 
     mht_Window_neighbor_diff_thresh: 0.174 #mht窗口内相邻mht相差阈值
+    enable_mht_optimization: 1 #是否优化mht

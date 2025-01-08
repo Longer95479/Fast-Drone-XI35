@@ -102,6 +102,7 @@ class FeatureManager
     void removeBack();
     void removeFront(int frame_count);
     void removeOutlier(set<int> &outlierIndex);
+
     list<FeaturePerId> feature;
     int last_track_num;
     double last_average_parallax;

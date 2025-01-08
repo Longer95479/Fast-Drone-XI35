@@ -77,6 +77,7 @@ double LINE_SIM_DIST_THRESH;
 double NEW_MHT_DETECT_THRESH;
 int RANSAC_MAX_ITERATIONS;
 double MHT_NEIGHBOR_DIFF_THRESH;
+int ENABLE_MHT_OPT;
 
 template <typename T>
 T readParam(ros::NodeHandle &n, std::string name)
@@ -263,5 +264,7 @@ void readParameters(std::string config_file)
     NEW_MHT_DETECT_THRESH = fsSettings["line_config"]["new_mht_detect_thresh"];
     RANSAC_MAX_ITERATIONS = fsSettings["line_config"]["ransac_max_iterations"];
     MHT_NEIGHBOR_DIFF_THRESH = fsSettings["line_config"]["mht_Window_neighbor_diff_thresh"];
+    ENABLE_MHT_OPT = fsSettings["line_config"]["enable_mht_optimization"];
+    
     fsSettings.release();
 }

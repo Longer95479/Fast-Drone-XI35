@@ -205,3 +205,8 @@ Vector2d getIntersecByTwoLine(const Vector3d &l0, const Vector3d &l1)
     Vector2d x = A.lu().solve(b);
     return x;
 }
+
+double normalizeAngle(double angle)
+{
+    return angle - 2*M_PI * std::floor((angle + M_PI) / (2 * M_PI));
+}

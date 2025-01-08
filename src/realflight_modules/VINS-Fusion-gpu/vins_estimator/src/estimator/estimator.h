@@ -82,6 +82,8 @@ class Estimator
     void outliersRejection(set<int> &removeIndex);
     void lineOutliersRejection(set<int> &removeIndex);
     void structLineOutliersRejection(set<int> &removeIndex);
+    double calAllStructLinesReprojectionError();
+    double calAllStructLinesReprojectionErrorAtZeroSpace();
     double reprojectionError(Matrix3d &Ri, Vector3d &Pi, Matrix3d &rici, Vector3d &tici,
                                      Matrix3d &Rj, Vector3d &Pj, Matrix3d &ricj, Vector3d &ticj, 
                                      double depth, Vector3d &uvi, Vector3d &uvj);
@@ -177,6 +179,9 @@ class Estimator
     LineFeatureManager line_manager;
     StructLineFeatureManager struct_line_manager;
     MHTManager mht_manager;
+
+    vector<LineType> struct_lines_opt_type;
+    bool have_h_lines_opt = false;
 
     MotionEstimator m_estimator;
     InitialEXRotation initial_ex_rotation;
