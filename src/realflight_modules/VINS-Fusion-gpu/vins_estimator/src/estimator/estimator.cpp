@@ -1613,7 +1613,7 @@ void Estimator::optimization()
     TicToc t_solver;
     ceres::Solver::Summary summary;
     ceres::Solve(options, &problem, &summary);
-    //cout << summary.BriefReport() << endl;
+    cout << summary.BriefReport() << endl;//BriefReport or FullReport
     ROS_DEBUG("Iterations : %d", static_cast<int>(summary.iterations.size()));
     //printf("solver costs: %f \n", t_solver.toc());
 
@@ -2384,7 +2384,7 @@ double Estimator::calAllStructLinesReprojectionErrorAtZeroSpace()
     }
     struct_line_manager.setLineFeature(sline_mat);
 
-    local_mht = para_Local_MHT[0][0];
+    double local_mht_temp = para_Local_MHT[0][0];
     
     double all_err = 0;
     for(auto &it_per_id : struct_line_manager.struct_line_features)
@@ -2394,7 +2394,7 @@ double Estimator::calAllStructLinesReprojectionErrorAtZeroSpace()
             continue;
         int feature_id = it_per_id.feature_id;
         int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
-        Vector6d line_w_pluk = it_per_id.getPlukInWorldFromParam(local_mht, Rs_temp, Ps_temp, tic_temp, ric_temp);
+        Vector6d line_w_pluk = it_per_id.getPlukInWorldFromParam(local_mht_temp, Rs_temp, Ps_temp, tic_temp, ric_temp);
         double max_err = 0;
         for(auto &it_per_frame : it_per_id.line_feature_per_frame)
         {
@@ -2812,4 +2812,20 @@ Vector3d Estimator::vpxNormalize(Vector3d vpx_in)
 vector<Vector2d> Estimator::lineParamInitialization(int frame_count, const vector<pair<int, Eigen::Matrix<double, 8, 1>>> &new_lines, const vector<LineType> &lines_type)
 {
     //TODO
+}
+
+void Estimator::calAssociaPtsForLines(const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &cur_pts, const vector<pair<int, Vector4d>> &lines, vector<pair<int, vector<pair<int, double>>>> &associa_pts)
+{
+    int idx = 0;
+    MatrixXd cur_pts_mat(cur_pts.size(), 3);
+    vector<int> pts_id;
+    for(auto &it_per_id : cur_pts)
+    {
+        Vector3d pt = it_per_id.second[0].second.head(3);
+        pt /= pt(2);
+        cur_pts_mat.row(idx++) = pt;
+        pts_id.push_back(it_per_id.first);
+    }
+
+    
 }

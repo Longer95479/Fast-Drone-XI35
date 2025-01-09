@@ -50,7 +50,17 @@ public:
         line_feature_per_frame.emplace_back(line_feature, td);
     }
 
+    void updateAssociaPts(const vector<pair<int, double>> &pts_id_dist)
+    {
+        for(auto &id_dist : pts_id_dist)
+        {
+            associa_points[id_dist.first] = id_dist.second;
+        }
+    }
+
     vector<LineFeaturePerFrame> line_feature_per_frame;
+
+    map<int, double> associa_points;
 
     int feature_id;
     int start_frame;
@@ -76,6 +86,7 @@ public:
     MatrixXd getLineOrthMat();
     void setLineFeature(const MatrixXd &lineOrthMat);
     void removeOutlier(set<int> &outlierIndex);
+    
 };
 
 class StructLineFeaturePerId : public LineFeaturePerId
@@ -139,6 +150,8 @@ public:
     void setLineFeature(const MatrixXd &lines_param_mat);
     pair<int, int> removeOutlier(set<int> &outlierIndex);
     pair<int, int> getTriangulatedCount();
+
+    void getUninitialLines(const map<int, Eigen::Matrix<double, 8, 1>>&cur_lines, vector<pair<int, Vector4d>> &out_lines);
 };
 
 class MHTManager

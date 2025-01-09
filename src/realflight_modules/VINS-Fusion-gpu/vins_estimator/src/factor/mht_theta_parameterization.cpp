@@ -1,17 +1,20 @@
 #include "mht_theta_parameterization.h"
+#include "../utility/line_geometry.h"
 
 bool MHTParameterization::Plus(const double *x, const double *delta, double *x_plus_delta) const
 {
     double theta = x[0];
-    Eigen::Matrix2d SO2_R;
-    SO2_R  << cos(theta), -sin(theta), sin(theta), cos(theta);
+    // Eigen::Matrix2d SO2_R;
+    // SO2_R  << cos(theta), -sin(theta), sin(theta), cos(theta);
+    // v
+    // Eigen::Matrix2d SO2_delta_R;
+    // SO2_R  << cos(delta_theta), -sin(delta_theta), sin(delta_theta), cos(delta_theta);
+    // SO2_R = SO2_R * SO2_delta_R;
+    // double r11 = SO2_R(0, 0);
+    // double r21 = SO2_R(1, 0);
+    // x_plus_delta[0] = atan2(r21, r11);
     double delta_theta = delta[0];
-    Eigen::Matrix2d SO2_delta_R;
-    SO2_R  << cos(delta_theta), -sin(delta_theta), sin(delta_theta), cos(delta_theta);
-    SO2_R = SO2_R * SO2_delta_R;
-    double r11 = SO2_R(0, 0);
-    double r21 = SO2_R(1, 0);
-    x_plus_delta[0] = atan2(r21, r11);
+    x_plus_delta[0] = normalizeAngle(theta + delta_theta);
     return true;
 }
 

@@ -229,7 +229,7 @@ void StructLineFeatureManager::addTrackedStructLineAndGetHorizon(const map<int, 
     }
     ROS_DEBUG("addTrackedStructLineAndGetHorizon: Input %d lines, %d tracked, %d tracked horizon, %d new lines.", img_line.size(), tracked_counts, h_lines.size(), new_lines.size());
 }
-//向list中添加新的线条 TODO：如果已存在则跳过
+//向list中添加新的线条
 void StructLineFeatureManager::addNewStrcutLine(int frame_cnt, const vector<pair<int, Eigen::Matrix<double, 8, 1>>> &new_lines, 
                                                 const vector<LineType> &lines_type, double td)
 {
@@ -543,6 +543,7 @@ pair<int, int> StructLineFeatureManager::removeOutlier(set<int> &outlierIndex)
     }
     return pair<int, int>(rm_v_cnt, rm_h_cnt);
 }
+
 pair<int, int> StructLineFeatureManager::getTriangulatedCount()
 {
     int all_cnt = 0, tri_cnt = 0;
@@ -555,6 +556,22 @@ pair<int, int> StructLineFeatureManager::getTriangulatedCount()
         all_cnt++;
     }
     return pair<int, int>(all_cnt, tri_cnt);
+}
+
+void StructLineFeatureManager::getUninitialLines(const map<int, Eigen::Matrix<double, 8, 1>>&cur_lines, vector<pair<int, Vector4d>> &out_lines)
+{
+    out_lines.clear();
+    for(auto &it_per_id : cur_lines)
+    {
+        int line_id = it_per_id.first;
+        auto it = find_if(struct_line_features.begin(), struct_line_features.end(), 
+                        [line_id](const StructLineFeaturePerId &l){return l.feature_id == line_id;});
+        if(it != struct_line_features.end())
+        {
+            if(!it->is_triangulated)
+                out_lines.emplace_back(line_id, it_per_id.second.head(4));
+        }
+    }
 }
 
 /*********************************************************MHT Manager*********************************************************/
