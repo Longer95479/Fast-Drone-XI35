@@ -96,6 +96,8 @@ extern double NEW_MHT_DETECT_THRESH;
 extern int RANSAC_MAX_ITERATIONS;
 extern double MHT_NEIGHBOR_DIFF_THRESH;
 extern int ENABLE_MHT_OPT;
+extern int ASSOCIATE_POINTS_TO_LINES;
+extern double STRUCT_LINE_SQRT_INFO;
 
 void readParameters(std::string config_file);
 

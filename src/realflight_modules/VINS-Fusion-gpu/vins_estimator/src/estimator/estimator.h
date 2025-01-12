@@ -106,7 +106,7 @@ class Estimator
     int countNumForHorizonClassify(const vector<pair<int, Eigen::Matrix<double, 8, 1>>> &cur_lines_all, const Vector2d &vp_x, const Vector2d &vp_y);
     Vector3d vpxNormalize(Vector3d vpx_in);
     void onlyOptimizeMhtAndLines();
-    
+    //associate points to lines
     void calAssociaPtsForLines(const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &cur_pts, const vector<pair<int, Vector4d>> &lines, vector<pair<int, vector<pair<int, double>>>> &associa_pts);
 
     enum SolverFlag

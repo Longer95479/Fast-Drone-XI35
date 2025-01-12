@@ -105,6 +105,7 @@ struct LineTrackerConfig
 		two_line_dist_thresh = fsSettings["line_config"]["two_line_dist_thresh"];
 		vertical_judge_dist = fsSettings["line_config"]["vertical_judge_dist"];
 		vertical_judge_ang = fsSettings["line_config"]["vertical_judge_ang"];
+		associate_pts_at_front = fsSettings["line_config"]["associate_pts_at_front"];
 	}
 
 	std::vector<std::string> camera_config_file;
@@ -118,6 +119,7 @@ struct LineTrackerConfig
 	double two_line_dist_thresh;
 	double vertical_judge_dist;
 	double vertical_judge_ang;
+	int associate_pts_at_front;
 };
 
 struct PLNetConfig

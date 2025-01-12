@@ -210,3 +210,12 @@ double normalizeAngle(double angle)
 {
     return angle - 2*M_PI * std::floor((angle + M_PI) / (2 * M_PI));
 }
+
+Vector6d getPlukByTwoPoints(const Vector3d &pt1, const Vector3d &pt2)
+{
+    Vector3d v = pt1 - pt2;
+    Vector3d n = pt2.cross(v);
+    Vector6d line;
+    line << n, v;
+    return line;
+}

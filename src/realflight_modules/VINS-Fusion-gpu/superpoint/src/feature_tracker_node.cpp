@@ -158,8 +158,14 @@ void sync_process()
 					line_tracker_future = thread_pool.submit(std::bind(&LineFeatureTracker::readImage, &line_tracker,
 															 cur_time, std::ref(image0)));
 				tracker_future.get();
-				line_tracker_future.get();
-
+				if(DETECT_LINE)
+					line_tracker_future.get();
+				//associate pts to lines
+				if(DETECT_LINE && line_tracker.line_tracker_config.associate_pts_at_front)
+				{
+					line_tracker.calAssociaPtsForLines(tracker.cur_un_pts, tracker.cur_pts, line_tracker.curFrame->lineSpEpUndist, line_tracker.curFrame->lineAssociaPts);
+					line_tracker.DrawLIneWithAssociaPts();
+				}
 				pub_this_frame = true;
 				ROS_INFO("feature track stereo cost %f ms", tic_tk.toc());
 			}
@@ -350,7 +356,9 @@ int main(int argc, char** argv)
 	//subscriber
 	ros::Subscriber sub_img0 = nh.subscribe(tracker.feature_tracker_config.image0_topic, 100, img0_callback);
 	ros::Subscriber sub_img1 = nh.subscribe(tracker.feature_tracker_config.image1_topic, 100, img1_callback);
-	ros::Subscriber sub_zc = nh.subscribe<sensor_msgs::PointCloud>("/vins_fusion/world_z_in_camera", 100, std::bind(&LineFeatureTracker::zAxisInCameraCallback, &line_tracker, std::placeholders::_1));
+	ros::Subscriber sub_zc;
+	if(line_tracker.line_tracker_config.detect_vertical_at_front)
+		sub_zc = nh.subscribe<sensor_msgs::PointCloud>("/vins_fusion/world_z_in_camera", 100, std::bind(&LineFeatureTracker::zAxisInCameraCallback, &line_tracker, std::placeholders::_1));
 
 	std::thread sync_thread{sync_process};
 

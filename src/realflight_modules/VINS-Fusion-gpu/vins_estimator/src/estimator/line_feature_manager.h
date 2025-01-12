@@ -2,6 +2,7 @@
 #define LINE_FEATURE_MANAGER__H
 #include "../utility/line_geometry.h"
 #include "parameters.h"
+#include "feature_manager.h"
 #include <sstream>
 #include <vector>
 #include <list>
@@ -134,24 +135,35 @@ public:
     list<StructLineFeaturePerId> struct_line_features;
 
     bool isLineUsable(const StructLineFeaturePerId& line);
+
     void addTrackedStructLine(const map<int, Eigen::Matrix<double, 8, 1>> &img_line, double td, vector<pair<int, Eigen::Matrix<double, 8, 1>>> &new_lines);
     void addTrackedStructLineAndGetHorizon(const map<int, Eigen::Matrix<double, 8, 1>> &img_line, double td, vector<pair<int, Eigen::Matrix<double, 8, 1>>> &h_lines, vector<pair<int, Eigen::Matrix<double, 8, 1>>> &new_lines);
+
     void structLineTriangulate(double local_mht, Matrix3d Rs[], Vector3d Ps[], Vector3d tic[], Matrix3d ric[]);
+    void structLineTriangulateByPoints(double local_mht, const FeatureManager &f_manager, Matrix3d Rs[], Vector3d Ps[], Vector3d tic[], Matrix3d ric[]);
+
     void onlyVerticalLineTriangulate(Matrix3d Rs[], Vector3d Ps[], Vector3d tic[], Matrix3d ric[]);
+    void onlyVerticalLineTriangulateByPoints(const FeatureManager &f_manager, Matrix3d Rs[], Vector3d Ps[], Vector3d tic[], Matrix3d ric[]);
+
     Vector2d lineParamInitializationByPluk(double local_mht, const Vector3d &t_ws, const Vector6d &line_w, const LineType &line_type);
+
     void addNewStrcutLine(int frame_cnt, const vector<pair<int, Eigen::Matrix<double, 8, 1>>> &new_lines, 
                         const vector<LineType> &lines_type, double td);
+
     void removeBackShiftParam(Vector3d &marge_P, Vector3d &new_P);
     void removeBack();
     void removeFront(int frame_count);
+
     int getFeatureCount();
     MatrixXd getLineParamMat();
     MatrixXd getLineParamMat(vector<LineType> &lines_type);
     void setLineFeature(const MatrixXd &lines_param_mat);
+
     pair<int, int> removeOutlier(set<int> &outlierIndex);
     pair<int, int> getTriangulatedCount();
 
     void getUninitialLines(const map<int, Eigen::Matrix<double, 8, 1>>&cur_lines, vector<pair<int, Vector4d>> &out_lines);
+    void updateLinesAssociaPts(const vector<pair<int, vector<pair<int, double>>>> &lid_associa_pts);
 };
 
 class MHTManager

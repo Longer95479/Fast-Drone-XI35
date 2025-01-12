@@ -12,6 +12,16 @@
 #include <fstream>
 #include <algorithm>
 
+inline double pixelToNormal(double pixel)
+{
+    return pixel / 389.6706237792969;
+}
+
+inline double normalToPixel(double normal)
+{
+    return normal * 389.6706237792969;
+}
+
 Estimator::Estimator(): f_manager{Rs}
 {
     ROS_INFO("init begins");
@@ -42,8 +52,8 @@ void Estimator::setParameter()
     ProjectionTwoFrameTwoCamFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
     ProjectionOneFrameTwoCamFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
     LineProjectionFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
-    StructLineProjectionOneFrameFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
-    StructLineProjectionTwoFrameFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
+    StructLineProjectionOneFrameFactor::sqrt_info = FOCAL_LENGTH / 1.5 * STRUCT_LINE_SQRT_INFO * Matrix2d::Identity();
+    StructLineProjectionTwoFrameFactor::sqrt_info = FOCAL_LENGTH / 1.5 * STRUCT_LINE_SQRT_INFO * Matrix2d::Identity();
 
     td = TD;
     g = G;
@@ -670,6 +680,10 @@ void Estimator::processImageWithPointsAndStructLines(const pair<map<int, vector<
             struct_line_manager.addTrackedStructLineAndGetHorizon(image.second, td, tracked_h_lines, new_lines);
             //vertical line triangulate
             struct_line_manager.onlyVerticalLineTriangulate(Rs, Ps, tic, ric);
+            if(ASSOCIATE_POINTS_TO_LINES)
+            {
+                struct_line_manager.onlyVerticalLineTriangulateByPoints(f_manager, Rs, Ps, tic, ric);
+            }
             //classify the vertical lines among new lines
             vector<pair<int, Eigen::Matrix<double, 8, 1>>> new_vertical_lines, new_other_lines;
             onlyClassifyVerticalLine(new_lines, new_vertical_lines, new_other_lines);
@@ -690,6 +704,15 @@ void Estimator::processImageWithPointsAndStructLines(const pair<map<int, vector<
             //add to mht manager
             mht_manager.insertNewMHT(frame_count, new_mht);
             mht_manager.printMHTWindow();
+            //assocaite points to lines
+            if(ASSOCIATE_POINTS_TO_LINES)
+            {
+                vector<pair<int, Vector4d>> lines_n_trig;
+                struct_line_manager.getUninitialLines(image.second, lines_n_trig);
+                vector<pair<int, vector<pair<int, double>>>> lines_associa_pts;
+                calAssociaPtsForLines(image.first, lines_n_trig, lines_associa_pts);
+                struct_line_manager.updateLinesAssociaPts(lines_associa_pts);
+            }
 
             if (frame_count == WINDOW_SIZE)
             {
@@ -714,6 +737,10 @@ void Estimator::processImageWithPointsAndStructLines(const pair<map<int, vector<
                     local_mht = mht_manager.getMeanMHT();
                     //Triangulate the new lines
                     struct_line_manager.structLineTriangulate(local_mht, Rs, Ps, tic, ric);
+                    if(ASSOCIATE_POINTS_TO_LINES)
+                    {
+                        struct_line_manager.structLineTriangulateByPoints(local_mht, f_manager, Rs, Ps, tic, ric);
+                    }
                     //only optimize the local mht and lines
                     onlyOptimizeMhtAndLines();
                     mht_state = HOLD;
@@ -770,6 +797,10 @@ void Estimator::processImageWithPointsAndStructLines(const pair<map<int, vector<
             struct_line_manager.addTrackedStructLine(image.second, td, new_lines);
             //line triangulate
             struct_line_manager.structLineTriangulate(local_mht, Rs, Ps, tic, ric);
+            if(ASSOCIATE_POINTS_TO_LINES)
+            {
+                struct_line_manager.structLineTriangulateByPoints(local_mht, f_manager, Rs, Ps, tic, ric);
+            }
             double sline_err_bf = calAllStructLinesReprojectionError();
             //optimization
             optimization();
@@ -795,6 +826,10 @@ void Estimator::processImageWithPointsAndStructLines(const pair<map<int, vector<
             struct_line_manager.addTrackedStructLineAndGetHorizon(image.second, td, tracked_h_lines, new_lines);
             //line triangulate
             struct_line_manager.onlyVerticalLineTriangulate(Rs, Ps, tic, ric);
+            if(ASSOCIATE_POINTS_TO_LINES)
+            {
+                struct_line_manager.onlyVerticalLineTriangulateByPoints(f_manager, Rs, Ps, tic, ric);
+            }
             //optimization
             optimization();
             //classify the vertical lines among new lines
@@ -824,14 +859,29 @@ void Estimator::processImageWithPointsAndStructLines(const pair<map<int, vector<
                 local_mht = mht_manager.getMeanMHT();
                 //Triangulate the new lines
                 struct_line_manager.structLineTriangulate(local_mht, Rs, Ps, tic, ric);
+                if(ASSOCIATE_POINTS_TO_LINES)
+                {
+                    struct_line_manager.structLineTriangulateByPoints(local_mht, f_manager, Rs, Ps, tic, ric);
+                }
                 //only optimize the local mht and lines
                 onlyOptimizeMhtAndLines();
                 mht_state = HOLD;
                 ROS_INFO("Local mht updating finish! The new local mht is %lf", local_mht);
             }
         }
+        //assocaite points to lines
+        if(ASSOCIATE_POINTS_TO_LINES)
+        {
+            vector<pair<int, Vector4d>> lines_n_trig;
+            struct_line_manager.getUninitialLines(image.second, lines_n_trig);
+            vector<pair<int, vector<pair<int, double>>>> lines_associa_pts;
+            calAssociaPtsForLines(image.first, lines_n_trig, lines_associa_pts);
+            struct_line_manager.updateLinesAssociaPts(lines_associa_pts);
+        }
+
         auto line_cnt = struct_line_manager.getTriangulatedCount();
         ROS_DEBUG("Struct line manager has %d line features, %d is triangulated.", line_cnt.first, line_cnt.second);
+        
         //remove points outliers
         set<int> removeIndex;
         outliersRejection(removeIndex);
@@ -2533,6 +2583,7 @@ pair<bool, double> Estimator::getTwoLineSimScore(const Vector4d &line0, const Ve
     pair<bool, double> res(false, -1);
     double diff_ang = getTwoLinesAbsAngle(line0, line1);
     double diff_dist = getTwoLinesDistByP2L(line0, line1);
+    diff_dist = normalToPixel(diff_dist);
     if(diff_ang < LINE_SIM_ANGLE_THRESH && diff_dist < LINE_SIM_DIST_THRESH)
     {
         res.first = true;
@@ -2798,7 +2849,7 @@ Vector3d Estimator::vpxNormalize(Vector3d vpx_in)
     //如果vpx_w趋近与90°，则将其归0
     double normalized_phi = atan2(vpx_out(1), vpx_out(0));
     assert(normalized_phi >= 0 && normalized_phi <=(M_PI/2));
-    if((M_PI/2 - normalized_phi) < 0.05236)//0.0872
+    if((M_PI/2 - normalized_phi) < 0.05236)//0.0872：5° 0.05236:3°
     {
         normalized_phi = 0.;
         vpx_out = Vector3d(1.0, 0, 0);
@@ -2816,7 +2867,7 @@ vector<Vector2d> Estimator::lineParamInitialization(int frame_count, const vecto
 
 void Estimator::calAssociaPtsForLines(const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &cur_pts, const vector<pair<int, Vector4d>> &lines, vector<pair<int, vector<pair<int, double>>>> &associa_pts)
 {
-    int idx = 0;
+    int idx = 0; 
     MatrixXd cur_pts_mat(cur_pts.size(), 3);
     vector<int> pts_id;
     for(auto &it_per_id : cur_pts)
@@ -2826,6 +2877,43 @@ void Estimator::calAssociaPtsForLines(const map<int, vector<pair<int, Eigen::Mat
         cur_pts_mat.row(idx++) = pt;
         pts_id.push_back(it_per_id.first);
     }
+    associa_pts.clear();
+    for(auto &line : lines)
+    {
+        double lx1 = line.second(0);
+        double ly1 = line.second(1);
+        double lx2 = line.second(2);
+        double ly2 = line.second(3);
+        double min_lx = lx1;
+        double max_lx = lx2;
+        double min_ly = ly1;
+        double max_ly = ly2;
+        if(lx1 > lx2) std::swap(min_lx, max_lx);
+        if(ly1 > ly2) std::swap(min_ly, max_ly);
+        //cal distance
+        Vector3d l_param = getLineExpression(line.second);
+        double l_norm = l_param.head(2).norm();
+        VectorXd pts_l_dist = cur_pts_mat * l_param / l_norm;
+        pts_l_dist = pts_l_dist.cwiseAbs();
+        //associate pts
+        vector<pair<int, double>> pt_id_dist;
+        for(int i = 0; i < pts_l_dist.rows(); i++)
+        {
+            if(pts_l_dist(i) > pixelToNormal(3))
+                continue;
 
-    
+            double px = cur_pts_mat(i, 0);
+            double py = cur_pts_mat(i, 1);
+            if(px < min_lx - pixelToNormal(3) || px > max_lx + pixelToNormal(3) || py < min_ly - pixelToNormal(3) || py > max_ly + pixelToNormal(3)) 
+                continue;
+
+            double side1 = std::pow((lx1 - px), 2) + std::pow((ly1 - py), 2);
+            double side2 = std::pow((lx2 - px), 2) + std::pow((ly2 - py), 2);
+            double line_side = std::pow(l_norm, 2);
+            if(side1 <= pixelToNormal(9) || side2 <= pixelToNormal(9) || ((side1 < line_side + side2) && (side2 < line_side + side1)))
+                pt_id_dist.emplace_back(pts_id[i], pts_l_dist[i]);
+        }
+        associa_pts.emplace_back(line.first, pt_id_dist);
+        //ROS_DEBUG("calAssociaPtsForLines: line-%d associate %d points", line.first, pt_id_dist.size());
+    }
 }

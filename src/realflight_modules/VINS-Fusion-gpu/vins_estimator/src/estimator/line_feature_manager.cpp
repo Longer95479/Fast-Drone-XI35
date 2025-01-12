@@ -1,4 +1,5 @@
 #include "line_feature_manager.h"
+#include <algorithm>
 
 void LineFeatureManager::addLineFeature(int frame_cnt, const map<int, Eigen::Matrix<double, 8, 1>> &img_line, double td)
 {
@@ -293,11 +294,8 @@ void StructLineFeatureManager::structLineTriangulate(double local_mht, Matrix3d 
             continue;
         it_per_id.line_pluk = planesToLine(pi_i, pi_j);
         //initialize param
-        Matrix3d R_wc = Rs[it_per_id.start_frame] * ric[0];
         Vector3d t_wc = Rs[it_per_id.start_frame] * tic[0] + Ps[it_per_id.start_frame];
-        ROS_DEBUG("start line_param cal, current type is %d", it_per_id.line_type);
         Vector2d line_param = lineParamInitializationByPluk(local_mht, t_wc, it_per_id.line_pluk, it_per_id.line_type);
-        ROS_DEBUG("line_param is (%lf, %lf)", line_param[0], line_param[1]);
         it_per_id.setParam(line_param);
         it_per_id.is_triangulated = true;
         counts++;
@@ -305,6 +303,91 @@ void StructLineFeatureManager::structLineTriangulate(double local_mht, Matrix3d 
                                                                                                           it_per_id.line_pluk[3], it_per_id.line_pluk[4], it_per_id.line_pluk[5]);
     }
     ROS_DEBUG("struct line triangulate successfully counts: %d", counts);
+}
+
+void StructLineFeatureManager::structLineTriangulateByPoints(double local_mht, const FeatureManager &f_manager, Matrix3d Rs[], Vector3d Ps[], Vector3d tic[], Matrix3d ric[])
+{
+    int counts = 0;
+    for(auto &it_per_id : struct_line_features)
+    {
+        if(it_per_id.is_triangulated || it_per_id.line_type == OTHER)
+            continue;
+        if(it_per_id.associa_points.size() < 2)
+            continue;
+        it_per_id.used_num = it_per_id.line_feature_per_frame.size();
+        if(!(it_per_id.used_num >= line_min_obs && it_per_id.start_frame < WINDOW_SIZE - 2))
+            continue;
+
+        vector<pair<int, double>> id_pts;
+        for(auto it_id_dist : it_per_id.associa_points)
+        {
+            id_pts.emplace_back(it_id_dist.first, it_id_dist.second);
+        }
+        sort(id_pts.begin(), id_pts.end(), [](const pair<int, double> &i1, const pair<int, double> &i2){return i1.second < i2.second;});
+        //找到满足条件的两个点
+        bool pt1_find = false, pt2_find = false;
+        Vector3d pt1_w, pt2_w;
+        for(auto it_id_dist : id_pts)
+        {
+            if(!pt1_find)
+            {
+                int pt1_id = it_id_dist.first;
+                auto it = find_if(f_manager.feature.begin(), f_manager.feature.end(), [pt1_id](const FeaturePerId &p){return p.feature_id == pt1_id;});
+                if(it == f_manager.feature.end() || it->solve_flag != 1)
+                    continue;
+                Vector3d pt_uv = it->feature_per_frame[0].point;
+                int imu_i = it->start_frame;
+                pt1_w = Rs[imu_i]* (ric[0] * (it->estimated_depth * pt_uv) + tic[0]) + Ps[imu_i];
+                pt1_find = true;
+                ROS_DEBUG("structLineTriangulateByPoints: find pt1 for line-%d: (%lf, %lf, %lf), line type is %d", it_per_id.feature_id, pt1_w(0), pt1_w(1), pt1_w(2), it_per_id.line_type);
+                continue;
+            }
+            if(!pt2_find)
+            {
+                int pt2_id = it_id_dist.first;
+                auto it = find_if(f_manager.feature.begin(), f_manager.feature.end(), [pt2_id](const FeaturePerId &p){return p.feature_id == pt2_id;});
+                if(it == f_manager.feature.end() || it->solve_flag != 1)
+                    continue;
+                Vector3d pt_uv = it->feature_per_frame[0].point;
+                int imu_i = it->start_frame;
+                pt2_w = Rs[imu_i]* (ric[0] * (it->estimated_depth * pt_uv) + tic[0]) + Ps[imu_i];
+
+                double p1_p2_dist = (pt1_w - pt2_w).norm();
+                if(p1_p2_dist < 0.1)
+                    continue;
+
+                if(it_per_id.line_type == VERTICAL)
+                {
+                    Vector2d vec_dif = (pt1_w - pt2_w).head(2);
+                    double dif = vec_dif.norm();
+                    if(dif > 0.2)
+                        continue;
+                }
+                else
+                {
+                    double dif = std::fabs(pt1_w(2) - pt2_w(2));
+                    if(dif > 0.2)
+                        continue;
+                }
+
+                pt2_find = true;
+                ROS_DEBUG("structLineTriangulateByPoints: find pt2 for line-%d: (%lf, %lf, %lf), line type is %d", it_per_id.feature_id, pt2_w(0), pt2_w(1), pt2_w(2), it_per_id.line_type);
+                break;
+            }
+        }
+        if(!pt1_find || !pt2_find)
+            continue;
+        
+        it_per_id.line_pluk = getPlukByTwoPoints(pt1_w, pt2_w);
+        //initialize param
+        Vector3d t_wc = Rs[it_per_id.start_frame] * tic[0] + Ps[it_per_id.start_frame];
+        Vector2d line_param = lineParamInitializationByPluk(local_mht, t_wc, it_per_id.line_pluk, it_per_id.line_type);
+        ROS_DEBUG("structLineTriangulateByPoints: line-%d param is (%lf, %lf)", it_per_id.feature_id, line_param(0), line_param(1));
+        it_per_id.setParam(line_param);
+        it_per_id.is_triangulated = true;
+        counts++;
+    }
+    ROS_DEBUG("struct line triangulated by associate points successfully counts: %d", counts);
 }
 
 void StructLineFeatureManager::onlyVerticalLineTriangulate(Matrix3d Rs[], Vector3d Ps[], Vector3d tic[], Matrix3d ric[])
@@ -357,7 +440,6 @@ void StructLineFeatureManager::onlyVerticalLineTriangulate(Matrix3d Rs[], Vector
 
         it_per_id.line_pluk = planesToLine(pi_i, pi_j);
         //initialize param, the vertical line's mht is always 0°
-        Matrix3d R_wc = Rs[it_per_id.start_frame] * ric[0];
         Vector3d t_wc = Rs[it_per_id.start_frame] * tic[0] + Ps[it_per_id.start_frame];
         Vector2d line_param = lineParamInitializationByPluk(0, t_wc, it_per_id.line_pluk, it_per_id.line_type);
         it_per_id.setParam(line_param);
@@ -368,6 +450,94 @@ void StructLineFeatureManager::onlyVerticalLineTriangulate(Matrix3d Rs[], Vector
     }
     ROS_DEBUG("vertical line triangulate successfully counts: %d", counts);
 }
+
+void StructLineFeatureManager::onlyVerticalLineTriangulateByPoints(const FeatureManager &f_manager, Matrix3d Rs[], Vector3d Ps[], Vector3d tic[], Matrix3d ric[])
+{
+    int counts = 0;
+    for(auto &it_per_id : struct_line_features)
+    {
+        if(it_per_id.is_triangulated || it_per_id.line_type != VERTICAL)
+            continue;
+
+        if(it_per_id.associa_points.size() < 2)
+            continue;
+            
+        it_per_id.used_num = it_per_id.line_feature_per_frame.size();
+        if(!(it_per_id.used_num >= line_min_obs && it_per_id.start_frame < WINDOW_SIZE - 2))
+            continue;
+
+        vector<pair<int, double>> id_pts;
+        for(auto it_id_dist : it_per_id.associa_points)
+        {
+            id_pts.emplace_back(it_id_dist.first, it_id_dist.second);
+        }
+        sort(id_pts.begin(), id_pts.end(), [](const pair<int, double> &i1, const pair<int, double> &i2){return i1.second < i2.second;});
+        //找到满足条件的两个点
+        bool pt1_find = false, pt2_find = false;
+        Vector3d pt1_w, pt2_w;
+        for(auto it_id_dist : id_pts)
+        {
+            if(!pt1_find)
+            {
+                int pt1_id = it_id_dist.first;
+                auto it = find_if(f_manager.feature.begin(), f_manager.feature.end(), [pt1_id](const FeaturePerId &p){return p.feature_id == pt1_id;});
+                if(it == f_manager.feature.end() || it->solve_flag != 1)
+                    continue;
+                Vector3d pt_uv = it->feature_per_frame[0].point;
+                int imu_i = it->start_frame;
+                pt1_w = Rs[imu_i]* (ric[0] * (it->estimated_depth * pt_uv) + tic[0]) + Ps[imu_i];
+                pt1_find = true;
+                ROS_DEBUG("onlyVerticalLineTriangulateByPoints: find pt1 for line-%d: (%lf, %lf, %lf), line type is %d", it_per_id.feature_id, pt1_w(0), pt1_w(1), pt1_w(2), it_per_id.line_type);
+                continue;
+            }
+            if(!pt2_find)
+            {
+                int pt2_id = it_id_dist.first;
+                auto it = find_if(f_manager.feature.begin(), f_manager.feature.end(), [pt2_id](const FeaturePerId &p){return p.feature_id == pt2_id;});
+                if(it == f_manager.feature.end() || it->solve_flag != 1)
+                    continue;
+                Vector3d pt_uv = it->feature_per_frame[0].point;
+                int imu_i = it->start_frame;
+                pt2_w = Rs[imu_i]* (ric[0] * (it->estimated_depth * pt_uv) + tic[0]) + Ps[imu_i];
+
+                double p1_p2_dist = (pt1_w - pt2_w).norm();
+                if(p1_p2_dist < 0.02)
+                    continue;
+
+                if(it_per_id.line_type == VERTICAL)
+                {
+                    Vector2d vec_dif = (pt1_w - pt2_w).head(2);
+                    double dif = vec_dif.norm();
+                    if(dif > 0.2)
+                        continue;
+                }
+                else
+                {
+                    double dif = std::fabs(pt1_w(2) - pt2_w(2));
+                    if(dif > 0.2)
+                        continue;
+                }
+                
+                pt2_find = true;
+                ROS_DEBUG("onlyVerticalLineTriangulateByPoints: find pt2 for line-%d: (%lf, %lf, %lf), line type is %d", it_per_id.feature_id, pt2_w(0), pt2_w(1), pt2_w(2), it_per_id.line_type);
+                break;
+            }
+        }
+        if(!pt1_find || !pt2_find)
+            continue;
+        
+        it_per_id.line_pluk = getPlukByTwoPoints(pt1_w, pt2_w);
+        //initialize param
+        Vector3d t_wc = Rs[it_per_id.start_frame] * tic[0] + Ps[it_per_id.start_frame];
+        Vector2d line_param = lineParamInitializationByPluk(0, t_wc, it_per_id.line_pluk, it_per_id.line_type);
+        ROS_DEBUG("onlyVerticalLineTriangulateByPoints: line-%d param is (%lf, %lf)", it_per_id.feature_id, line_param(0), line_param(1));
+        it_per_id.setParam(line_param);
+        it_per_id.is_triangulated = true;
+        counts++;
+    }
+    ROS_DEBUG("vertical line triangulated by associate points successfully counts: %d", counts);
+}
+
 //初始化已划分线条的两参数(基于pluk方案)
 Vector2d StructLineFeatureManager::lineParamInitializationByPluk(double local_mht, const Vector3d &t_ws, const Vector6d &line_w, const LineType &line_type)
 {
@@ -570,6 +740,20 @@ void StructLineFeatureManager::getUninitialLines(const map<int, Eigen::Matrix<do
         {
             if(!it->is_triangulated)
                 out_lines.emplace_back(line_id, it_per_id.second.head(4));
+        }
+    }
+}
+
+void StructLineFeatureManager::updateLinesAssociaPts(const vector<pair<int, vector<pair<int, double>>>> &lid_associa_pts)
+{
+    for(auto &id_pts : lid_associa_pts)
+    {
+        int line_id = id_pts.first;
+        auto it = find_if(struct_line_features.begin(), struct_line_features.end(), 
+                        [line_id](const StructLineFeaturePerId &l){return l.feature_id == line_id;});
+        if(it != struct_line_features.end())
+        {
+            it->updateAssociaPts(id_pts.second);
         }
     }
 }

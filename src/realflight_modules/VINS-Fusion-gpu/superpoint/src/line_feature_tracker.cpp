@@ -9,6 +9,11 @@ static double distance(cv::Point2f pt1, cv::Point2f pt2)
     return sqrt(dx * dx + dy * dy);
 }
 
+inline double pixelToNormal(double pixel)
+{
+    return pixel / 389.6706237792969;
+}
+
 LineFeatureTracker::LineFeatureTracker()
 {
     line_id = 0;
@@ -121,6 +126,17 @@ double LineFeatureTracker::getTwoLinesDistByMid(const KeyLine &line0, const KeyL
     cv::Point2f l0_mid = (line0.getStartPoint() + line0.getEndPoint()) / 2;
     cv::Point2f l1_mid = (line1.getStartPoint() + line1.getEndPoint()) / 2;
     return distance(l0_mid, l1_mid);
+}
+
+Vector3d getLineExpression(const Vector4d &line)
+{
+    double x0 = line(0);
+    double y0 = line(1);
+    double x1 = line(2);
+    double y1 = line(3);
+    Vector3d l;
+    l << y1 - y0, x0 - x1, x1*y0 - x0*y1;
+    return l;
 }
 
 void LineFeatureTracker::readConfigParameter(const string &config_file)
@@ -285,6 +301,7 @@ vector<LineType> LineFeatureTracker::lineClassify(const vector<Vector4d> &key_ls
 
 void LineFeatureTracker::readImage(double _cur_time, const cv::Mat &_img)
 {
+    TicToc tic_all;
     if(line_tracker_config.detect_vertical_at_front)
     {
         if(!is_z_usable)
@@ -415,7 +432,7 @@ void LineFeatureTracker::readImage(double _cur_time, const cv::Mat &_img)
         if(line_tracker_config.enable_line_nms)
         {
             nms_res = lineNMSProcess(vecLineTracked, vecLineNew);
-            ROS_INFO("Before NMS new lines: %d, after NMS lines: %d, remove lines %d", vecLineNew.size(), nms_res.size(), vecLineNew.size() - nms_res.size());
+            ROS_DEBUG("Before NMS new lines: %d, after NMS lines: %d, remove lines %d", vecLineNew.size(), nms_res.size(), vecLineNew.size() - nms_res.size());
         }
         else
         {
@@ -502,6 +519,7 @@ void LineFeatureTracker::readImage(double _cur_time, const cv::Mat &_img)
 
     prev_time = cur_time;
     prevFrame = curFrame;
+    ROS_INFO("line tracker cost %lf ms", tic_all.toc());
 }
 
 void LineFeatureTracker::DrawLine()
@@ -534,12 +552,84 @@ void LineFeatureTracker::DrawLineWithType()
         else
             cv::line(rgba_image, curFrame->keyLsd[i].getStartPoint(), curFrame->keyLsd[i].getEndPoint(), cv::Scalar(0, 255, 0), 2);
     }
-    //draw vpz
 
+    cv::cvtColor(rgba_image, imTrack, cv::COLOR_BGRA2BGR); 
+}
+
+void LineFeatureTracker::DrawLIneWithAssociaPts()
+{
+    cv::Mat rgba_image;
+	cv::cvtColor(curFrame->img, rgba_image, cv::COLOR_BGR2BGRA);
+    for(int i = 0; i < curFrame->lineID.size(); i++)
+    {
+        cv::line(rgba_image, curFrame->keyLsd[i].getStartPoint(), curFrame->keyLsd[i].getEndPoint(), cv::Scalar(255, 0, 0), 2);
+        for(int j = 0; j < curFrame->lineAssociaPts[i].size(); j++)
+        {
+            cv::circle(rgba_image, curFrame->lineAssociaPts[i][j], 2, cv::Scalar(0, 0, 255), 2);
+        }
+    }
     cv::cvtColor(rgba_image, imTrack, cv::COLOR_BGRA2BGR); 
 }
 
 cv::Mat LineFeatureTracker::getTrackImage()
 {
 	return imTrack;
+}
+// 3 / fx = 0.00769
+void LineFeatureTracker::calAssociaPtsForLines(const vector<cv::Point2f> &cur_un_pts, const vector<cv::Point2f> &cur_pts, const vector<Vector4d> &cur_un_lines, vector<vector<cv::Point2f>> &associa_pts)
+{
+    assert(cur_un_pts.size() == cur_pts.size());
+    int idx = 0; 
+    MatrixXd cur_pts_mat(cur_un_pts.size(), 3);
+    for(auto &un_pt : cur_un_pts)
+    {
+        Vector3d pt;
+        pt << un_pt.x, un_pt.y, 1.0;
+        cur_pts_mat.row(idx++) = pt;
+    }
+    int line_idx = 0;
+    associa_pts.clear();
+    for(auto &line : cur_un_lines)
+    {
+        double lx1 = line(0);
+        double ly1 = line(1);
+        double lx2 = line(2);
+        double ly2 = line(3);
+        double min_lx = lx1;
+        double max_lx = lx2;
+        double min_ly = ly1;
+        double max_ly = ly2;
+        if(lx1 > lx2) std::swap(min_lx, max_lx);
+        if(ly1 > ly2) std::swap(min_ly, max_ly);
+        //cal distance
+        Vector3d l_param = getLineExpression(line);
+        double l_norm = l_param.head(2).norm();
+        VectorXd pts_l_dist = cur_pts_mat * l_param / l_norm;
+        pts_l_dist = pts_l_dist.cwiseAbs();
+        //associate pts
+        int cnt = 0;
+        vector<cv::Point2f> line_associa_pts;
+        for(int i = 0; i < pts_l_dist.rows(); i++)
+        {
+            //ROS_DEBUG("calAssociaPtsForLines: cur pts is (%lf, %lf), line is (%lf, %lf, %lf, %lf), pts_l_dist is %lf", cur_pts_mat(i, 0), cur_pts_mat(i, 1), line(0), line(1), line(2), line(3), pts_l_dist(i));
+            if(pts_l_dist(i) > pixelToNormal(3))
+                continue;
+
+            double px = cur_pts_mat(i, 0);
+            double py = cur_pts_mat(i, 1);
+            if(px < min_lx - pixelToNormal(3) || px > max_lx + pixelToNormal(3) || py < min_ly - pixelToNormal(3) || py > max_ly + pixelToNormal(3)) continue;
+
+            double side1 = std::pow((lx1 - px), 2) + std::pow((ly1 - py), 2);
+            double side2 = std::pow((lx2 - px), 2) + std::pow((ly2 - py), 2);
+            double line_side = std::pow(l_norm, 2);
+            if(side1 <= pixelToNormal(9) || side2 <= pixelToNormal(9) || ((side1 < line_side + side2) && (side2 < line_side + side1)))
+            {
+                line_associa_pts.push_back(cur_pts[i]);
+                cnt++;
+            }
+        }
+        associa_pts.push_back(line_associa_pts);
+        //ROS_DEBUG("calAssociaPtsForLines: line-%d was associated %d points", line_idx, cnt);
+        line_idx++;
+    }
 }

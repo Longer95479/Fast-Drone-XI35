@@ -433,6 +433,7 @@ void FeatureTracker::retrackThroughDescMatch(const vector<cv::Point2f>& prev_pts
 //cnn提取特征点+光流
 void FeatureTracker::track_img_use_opticalflow(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1)
 {
+	TicToc tic_all;
 	cur_time = _cur_time;
 	cur_img = _img;
 	cur_pts.clear();
@@ -634,6 +635,8 @@ void FeatureTracker::track_img_use_opticalflow(double _cur_time, const cv::Mat &
 	{
 		extractDescriptors(prev_pts, prev_xdesc);
 	}
+
+	ROS_INFO("xfeat tracker cost %lf ms", tic_all.toc());
 }
 
 void FeatureTracker::track_img(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1)

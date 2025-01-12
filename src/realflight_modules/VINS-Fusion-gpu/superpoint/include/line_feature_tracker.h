@@ -42,6 +42,8 @@ public:
     vector<Vector4d> lineSpEpUndist;
     vector<Vector4d> lineVelocity;
     vector<LineType> lineType;
+    
+    vector<vector<cv::Point2f>> lineAssociaPts;
 
     unordered_map<int, int> trackCnt;
     unordered_map<int, Vector4d> un_id_linePts;
@@ -74,7 +76,9 @@ public:
     void calCurVelocity();
     void DrawLine();
     void DrawLineWithType();
+    void DrawLIneWithAssociaPts();
     void zAxisInCameraCallback(const sensor_msgs::PointCloudConstPtr &zc_msg);
+    void calAssociaPtsForLines(const vector<cv::Point2f> &cur_un_pts, const vector<cv::Point2f> &cur_pts, const vector<Vector4d> &cur_un_lines, vector<vector<cv::Point2f>> &associa_pts);
     cv::Mat getTrackImage();
 
 

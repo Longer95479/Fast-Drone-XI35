@@ -78,6 +78,8 @@ double NEW_MHT_DETECT_THRESH;
 int RANSAC_MAX_ITERATIONS;
 double MHT_NEIGHBOR_DIFF_THRESH;
 int ENABLE_MHT_OPT;
+int ASSOCIATE_POINTS_TO_LINES;
+double STRUCT_LINE_SQRT_INFO;
 
 template <typename T>
 T readParam(ros::NodeHandle &n, std::string name)
@@ -265,6 +267,7 @@ void readParameters(std::string config_file)
     RANSAC_MAX_ITERATIONS = fsSettings["line_config"]["ransac_max_iterations"];
     MHT_NEIGHBOR_DIFF_THRESH = fsSettings["line_config"]["mht_Window_neighbor_diff_thresh"];
     ENABLE_MHT_OPT = fsSettings["line_config"]["enable_mht_optimization"];
-    
+    ASSOCIATE_POINTS_TO_LINES = fsSettings["line_config"]["associate_points_to_lines"];
+    STRUCT_LINE_SQRT_INFO = fsSettings["line_config"]["struct_line_sqrt_info"];
     fsSettings.release();
 }
