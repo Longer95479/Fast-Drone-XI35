@@ -83,6 +83,9 @@ extern int enable_pub_imu_path;
 extern int enable_imu_odom_smooth;
 extern double velocity_limit;
 
+extern int enable_ex_prior;
+extern double ex_prior_sqrt_info;
+
 void readParameters(std::string config_file);
 
 enum SIZE_PARAMETERIZATION

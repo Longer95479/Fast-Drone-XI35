@@ -34,7 +34,9 @@
 #include "../factor/projectionTwoFrameOneCamFactor.h"
 #include "../factor/projectionTwoFrameTwoCamFactor.h"
 #include "../factor/projectionOneFrameTwoCamFactor.h"
+#include "../factor/exparameter_prior_factor.h"
 #include "../featureTracker/feature_tracker.h"
+
 
 
 class Estimator
@@ -140,6 +142,7 @@ class Estimator
     double cur_rep_err; //debug
     Matrix3d pnp_R; //debug
     Vector3d pnp_P;
+
 
     FeatureManager f_manager;
     MotionEstimator m_estimator;

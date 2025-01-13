@@ -40,6 +40,8 @@ void Estimator::setParameter()
     ProjectionTwoFrameOneCamFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
     ProjectionTwoFrameTwoCamFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
     ProjectionOneFrameTwoCamFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
+    ExParamPriorFactor::sqrt_info = ex_prior_sqrt_info * Eigen::Matrix<double, 6, 6>::Identity();
+    ExParamPriorFactorOnlyT::sqrt_info = ex_prior_sqrt_info * Eigen::Matrix3d::Identity();
     td = TD;
     g = G;
     cout << "set g " << g.transpose() << endl;
@@ -243,11 +245,14 @@ void Estimator::processMeasurements()
                         ofs << Ps[WINDOW_SIZE].x() << " ";
                         ofs << Ps[WINDOW_SIZE].y() << " ";
                         ofs << Ps[WINDOW_SIZE].z() << " ";
-                        ofs << pnp_P.x() << " ";
-                        ofs << pnp_P.y() << " ";
-                        ofs << pnp_P.z() << " ";
-                        ofs << cur_removed_counts << " ";
-                        ofs << temp_cur_V_norm << " ";
+                        // ofs << pnp_P.x() << " ";
+                        // ofs << pnp_P.y() << " ";
+                        // ofs << pnp_P.z() << " ";
+                        // ofs << cur_removed_counts << " ";
+                        // ofs << temp_cur_V_norm << " ";
+                        ofs << tic[0].x()*100.0 << " ";
+                        ofs << tic[0].y()*100.0 << " ";
+                        ofs << tic[0].z()*100.0 << " ";
                         ofs << td << "\n";
                         ofs.close();
                     }
@@ -1043,6 +1048,16 @@ void Estimator::optimization()
             IMUFactor* imu_factor = new IMUFactor(pre_integrations[j]);
             problem.AddResidualBlock(imu_factor, NULL, para_Pose[i], para_SpeedBias[i], para_Pose[j], para_SpeedBias[j]);
         }
+    }
+
+    if(enable_ex_prior)
+    {
+        // ExParamPriorFactor* ex1_prior_factor = new ExParamPriorFactor(ric[0], tic[0]);
+        // ExParamPriorFactor* ex2_prior_factor = new ExParamPriorFactor(ric[1], tic[1]);
+        ExParamPriorFactorOnlyT* ex1_prior_factor = new ExParamPriorFactorOnlyT(tic[0]);
+        ExParamPriorFactorOnlyT* ex2_prior_factor = new ExParamPriorFactorOnlyT(tic[1]);
+        problem.AddResidualBlock(ex1_prior_factor, NULL, para_Ex_Pose[0]);
+        problem.AddResidualBlock(ex2_prior_factor, NULL, para_Ex_Pose[1]);
     }
 
     int f_m_cnt = 0;
