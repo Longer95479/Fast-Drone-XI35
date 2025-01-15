@@ -309,7 +309,7 @@ void LineFeatureTracker::readImage(double _cur_time, const cv::Mat &_img)
     }
     
     cur_time = _cur_time;
-    cv::Mat img = _img;
+    cv::Mat img = _img.clone();
     //equalize
     if(line_tracker_config.equalize)
     {

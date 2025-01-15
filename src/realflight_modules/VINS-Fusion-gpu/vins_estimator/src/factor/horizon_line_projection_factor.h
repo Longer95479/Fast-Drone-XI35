@@ -3,34 +3,27 @@
 #include <eigen3/Eigen/Dense>
 #include "../utility/line_geometry.h"
 
-class StructLineProjectionOneFrameFactor
+class HorizonLineProjectionOneFrameFactor
 {
 public:
-    StructLineProjectionOneFrameFactor(const Vector3d &_pt_start, const Vector3d &_pt_end, 
-                               const Vector2d &_pt_velocity_start, const Vector2d &_pt_velocity_end, 
-                               double _td_i, LineType _line_type);
+    HorizonLineProjectionOneFrameFactor(const Vector3d &_pt_start, const Vector3d &_pt_end, LineType _horizon_line_type);
 
     template<typename T>
-    bool operator()(const T *const line_st_ptr, const T *const mht_angle_ptr, const T *const T_wi_ptr, const T *const T_ic_ptr, const T *const td_ptr, T *residual_ptr) const;
+    bool operator()(const T *const line_st_ptr, const T *const mht_angle_ptr, const T *const T_wi_ptr, const T *const T_ic_ptr, T *residual_ptr) const;
 
-    static ceres::CostFunction *create(const Vector3d &_pt_start, const Vector3d &_pt_end, 
-                                       const Vector2d &_pt_velocity_start, const Vector2d &_pt_velocity_end, 
-                                       double _td_i, LineType _line_type)
+    static ceres::CostFunction *create(const Vector3d &_pt_start, const Vector3d &_pt_end, LineType _horizon_line_type)
     {
-        return (new ceres::AutoDiffCostFunction<StructLineProjectionOneFrameFactor, 2, 2, 1, 7, 7, 1>(
-            new StructLineProjectionOneFrameFactor(_pt_start, _pt_end, _pt_velocity_start, _pt_velocity_end, 
-            _td_i, _line_type)));
+        return (new ceres::AutoDiffCostFunction<HorizonLineProjectionOneFrameFactor, 2, 2, 1, 7, 7>(
+            new HorizonLineProjectionOneFrameFactor(_pt_start, _pt_end, _horizon_line_type)));
     }
 
     Vector3d pt_start, pt_end;
-    Vector3d pt_velocity_start, pt_velocity_end;
-    double td_i;
-    LineType line_type;
+    LineType horizon_line_type;
     static Matrix2d sqrt_info;
 };
 
 template<typename T>
-bool StructLineProjectionOneFrameFactor::operator()(const T *const line_st_ptr, const T *const mht_angle_ptr, const T *const T_wi_ptr, const T *const T_ic_ptr, const T *const td_ptr, T *residual_ptr) const
+bool HorizonLineProjectionOneFrameFactor::operator()(const T *const line_st_ptr, const T *const mht_angle_ptr, const T *const T_wi_ptr, const T *const T_ic_ptr, T *residual_ptr) const
 {
     using Vector2T = Eigen::Matrix<T, 2, 1>;
     using Vector3T = Eigen::Matrix<T, 3, 1>;
@@ -48,11 +41,8 @@ bool StructLineProjectionOneFrameFactor::operator()(const T *const line_st_ptr, 
     l_L_pluk << b, -a, T(0), T(0), T(0), T(1);
 
     Matrix3T R_sl;
-    switch (line_type)
+    switch (horizon_line_type)
     {
-    case VERTICAL:
-        R_sl.setIdentity();
-        break;
     case HORIZON_X:
         R_sl << T(0), T(0), T(1), T(0), T(1), T(0), T(-1), T(0), T(0);
         break;
@@ -65,12 +55,9 @@ bool StructLineProjectionOneFrameFactor::operator()(const T *const line_st_ptr, 
 
     T m_angle = mht_angle_ptr[0];
     Matrix3T R_ws;
-    if(line_type == VERTICAL)
-        R_ws.setIdentity();
-    else
-        R_ws << ceres::cos(m_angle), -ceres::sin(m_angle), T(0), 
-                ceres::sin(m_angle), ceres::cos(m_angle), T(0),
-                T(0), T(0), T(1);
+    R_ws << ceres::cos(m_angle), -ceres::sin(m_angle), T(0), 
+            ceres::sin(m_angle), ceres::cos(m_angle), T(0),
+            T(0), T(0), T(1);
 
     Vector3T t_wi(T_wi_ptr[0], T_wi_ptr[1], T_wi_ptr[2]);
     QuaternionT Q_wi(T_wi_ptr[6], T_wi_ptr[3], T_wi_ptr[4], T_wi_ptr[5]);
@@ -82,8 +69,6 @@ bool StructLineProjectionOneFrameFactor::operator()(const T *const line_st_ptr, 
 
     Vector3T t_ws = R_wi * t_ic + t_wi;
 
-    T td = td_ptr[0];
-
     Vector6T l_s_pluk = plukTransformPoseTemp<T>(l_L_pluk, R_sl, Vector3T(T(0), T(0), T(0)));
     Vector6T l_w_pluk = plukTransformPoseTemp<T>(l_s_pluk, R_ws, t_ws);
     Vector6T l_i_pluk = plukTransformPoseTemp<T>(l_w_pluk, R_wi.transpose(), -R_wi.transpose()*t_wi);
@@ -93,12 +78,10 @@ bool StructLineProjectionOneFrameFactor::operator()(const T *const line_st_ptr, 
     T ln_square = nc(0) * nc(0) + nc(1) * nc(1);
     T ln_norm = ceres::sqrt(ln_square);
 
-    // Vector3T pt_start_td = pt_start.cast<T>() - (td - T(td_i)) * pt_velocity_start.cast<T>();
-    // Vector3T pt_end_td = pt_end.cast<T>() - (td - T(td_i)) * pt_velocity_end.cast<T>();
-    Vector3T pt_start_td = pt_start.cast<T>();
-    Vector3T pt_end_td = pt_end.cast<T>();
-    T e1 = pt_start_td.dot(nc);
-    T e2 = pt_end_td.dot(nc);
+    Vector3T pt_start_T = pt_start.cast<T>();
+    Vector3T pt_end_T = pt_end.cast<T>();
+    T e1 = pt_start_T.dot(nc);
+    T e2 = pt_end_T.dot(nc);
     Eigen::Map<Vector2T> residual(residual_ptr);
     residual(0) = e1 / ln_norm;
     residual(1) = e2 / ln_norm;
@@ -108,34 +91,27 @@ bool StructLineProjectionOneFrameFactor::operator()(const T *const line_st_ptr, 
 }
 
 /****************************************************************************************************************************************************************/
-class StructLineProjectionTwoFrameFactor
+class HorizonLineProjectionTwoFrameFactor
 {
 public:
-    StructLineProjectionTwoFrameFactor(const Vector3d &_pt_start, const Vector3d &_pt_end, 
-                               const Vector2d &_pt_velocity_start, const Vector2d &_pt_velocity_end, 
-                               double _td_i, LineType _line_type);
+    HorizonLineProjectionTwoFrameFactor(const Vector3d &_pt_start, const Vector3d &_pt_end, LineType _horizon_line_type);
 
     template<typename T>
-    bool operator()(const T *const line_st_ptr, const T *const mht_angle_ptr, const T *const T_wi_ptr, const T *const T_wj_ptr, const T *const T_ic_ptr, const T *const td_ptr, T *residual_ptr) const;
+    bool operator()(const T *const line_st_ptr, const T *const mht_angle_ptr, const T *const T_wi_ptr, const T *const T_wj_ptr, const T *const T_ic_ptr, T *residual_ptr) const;
 
-    static ceres::CostFunction *create(const Vector3d &_pt_start, const Vector3d &_pt_end, 
-                                       const Vector2d &_pt_velocity_start, const Vector2d &_pt_velocity_end, 
-                                       double _td_i, LineType _line_type)
+    static ceres::CostFunction *create(const Vector3d &_pt_start, const Vector3d &_pt_end, LineType _horizon_line_type)
     {
-        return (new ceres::AutoDiffCostFunction<StructLineProjectionTwoFrameFactor, 2, 2, 1, 7, 7, 7, 1>(
-            new StructLineProjectionTwoFrameFactor(_pt_start, _pt_end, _pt_velocity_start, _pt_velocity_end, 
-            _td_i, _line_type)));
+        return (new ceres::AutoDiffCostFunction<HorizonLineProjectionTwoFrameFactor, 2, 2, 1, 7, 7, 7>(
+            new HorizonLineProjectionTwoFrameFactor(_pt_start, _pt_end, _horizon_line_type)));
     }
 
     Vector3d pt_start, pt_end;
-    Vector3d pt_velocity_start, pt_velocity_end;
-    double td_i;
-    LineType line_type;
+    LineType horizon_line_type;
     static Matrix2d sqrt_info;
 };
 
 template<typename T>
-bool StructLineProjectionTwoFrameFactor::operator()(const T *const line_st_ptr, const T *const mht_angle_ptr, const T *const T_wi_ptr, const T *const T_wj_ptr, const T *const T_ic_ptr, const T *const td_ptr, T *residual_ptr) const
+bool HorizonLineProjectionTwoFrameFactor::operator()(const T *const line_st_ptr, const T *const mht_angle_ptr, const T *const T_wi_ptr, const T *const T_wj_ptr, const T *const T_ic_ptr, T *residual_ptr) const
 {    
     using Vector2T = Eigen::Matrix<T, 2, 1>;
     using Vector3T = Eigen::Matrix<T, 3, 1>;
@@ -152,11 +128,8 @@ bool StructLineProjectionTwoFrameFactor::operator()(const T *const line_st_ptr, 
     l_L_pluk << b, -a, T(0), T(0), T(0), T(1);
 
     Matrix3T R_sl;
-    switch (line_type)
+    switch (horizon_line_type)
     {
-    case VERTICAL:
-        R_sl.setIdentity();
-        break;
     case HORIZON_X:
         R_sl << T(0), T(0), T(1), T(0), T(1), T(0), T(-1), T(0), T(0);
         break;
@@ -169,12 +142,9 @@ bool StructLineProjectionTwoFrameFactor::operator()(const T *const line_st_ptr, 
 
     T m_angle = mht_angle_ptr[0];
     Matrix3T R_ws;
-    if(line_type == VERTICAL)
-        R_ws.setIdentity();
-    else
-        R_ws << ceres::cos(m_angle), -ceres::sin(m_angle), T(0), 
-                ceres::sin(m_angle), ceres::cos(m_angle), T(0),
-                T(0), T(0), T(1);
+    R_ws << ceres::cos(m_angle), -ceres::sin(m_angle), T(0), 
+            ceres::sin(m_angle), ceres::cos(m_angle), T(0),
+            T(0), T(0), T(1);
 
     Vector3T t_wi(T_wi_ptr[0], T_wi_ptr[1], T_wi_ptr[2]);
     QuaternionT Q_wi(T_wi_ptr[6], T_wi_ptr[3], T_wi_ptr[4], T_wi_ptr[5]);
@@ -190,8 +160,6 @@ bool StructLineProjectionTwoFrameFactor::operator()(const T *const line_st_ptr, 
 
     Vector3T t_ws = R_wi * t_ic + t_wi;
 
-    T td = td_ptr[0];
-
     Vector6T l_s_pluk = plukTransformPoseTemp<T>(l_L_pluk, R_sl, Vector3T(T(0), T(0), T(0)));
     Vector6T l_w_pluk = plukTransformPoseTemp<T>(l_s_pluk, R_ws, t_ws);
     Vector6T l_j_pluk = plukTransformPoseTemp<T>(l_w_pluk, R_wj.transpose(), -R_wj.transpose()*t_wj);
@@ -203,11 +171,11 @@ bool StructLineProjectionTwoFrameFactor::operator()(const T *const line_st_ptr, 
 
     // Vector3T pt_start_td = pt_start.cast<T>() - (td - T(td_i)) * pt_velocity_start.cast<T>();
     // Vector3T pt_end_td = pt_end.cast<T>() - (td - T(td_i)) * pt_velocity_end.cast<T>();
-    Vector3T pt_start_td = pt_start.cast<T>();
-    Vector3T pt_end_td = pt_end.cast<T>();
+    Vector3T pt_start_T = pt_start.cast<T>();
+    Vector3T pt_end_T = pt_end.cast<T>();
 
-    T e1 = pt_start_td.dot(nc);
-    T e2 = pt_end_td.dot(nc);
+    T e1 = pt_start_T.dot(nc);
+    T e2 = pt_end_T.dot(nc);
     Eigen::Map<Vector2T> residual(residual_ptr);
     residual(0) = e1 / ln_norm;
     residual(1) = e2 / ln_norm;

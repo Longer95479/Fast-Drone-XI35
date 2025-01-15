@@ -98,6 +98,7 @@ extern double MHT_NEIGHBOR_DIFF_THRESH;
 extern int ENABLE_MHT_OPT;
 extern int ASSOCIATE_POINTS_TO_LINES;
 extern double STRUCT_LINE_SQRT_INFO;
+extern int ENABLE_STRUCT_LINE_MARGIN;
 
 void readParameters(std::string config_file);
 

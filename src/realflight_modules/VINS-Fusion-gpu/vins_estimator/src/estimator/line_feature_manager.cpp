@@ -299,8 +299,8 @@ void StructLineFeatureManager::structLineTriangulate(double local_mht, Matrix3d 
         it_per_id.setParam(line_param);
         it_per_id.is_triangulated = true;
         counts++;
-        ROS_DEBUG("struct line id-%d triangulate result is (%lf, %lf, %lf, %lf, %lf, %lf)", it_per_id.feature_id, it_per_id.line_pluk[0], it_per_id.line_pluk[1], it_per_id.line_pluk[2], 
-                                                                                                          it_per_id.line_pluk[3], it_per_id.line_pluk[4], it_per_id.line_pluk[5]);
+        // ROS_DEBUG("struct line id-%d triangulate result is (%lf, %lf, %lf, %lf, %lf, %lf)", it_per_id.feature_id, it_per_id.line_pluk[0], it_per_id.line_pluk[1], it_per_id.line_pluk[2], 
+        //                                                                                                   it_per_id.line_pluk[3], it_per_id.line_pluk[4], it_per_id.line_pluk[5]);
     }
     ROS_DEBUG("struct line triangulate successfully counts: %d", counts);
 }
@@ -339,7 +339,7 @@ void StructLineFeatureManager::structLineTriangulateByPoints(double local_mht, c
                 int imu_i = it->start_frame;
                 pt1_w = Rs[imu_i]* (ric[0] * (it->estimated_depth * pt_uv) + tic[0]) + Ps[imu_i];
                 pt1_find = true;
-                ROS_DEBUG("structLineTriangulateByPoints: find pt1 for line-%d: (%lf, %lf, %lf), line type is %d", it_per_id.feature_id, pt1_w(0), pt1_w(1), pt1_w(2), it_per_id.line_type);
+                //ROS_DEBUG("structLineTriangulateByPoints: find pt1 for line-%d: (%lf, %lf, %lf), line type is %d", it_per_id.feature_id, pt1_w(0), pt1_w(1), pt1_w(2), it_per_id.line_type);
                 continue;
             }
             if(!pt2_find)
@@ -371,7 +371,7 @@ void StructLineFeatureManager::structLineTriangulateByPoints(double local_mht, c
                 }
 
                 pt2_find = true;
-                ROS_DEBUG("structLineTriangulateByPoints: find pt2 for line-%d: (%lf, %lf, %lf), line type is %d", it_per_id.feature_id, pt2_w(0), pt2_w(1), pt2_w(2), it_per_id.line_type);
+                //ROS_DEBUG("structLineTriangulateByPoints: find pt2 for line-%d: (%lf, %lf, %lf), line type is %d", it_per_id.feature_id, pt2_w(0), pt2_w(1), pt2_w(2), it_per_id.line_type);
                 break;
             }
         }
@@ -382,7 +382,7 @@ void StructLineFeatureManager::structLineTriangulateByPoints(double local_mht, c
         //initialize param
         Vector3d t_wc = Rs[it_per_id.start_frame] * tic[0] + Ps[it_per_id.start_frame];
         Vector2d line_param = lineParamInitializationByPluk(local_mht, t_wc, it_per_id.line_pluk, it_per_id.line_type);
-        ROS_DEBUG("structLineTriangulateByPoints: line-%d param is (%lf, %lf)", it_per_id.feature_id, line_param(0), line_param(1));
+        //ROS_DEBUG("structLineTriangulateByPoints: line-%d param is (%lf, %lf)", it_per_id.feature_id, line_param(0), line_param(1));
         it_per_id.setParam(line_param);
         it_per_id.is_triangulated = true;
         counts++;
@@ -445,8 +445,8 @@ void StructLineFeatureManager::onlyVerticalLineTriangulate(Matrix3d Rs[], Vector
         it_per_id.setParam(line_param);
         it_per_id.is_triangulated = true;
         counts++;
-        ROS_DEBUG("vertical line id-%d triangulate result is (%lf, %lf, %lf, %lf, %lf, %lf)", it_per_id.feature_id, it_per_id.line_pluk[0], it_per_id.line_pluk[1], it_per_id.line_pluk[2], 
-                                                                                                          it_per_id.line_pluk[3], it_per_id.line_pluk[4], it_per_id.line_pluk[5]);
+        // ROS_DEBUG("vertical line id-%d triangulate result is (%lf, %lf, %lf, %lf, %lf, %lf)", it_per_id.feature_id, it_per_id.line_pluk[0], it_per_id.line_pluk[1], it_per_id.line_pluk[2], 
+        //                                                                                                   it_per_id.line_pluk[3], it_per_id.line_pluk[4], it_per_id.line_pluk[5]);
     }
     ROS_DEBUG("vertical line triangulate successfully counts: %d", counts);
 }
@@ -487,7 +487,7 @@ void StructLineFeatureManager::onlyVerticalLineTriangulateByPoints(const Feature
                 int imu_i = it->start_frame;
                 pt1_w = Rs[imu_i]* (ric[0] * (it->estimated_depth * pt_uv) + tic[0]) + Ps[imu_i];
                 pt1_find = true;
-                ROS_DEBUG("onlyVerticalLineTriangulateByPoints: find pt1 for line-%d: (%lf, %lf, %lf), line type is %d", it_per_id.feature_id, pt1_w(0), pt1_w(1), pt1_w(2), it_per_id.line_type);
+                //ROS_DEBUG("onlyVerticalLineTriangulateByPoints: find pt1 for line-%d: (%lf, %lf, %lf), line type is %d", it_per_id.feature_id, pt1_w(0), pt1_w(1), pt1_w(2), it_per_id.line_type);
                 continue;
             }
             if(!pt2_find)
@@ -519,7 +519,7 @@ void StructLineFeatureManager::onlyVerticalLineTriangulateByPoints(const Feature
                 }
                 
                 pt2_find = true;
-                ROS_DEBUG("onlyVerticalLineTriangulateByPoints: find pt2 for line-%d: (%lf, %lf, %lf), line type is %d", it_per_id.feature_id, pt2_w(0), pt2_w(1), pt2_w(2), it_per_id.line_type);
+                //ROS_DEBUG("onlyVerticalLineTriangulateByPoints: find pt2 for line-%d: (%lf, %lf, %lf), line type is %d", it_per_id.feature_id, pt2_w(0), pt2_w(1), pt2_w(2), it_per_id.line_type);
                 break;
             }
         }
@@ -530,7 +530,7 @@ void StructLineFeatureManager::onlyVerticalLineTriangulateByPoints(const Feature
         //initialize param
         Vector3d t_wc = Rs[it_per_id.start_frame] * tic[0] + Ps[it_per_id.start_frame];
         Vector2d line_param = lineParamInitializationByPluk(0, t_wc, it_per_id.line_pluk, it_per_id.line_type);
-        ROS_DEBUG("onlyVerticalLineTriangulateByPoints: line-%d param is (%lf, %lf)", it_per_id.feature_id, line_param(0), line_param(1));
+        //ROS_DEBUG("onlyVerticalLineTriangulateByPoints: line-%d param is (%lf, %lf)", it_per_id.feature_id, line_param(0), line_param(1));
         it_per_id.setParam(line_param);
         it_per_id.is_triangulated = true;
         counts++;

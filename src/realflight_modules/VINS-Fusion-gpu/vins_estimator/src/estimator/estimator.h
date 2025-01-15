@@ -42,6 +42,8 @@
 #include "../factor/mht_theta_parameterization.h"
 #include "../factor/struct_line_parameterization.h"
 #include "../factor/struct_line_projection_factor.h"
+#include "../factor/horizon_line_projection_factor.h"
+#include "../factor/vertical_line_projection_factor.h"
 
 
 class Estimator

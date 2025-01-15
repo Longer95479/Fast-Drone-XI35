@@ -54,6 +54,10 @@ void Estimator::setParameter()
     LineProjectionFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
     StructLineProjectionOneFrameFactor::sqrt_info = FOCAL_LENGTH / 1.5 * STRUCT_LINE_SQRT_INFO * Matrix2d::Identity();
     StructLineProjectionTwoFrameFactor::sqrt_info = FOCAL_LENGTH / 1.5 * STRUCT_LINE_SQRT_INFO * Matrix2d::Identity();
+    HorizonLineProjectionOneFrameFactor::sqrt_info = FOCAL_LENGTH / 1.5 * STRUCT_LINE_SQRT_INFO * Matrix2d::Identity();
+    HorizonLineProjectionTwoFrameFactor::sqrt_info = FOCAL_LENGTH / 1.5 * STRUCT_LINE_SQRT_INFO * Matrix2d::Identity();
+    VerticalLineProjectionOneFrameFactor::sqrt_info = FOCAL_LENGTH / 1.5 * STRUCT_LINE_SQRT_INFO * Matrix2d::Identity();
+    VerticalLineProjectionTwoFrameFactor::sqrt_info = FOCAL_LENGTH / 1.5 * STRUCT_LINE_SQRT_INFO * Matrix2d::Identity();
 
     td = TD;
     g = G;
@@ -795,21 +799,30 @@ void Estimator::processImageWithPointsAndStructLines(const pair<map<int, vector<
             //add lines
             vector<pair<int, Eigen::Matrix<double, 8, 1>>> new_lines;
             struct_line_manager.addTrackedStructLine(image.second, td, new_lines);
+
             //line triangulate
+            TicToc tic_tri;
             struct_line_manager.structLineTriangulate(local_mht, Rs, Ps, tic, ric);
             if(ASSOCIATE_POINTS_TO_LINES)
             {
                 struct_line_manager.structLineTriangulateByPoints(local_mht, f_manager, Rs, Ps, tic, ric);
             }
-            double sline_err_bf = calAllStructLinesReprojectionError();
+            ROS_DEBUG("Hold: structLineTriangulate cost %lf ms.", tic_tri.toc());
+
             //optimization
+            TicToc tic_opt;
+            double sline_err_bf = calAllStructLinesReprojectionError();
             optimization();
             double sline_err_af = calAllStructLinesReprojectionError();
             ROS_DEBUG("Strut line rep err changing after optimization: %lf ===> %lf", sline_err_bf, sline_err_af);
+            ROS_DEBUG("Hold: optimization cost %lf ms.", tic_opt.toc());
+
             //classify the new lines
+            TicToc tic_cn;
             vector<pair<int, Eigen::Matrix<double, 8, 1>>> add_lines;
             vector<LineType> add_lines_type;
             bool trigger_mht_detect = structLineClassify(new_lines, add_lines, add_lines_type);
+            ROS_DEBUG("Hold: structLineClassify cost %lf ms.", tic_cn.toc());
             if(trigger_mht_detect)
             {
                 mht_state = UPDATING;
@@ -837,9 +850,11 @@ void Estimator::processImageWithPointsAndStructLines(const pair<map<int, vector<
             onlyClassifyVerticalLine(new_lines, new_vertical_lines, new_other_lines);
             int new_other_size = new_other_lines.size();
             //RANSAC
+            TicToc tic_rac;
             new_other_lines.insert(new_other_lines.end(), tracked_h_lines.begin(), tracked_h_lines.end());
             auto res_ransac = recognizeMHTUsingRANSAC(frame_count, new_other_lines);
             double new_mht = res_ransac.first? res_ransac.second : mht_manager.getLatestMHT();
+            ROS_DEBUG("Updating: RANSAC cost %lf ms.", tic_rac.toc());
             //classify the horizon lines among new lines
             vector<pair<int, Eigen::Matrix<double, 8, 1>>> new_horizon_lines;
             vector<LineType> new_horizon_lines_type;
@@ -872,11 +887,13 @@ void Estimator::processImageWithPointsAndStructLines(const pair<map<int, vector<
         //assocaite points to lines
         if(ASSOCIATE_POINTS_TO_LINES)
         {
+            TicToc tic_ap;
             vector<pair<int, Vector4d>> lines_n_trig;
             struct_line_manager.getUninitialLines(image.second, lines_n_trig);
             vector<pair<int, vector<pair<int, double>>>> lines_associa_pts;
             calAssociaPtsForLines(image.first, lines_n_trig, lines_associa_pts);
             struct_line_manager.updateLinesAssociaPts(lines_associa_pts);
+            ROS_DEBUG("Associate points to lines cost %lf ms.", tic_ap.toc());
         }
 
         auto line_cnt = struct_line_manager.getTriangulatedCount();
@@ -1539,7 +1556,7 @@ void Estimator::optimization()
                                                                  it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
                     problem.AddResidualBlock(f, loss_function, para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
                 }
-               
+                
             }
             f_m_cnt++;
         }
@@ -1557,14 +1574,14 @@ void Estimator::optimization()
         int line_m_cnt = 0;
         int line_h_cnt = 0;
         int line_v_cnt = 0;
-        int feature_index = -1;
+        int line_index = -1;
         for(auto &it_per_id : struct_line_manager.struct_line_features)
         {
             it_per_id.used_num = it_per_id.line_feature_per_frame.size();
             if(!struct_line_manager.isLineUsable(it_per_id))
                 continue;
 
-            feature_index++;
+            line_index++;
 
             if(it_per_id.line_type == VERTICAL)
                 line_v_cnt++;
@@ -1575,7 +1592,7 @@ void Estimator::optimization()
             }
             //add ParameterBlock
             ceres::LocalParameterization *local_parameterization = new StructLineParameterization();
-            problem.AddParameterBlock(para_Struct_Line[feature_index], SIZE_STRUCT_LINE, local_parameterization);
+            problem.AddParameterBlock(para_Struct_Line[line_index], SIZE_STRUCT_LINE, local_parameterization);
 
             //add Residual
             int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
@@ -1584,35 +1601,71 @@ void Estimator::optimization()
                 imu_j++;
                 if(imu_j == imu_i)
                 {
-                    ceres::CostFunction *struct_line_factor = StructLineProjectionOneFrameFactor::create(it_per_frame.pt_start, it_per_frame.pt_end, 
-                                                                                                it_per_frame.velocity_start, it_per_frame.velocity_end, 
-                                                                                                it_per_frame.cur_td, it_per_id.line_type);
-                    problem.AddResidualBlock(struct_line_factor, loss_function,
-                                            para_Struct_Line[feature_index],
-                                            para_Local_MHT[0],
-                                            para_Pose[imu_j],
-                                            para_Ex_Pose[0],
-                                            para_Td[0]);
+                    // ceres::CostFunction *struct_line_factor = StructLineProjectionOneFrameFactor::create(it_per_frame.pt_start, it_per_frame.pt_end, 
+                    //                                                                             it_per_frame.velocity_start, it_per_frame.velocity_end, 
+                    //                                                                             it_per_frame.cur_td, it_per_id.line_type);
+                    // problem.AddResidualBlock(struct_line_factor, loss_function,
+                    //     para_Struct_Line[line_index],
+                    //     para_Local_MHT[0],
+                    //     para_Pose[imu_j],
+                    //     para_Ex_Pose[0],
+                    //     para_Td[0]);
+                    if(it_per_id.line_type == VERTICAL)
+                    {
+                        ceres::CostFunction *vertical_line_factor = VerticalLineProjectionOneFrameFactor::create(it_per_frame.pt_start, it_per_frame.pt_end);
+                        problem.AddResidualBlock(vertical_line_factor, loss_function,
+                                                 para_Struct_Line[line_index],
+                                                 para_Pose[imu_j],
+                                                 para_Ex_Pose[0]);
+                    }
+                    else
+                    {
+                        ceres::CostFunction *horizon_line_factor = HorizonLineProjectionOneFrameFactor::create(it_per_frame.pt_start, it_per_frame.pt_end, it_per_id.line_type);
+                        problem.AddResidualBlock(horizon_line_factor, loss_function,
+                                                 para_Struct_Line[line_index],
+                                                 para_Local_MHT[0],
+                                                 para_Pose[imu_j],
+                                                 para_Ex_Pose[0]);
+                    }
                 }
                 else
                 {
-                    ceres::CostFunction *struct_line_factor = StructLineProjectionTwoFrameFactor::create(it_per_frame.pt_start, it_per_frame.pt_end, 
-                                                                                                it_per_frame.velocity_start, it_per_frame.velocity_end, 
-                                                                                                it_per_frame.cur_td, it_per_id.line_type);
-                    problem.AddResidualBlock(struct_line_factor, loss_function,
-                                            para_Struct_Line[feature_index],
-                                            para_Local_MHT[0],
-                                            para_Pose[imu_i],
-                                            para_Pose[imu_j],
-                                            para_Ex_Pose[0],
-                                            para_Td[0]);
+                    // ceres::CostFunction *struct_line_factor = StructLineProjectionTwoFrameFactor::create(it_per_frame.pt_start, it_per_frame.pt_end, 
+                    //                                                                             it_per_frame.velocity_start, it_per_frame.velocity_end, 
+                    //                                                                             it_per_frame.cur_td, it_per_id.line_type);
+                    // problem.AddResidualBlock(struct_line_factor, loss_function,
+                    //                         para_Struct_Line[line_index],
+                    //                         para_Local_MHT[0],
+                    //                         para_Pose[imu_i],
+                    //                         para_Pose[imu_j],
+                    //                         para_Ex_Pose[0],
+                    //                         para_Td[0]);
+                    if(it_per_id.line_type == VERTICAL)
+                    {
+                        ceres::CostFunction *vertical_line_factor = VerticalLineProjectionTwoFrameFactor::create(it_per_frame.pt_start, it_per_frame.pt_end);
+                        problem.AddResidualBlock(vertical_line_factor, loss_function,
+                                                 para_Struct_Line[line_index],
+                                                 para_Pose[imu_i],
+                                                 para_Pose[imu_j],
+                                                 para_Ex_Pose[0]);
+                    }
+                    else
+                    {
+                        ceres::CostFunction *horizon_line_factor = HorizonLineProjectionTwoFrameFactor::create(it_per_frame.pt_start, it_per_frame.pt_end, it_per_id.line_type);
+                        problem.AddResidualBlock(horizon_line_factor, loss_function,
+                                                 para_Struct_Line[line_index],
+                                                 para_Local_MHT[0],
+                                                 para_Pose[imu_i],
+                                                 para_Pose[imu_j],
+                                                 para_Ex_Pose[0]);
+                    }
                 }
                 line_m_cnt++;
             }
         }
         ROS_DEBUG("line measurements that add to ceres count: %d, line_v_cnt is %d, line_h_cnt is %d.", line_m_cnt, line_v_cnt, line_h_cnt);
     }
-    else if(enable_line_opti)
+    else if(!USE_STRUCT_LINE && enable_line_opti)
     {
         int line_m_cnt = 0;
         int line_index = -1;
@@ -1656,16 +1709,16 @@ void Estimator::optimization()
     //options.use_explicit_schur_complement = true;
     //options.minimizer_progress_to_stdout = true;
     //options.use_nonmonotonic_steps = true;
-    // if (marginalization_flag == MARGIN_OLD)
-    //     options.max_solver_time_in_seconds = SOLVER_TIME * 4.0 / 5.0;
-    // else
-    //     options.max_solver_time_in_seconds = SOLVER_TIME;
+    if (marginalization_flag == MARGIN_OLD)
+        options.max_solver_time_in_seconds = SOLVER_TIME * 4.0 / 5.0;
+    else
+        options.max_solver_time_in_seconds = SOLVER_TIME;
     TicToc t_solver;
     ceres::Solver::Summary summary;
     ceres::Solve(options, &problem, &summary);
     cout << summary.BriefReport() << endl;//BriefReport or FullReport
     ROS_DEBUG("Iterations : %d", static_cast<int>(summary.iterations.size()));
-    //printf("solver costs: %f \n", t_solver.toc());
+    printf("ceres solver costs: %f \n", t_solver.toc());
 
     double slines_err_af = calAllStructLinesReprojectionErrorAtZeroSpace();
     ROS_DEBUG("Struct lines rep err changing at ZERO Spece: %lf ===========> %lf", slines_err_bf, slines_err_af);
@@ -1765,11 +1818,64 @@ void Estimator::optimization()
                 }
             }
         }
-        if(USE_STRUCT_LINE)
+        if(USE_STRUCT_LINE && ENABLE_STRUCT_LINE_MARGIN)
         {
-            //TODO
+            int line_index = -1;
+            for(auto &it_per_id : struct_line_manager.struct_line_features)
+            {
+                it_per_id.used_num = it_per_id.line_feature_per_frame.size();
+                if(!struct_line_manager.isLineUsable(it_per_id))
+                    continue;
+
+                line_index++;
+
+                int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
+                if(imu_i != 0)
+                    continue;
+                for(auto &it_per_frame : it_per_id.line_feature_per_frame)
+                {
+                    imu_j++;
+                    if(imu_j == imu_i)
+                    {
+                        // ceres::CostFunction *f = StructLineProjectionOneFrameFactor::create(it_per_frame.pt_start, it_per_frame.pt_end,
+                        //                                                                     it_per_frame.velocity_start, it_per_frame.velocity_end,
+                        //                                                                     it_per_frame.cur_td, it_per_id.line_type);
+                        // ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(f, loss_function,
+                        //                                                                vector<double *>{para_Struct_Line[line_index], para_Local_MHT[0], para_Pose[imu_j], para_Ex_Pose[0], para_Td[0]},
+                        //                                                                vector<int>{0, 2});
+                        // marginalization_info->addResidualBlockInfo(residual_block_info);
+
+                    }
+                    else
+                    {
+                        // ceres::CostFunction *f = StructLineProjectionTwoFrameFactor::create(it_per_frame.pt_start, it_per_frame.pt_end,
+                        //                                                                     it_per_frame.velocity_start, it_per_frame.velocity_end,
+                        //                                                                     it_per_frame.cur_td, it_per_id.line_type);
+                        // ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(f, loss_function,
+                        //                                                                vector<double *>{para_Struct_Line[line_index], para_Local_MHT[0], para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Td[0]},
+                        //                                                                vector<int>{0, 2});
+                        // marginalization_info->addResidualBlockInfo(residual_block_info);
+                        if(it_per_id.line_type == VERTICAL)
+                        {
+                            ceres::CostFunction *f = VerticalLineProjectionTwoFrameFactor::create(it_per_frame.pt_start, it_per_frame.pt_end);
+                            ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(f, loss_function,
+                                                                                           vector<double *>{para_Struct_Line[line_index], para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0]},
+                                                                                           vector<int>{0, 1});
+                            marginalization_info->addResidualBlockInfo(residual_block_info);
+                        }
+                        else
+                        {
+                            ceres::CostFunction *f = HorizonLineProjectionTwoFrameFactor::create(it_per_frame.pt_start, it_per_frame.pt_end, it_per_id.line_type);
+                            ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(f, loss_function,
+                                                                                           vector<double *>{para_Struct_Line[line_index], para_Local_MHT[0], para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0]},
+                                                                                           vector<int>{0, 2});
+                            marginalization_info->addResidualBlockInfo(residual_block_info);
+                        }
+                    }
+                }
+            }
         }
-        else if(enable_line_opti)
+        else if(!USE_STRUCT_LINE && enable_line_opti)
         {
             int line_index = -1;
             for(auto &it_per_id : line_manager.line_features)
@@ -1817,6 +1923,8 @@ void Estimator::optimization()
             addr_shift[reinterpret_cast<long>(para_Ex_Pose[i])] = para_Ex_Pose[i];
 
         addr_shift[reinterpret_cast<long>(para_Td[0])] = para_Td[0];
+
+        addr_shift[reinterpret_cast<long>(para_Local_MHT[0])] = para_Local_MHT[0];
 
         vector<double *> parameter_blocks = marginalization_info->getParameterBlocks(addr_shift);
 
@@ -1884,6 +1992,8 @@ void Estimator::optimization()
                 addr_shift[reinterpret_cast<long>(para_Ex_Pose[i])] = para_Ex_Pose[i];
 
             addr_shift[reinterpret_cast<long>(para_Td[0])] = para_Td[0];
+
+            addr_shift[reinterpret_cast<long>(para_Local_MHT[0])] = para_Local_MHT[0];
 
             
             vector<double *> parameter_blocks = marginalization_info->getParameterBlocks(addr_shift);

@@ -155,8 +155,10 @@ void sync_process()
 				//line track
 				std:future<void> line_tracker_future;
 				if(DETECT_LINE)
+				{
 					line_tracker_future = thread_pool.submit(std::bind(&LineFeatureTracker::readImage, &line_tracker,
 															 cur_time, std::ref(image0)));
+				}
 				tracker_future.get();
 				if(DETECT_LINE)
 					line_tracker_future.get();
