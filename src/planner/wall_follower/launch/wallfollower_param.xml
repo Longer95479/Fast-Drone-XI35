@@ -8,6 +8,7 @@
     <arg name="reach_waypoint_threshold" default="0.5"/>
     <arg name="max_planned_waypoints_num" default="10"/>
     <arg name="run_interval" default="0.5"/>
+    <arg name="wp_height" default="0.5"/>
 
     <arg name="f" default="30.0"/>
     <arg name="deltaY" default="4.0"/>
@@ -35,6 +36,7 @@
     <param name="/$(arg wall_follower_node_name)/wall_follower/reach_waypoint_threshold" value="$(arg reach_waypoint_threshold)" type="double"/>
     <param name="/$(arg wall_follower_node_name)/wall_follower/max_planned_waypoints_num" value="$(arg max_planned_waypoints_num)" type="int"/>
     <param name="/$(arg wall_follower_node_name)/wall_follower/run_interval" value="$(arg run_interval)" type="double"/>
+    <param name="/$(arg wall_follower_node_name)/wall_follower/wp_height" value="$(arg wp_height)" type="double"/>
 
     <param name="/$(arg wall_follower_node_name)/wall_follower/f" value="$(arg f)" type="double"/>
     <param name="/$(arg wall_follower_node_name)/wall_follower/deltaY" value="$(arg deltaY)" type="double"/>

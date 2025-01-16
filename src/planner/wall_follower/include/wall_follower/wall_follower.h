@@ -88,7 +88,8 @@ private:
     double reach_waypoint_threshold_;
     int max_planned_waypoints_num_;
     bool wall_follower_enable_;
-    double run_interval;
+    double run_interval_;
+    double wp_height_;
 
     /* data */
     Eigen::Vector3d body_pos_, next_way_point_;

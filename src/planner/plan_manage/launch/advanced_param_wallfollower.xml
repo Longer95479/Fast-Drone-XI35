@@ -61,7 +61,7 @@
     <!-- planning fsm -->
     <param name="fsm/flight_type" value="$(arg flight_type)" type="int"/>
     <param name="fsm/thresh_replan_time" value="1.0" type="double"/>
-    <param name="fsm/thresh_no_replan_meter" value="1.0" type="double"/>
+    <param name="fsm/thresh_no_replan_meter" value="0.3" type="double"/>
     <param name="fsm/planning_horizon" value="$(arg planning_horizon)" type="double"/> <!--always set to 1.5 times grater than sensing horizen-->
     <param name="fsm/planning_horizen_time" value="3" type="double"/>
     <param name="fsm/emergency_time" value="1.0" type="double"/>
@@ -92,7 +92,7 @@
     <param name="grid_map/local_update_range_x"  value="5.5" /> 
     <param name="grid_map/local_update_range_y"  value="5.5" /> 
     <param name="grid_map/local_update_range_z"  value="4.5" /> 
-    <param name="grid_map/obstacles_inflation"     value="0.099" /> 
+    <param name="grid_map/obstacles_inflation"     value="0.12" /> 
     <param name="grid_map/local_map_margin" value="5"/>
     <param name="grid_map/ground_height"        value="-0.01"/>
     <!-- camera parameter -->
@@ -160,11 +160,12 @@
       <arg name="wall_follower_node_name" value="drone_$(arg drone_id)_ego_planner_node"/>
       <!-- wall follower param -->
       <arg name="wall_follower_enable" value="true"/>
-      <arg name="dist_from_wall" value="0.6"/>
+      <arg name="dist_from_wall" value="1.0"/>
       <arg name="have_plane_threshold" value="20"/>
-      <arg name="reach_waypoint_threshold" value="0.5"/>
-      <arg name="max_planned_waypoints_num" value="100"/>
+      <arg name="reach_waypoint_threshold" value="0.3"/>
+      <arg name="max_planned_waypoints_num" value="2"/>
       <arg name="run_interval" default="0.2"/>
+      <arg name="wp_height" default="0.7"/>
       <!-- pts_fov_end param -->
       <arg name="f" value="30.0"/>
       <arg name="deltaY" value="4.0"/>
