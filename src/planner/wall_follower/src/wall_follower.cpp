@@ -35,6 +35,8 @@ WallFollower::WallFollower(ros::NodeHandle& nh, GridMap::Ptr& grid_map_ptr)
         waypoint_sub_ = nh.subscribe("/move_base_simple/goal", 1, &WallFollower::waypointCallback, this);
         waypoint_pub_ = nh.advertise<geometry_msgs::PoseStamped>("/move_base_simple/goal", 10);
 
+  	pub_land_ = nh.advertise<quadrotor_msgs::TakeoffLand>("/px4ctrl/takeoff_land", 5, true);
+
         find_waypoint_timer_ = nh.createTimer(ros::Duration(run_interval_), &WallFollower::findWayPointCallback, this);
         vis_timer_ = nh.createTimer(ros::Duration(0.2), &WallFollower::visCallback, this); 
     }   
@@ -74,6 +76,17 @@ void WallFollower::findWayPointCallback(const ros::TimerEvent& /*event*/)
                 std::cout << "MY_DEBUG: planned_waypoints_count_ = " << planned_waypoints_count_ << std::endl;
             }
         }
+	else {
+	    // land
+            static int count = 0;
+            if (count < 5) {
+              count++;
+            }
+            else {
+              publishLand();
+              count = 0;
+            }
+	}
     }
 }
 
@@ -487,3 +500,10 @@ void WallFollower::publicWayPoint(Eigen::Vector3d waypoint)
 
 }
 
+
+void WallFollower::publishLand()
+{
+  quadrotor_msgs::TakeoffLand msg;
+  msg.takeoff_land_cmd = 2;
+  pub_land_.publish(msg);
+}

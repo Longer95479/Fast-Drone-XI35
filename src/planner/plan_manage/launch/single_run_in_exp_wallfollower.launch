@@ -6,6 +6,10 @@
     <arg name="map_size_x" value="20"/>
     <arg name="map_size_y" value="20"/>
     <arg name="map_size_z" value="3.0"/>
+
+    <arg name="map_origin_x" value="-10.0"/>
+    <arg name="map_origin_y" value="-10.0"/>
+
     <arg name="odom_topic" value="/vins_fusion/imu_propagate"/>
     
     <!-- main algorithm params -->
@@ -14,6 +18,8 @@
         <arg name="map_size_x_" value="$(arg map_size_x)"/>
         <arg name="map_size_y_" value="$(arg map_size_y)"/>
         <arg name="map_size_z_" value="$(arg map_size_z)"/>
+        <arg name="map_origin_x_" value="$(arg map_origin_x)"/>
+        <arg name="map_origin_y_" value="$(arg map_origin_y)"/>
         <arg name="odometry_topic" value="$(arg odom_topic)"/>
         <arg name="obj_num_set" value="$(arg obj_num)" />
         <!-- camera pose: transform of camera frame in the world frame -->
@@ -30,8 +36,8 @@
         <arg name="fx" value="389.6706237792969"/>
         <arg name="fy" value="389.6706237792969"/>
         <!-- maximum velocity and acceleration the drone will reach -->
-        <arg name="max_vel" value="0.4" />
-        <arg name="max_acc" value="6.0" />
+        <arg name="max_vel" value="0.5" />
+        <arg name="max_acc" value="3.0" />
         <!--always set to 1.5 times grater than sensing horizen-->
         <arg name="planning_horizon" value="6" />
         <arg name="use_distinctive_trajs" value="false" />

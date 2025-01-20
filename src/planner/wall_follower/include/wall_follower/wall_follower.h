@@ -16,6 +16,8 @@
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
 
+#include <quadrotor_msgs/TakeoffLand.h>
+
 class WallFollower {
 public:
     typedef std::shared_ptr<WallFollower> Ptr;
@@ -81,6 +83,7 @@ private:
     ros::Timer vis_timer_, find_waypoint_timer_;
     ros::Subscriber odom_sub_, waypoint_sub_, trigger_sub_;
     ros::Publisher waypoint_pub_;
+    ros::Publisher pub_land_;
 
     bool have_odom_, have_trigger_, is_next_waypoint_initialized_;
     double dist_from_wall_;
@@ -104,6 +107,7 @@ private:
     void odomCallback(const nav_msgs::OdometryConstPtr& odom);
     void waypointCallback(const geometry_msgs::PoseStampedPtr &msg);
     void publicWayPoint(Eigen::Vector3d waypoint);
+    void publishLand();
     void triggerCallback(const geometry_msgs::PoseStampedPtr &msg);
 
 };
