@@ -6,41 +6,44 @@ imu: 1
 num_of_cam: 2
 
 
-imu_topic: "/mavros/imu/data_raw"
-image0_topic: "/camera/infra1/image_rect_raw"
-image1_topic: "/camera/infra2/image_rect_raw"
+imu_topic: "/imu0" #/mavros/imu/data_raw          EuRoC:/imu0
+image0_topic: "/cam0/image_raw"   #/camera/infra1/image_rect_raw EuRoC:/cam1/image_raw
+image1_topic: "/cam1/image_raw"   #/camera/infra2/image_rect_raw EuRoC:/cam0/image_raw
 
-output_path: ""
 
-cam0_calib: "left.yaml"
-cam1_calib: "right.yaml"
-image_width: 640
+
+
+output_path: "/home/nx05/vins_output/euroc"
+
+
+cam0_calib: "cam0_pinhole.yaml"  #left.yaml   
+cam1_calib: "cam1_pinhole.yaml" #right.yaml 
+image_width: 752
 image_height: 480
    
+
 # Extrinsic parameter between IMU and Camera.
-estimate_extrinsic: 1   # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
+estimate_extrinsic: 0   # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
                         # 1  Have an initial guess about extrinsic parameters. We will optimize around your initial guess.
 
+#EuRoC
 body_T_cam0: !!opencv-matrix
-   rows: 4
-   cols: 4
-   dt: d
-   data: [ -1.6502178783956989e-03, 3.8159729902645587e-02,
-       9.9927028965876463e-01, 6.7782305102990950e-02,
-       -9.9851533060681685e-01, -5.4469704418659060e-02,
-       4.3109593323412105e-04, 3.9454274329887521e-03,
-       5.4446407816435012e-02, -9.9778599224197440e-01,
-       3.8192962199669389e-02, 5.7271088389329469e-02, 0., 0., 0., 1. ]
+  rows: 4
+  cols: 4
+  dt: d
+  data: [0.0148655429818, -0.999880929698, 0.00414029679422, -0.0216401454975,
+         0.999557249008, 0.0149672133247, 0.025715529948, -0.064676986768,
+        -0.0257744366974, 0.00375618835797, 0.999660727178, 0.00981073058949,
+         0.0, 0.0, 0.0, 1.0]
 body_T_cam1: !!opencv-matrix
-   rows: 4
-   cols: 4
-   dt: d
-   data: [ -1.7994482244809706e-03, 3.8125300859755892e-02,
-       9.9927134624207070e-01, 6.7388874152142841e-02,
-       -9.9850664723202087e-01, -5.4629602899542329e-02,
-       2.8621758641993639e-04, -4.4419075927211317e-02,
-       5.4600708965689082e-02, -9.9777856657747022e-01,
-       3.8166669478128634e-02, 6.0067053959264829e-02, 0., 0., 0., 1. ]
+  rows: 4
+  cols: 4
+  dt: d
+  data: [0.0125552670891, -0.999755099723, 0.0182237714554, -0.0198435579556,
+         0.999598781151, 0.0130119051815, 0.0251588363115, 0.0453689425024,
+        -0.0253898008918, 0.0179005838253, 0.999517347078, 0.00786212447038,
+         0.0, 0.0, 0.0, 1.0]
+
 
 #Multiple thread support
 multiple_thread: 1
@@ -86,8 +89,7 @@ enable_pub_imu_path: 1
 enable_imu_odom_smooth: 1
 velocity_limit: 1.5
 
-use_external_front_end: 1 #0：前端使用自带的光流跟踪，1：使用外部特征跟踪器
-
+use_external_front_end: 1  #0：前端使用自带的光流跟踪，1：使用外部特征跟踪器
 record_csv: 0 #记录滑窗优化最新帧的时间戳、滑窗内可用的特征点数目、xyz、td
 csv_file_path: "/home/nx05/csv/vins_backend/xp_opticalflow_retrack.csv" #sp_opticalflow.csv, sp_lg_version.csv, original_version.csv, xp_opticalflow.csv
 
@@ -113,7 +115,7 @@ plnet:
     of_min_dist: 30 # min distance between two features for opticalflow 光流nms半径 20
 
     resized_width: 640   #神经网络输入图像尺寸
-    resized_height: 480
+    resized_height: 480     
 
     superpoint_onnx_model: "superpoint_v1_sim_int32.onnx"
     superpoint_trt_model: "superpoint_v1_sim_int32.engine"
@@ -161,5 +163,5 @@ line_config:
     mht_Window_neighbor_diff_thresh: 0.174 #mht窗口内相邻mht相差阈值
     enable_mht_optimization: 1 #是否优化mht
     associate_points_to_lines: 1 #将线与点进行关联以辅助三角化
-    struct_line_sqrt_info: 5 #结构线约束项权重
+    struct_line_sqrt_info: 10 #结构线约束项权重
     enable_struct_line_margin: 0 #结构线加入边缘化信息

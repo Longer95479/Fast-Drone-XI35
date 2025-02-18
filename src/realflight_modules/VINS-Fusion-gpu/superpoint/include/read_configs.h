@@ -42,6 +42,8 @@ struct FeatureTrackerConfig
 		use_opticalflow_stereo = fsSettings["plnet"]["use_opticalflow_stereo"];
 		col = fsSettings["image_width"];
 		row = fsSettings["image_height"];
+		resized_width = fsSettings["plnet"]["resized_width"];
+		resized_height = fsSettings["plnet"]["resized_height"];
 		of_min_dist = fsSettings["plnet"]["of_min_dist"];
 		of_max_cnt = fsSettings["plnet"]["of_max_cnt"];
 		F_threshold = fsSettings["point_matcher"]["fsSettings"];
@@ -56,6 +58,7 @@ struct FeatureTrackerConfig
 	std::vector<std::string> camera_config_file;
 	int use_opticalflow;
 	int col, row;
+	int resized_width, resized_height;
 	int max_cnt;
 	double pub_freq;
 	int borders;

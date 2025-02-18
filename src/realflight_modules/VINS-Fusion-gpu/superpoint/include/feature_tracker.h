@@ -85,7 +85,9 @@ public:
 	void extractKeyPoints(vector<cv::Point2f>& new_pts);
 	vector<int> sort_indexes(vector<float> &data);
 	vector<std::pair<int, cv::Point2f>> nms_process(const vector<cv::Point2f>& pts, const vector<int>& sorted_idx, float dist_thresh);
-
+	
+	vector<cv::Point2f> pts_ori_to_resized(const vector<cv::Point2f>& ori_pts);
+	vector<cv::Point2f> pts_resized_to_ori(const vector<cv::Point2f>& resized_pts);
 
 	FeatureDetectorPtr feature_detector;
 	PointMatcherPtr point_matcher;

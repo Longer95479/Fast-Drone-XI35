@@ -33,6 +33,30 @@ bool FeatureTracker::inBorder(const cv::Point2f &pt)
     return BORDER_SIZE <= img_x && img_x < feature_tracker_config.col - BORDER_SIZE && \
 		BORDER_SIZE <= img_y && img_y < feature_tracker_config.row - BORDER_SIZE;
 }
+//特征点缩放：原始图像大小->网络输入大小
+vector<cv::Point2f> FeatureTracker::pts_ori_to_resized(const vector<cv::Point2f>& ori_pts)
+{
+	vector<cv::Point2f> resized_pts;
+	double w_scale = feature_tracker_config.resized_width / (double)feature_tracker_config.col;
+	double h_scale = feature_tracker_config.resized_height / (double)feature_tracker_config.row;
+	for(auto &pt : ori_pts)
+	{
+		resized_pts.emplace_back(pt.x * w_scale, pt.y * h_scale);
+	}
+	return resized_pts;
+}
+//特征点缩放：网络输入大小->原始图像大小
+vector<cv::Point2f> FeatureTracker::pts_resized_to_ori(const vector<cv::Point2f>& resized_pts)
+{
+	vector<cv::Point2f> ori_pts;
+	double w_scale = (double)feature_tracker_config.col / feature_tracker_config.resized_width;
+	double h_scale = (double)feature_tracker_config.row / feature_tracker_config.resized_height;
+	for(auto &pt : resized_pts)
+	{
+		ori_pts.emplace_back(pt.x * w_scale, pt.y * h_scale);
+	}
+	return ori_pts;
+}
 
 vector<cv::Point2f> FeatureTracker::undistortedPts(vector<cv::Point2f> &pts, camodocal::CameraPtr cam)
 {
@@ -224,8 +248,8 @@ void FeatureTracker::extractKeyPoints(vector<cv::Point2f>& new_pts)
 
 	scores_v.reserve(feature_tracker_config.max_cnt * 4);
 	kpts.reserve(feature_tracker_config.max_cnt * 4);
-	int w = feature_tracker_config.col;
-	int h = feature_tracker_config.row;
+	int w = feature_tracker_config.resized_width;
+	int h = feature_tracker_config.resized_height;
 	
 	int heat_map_size = w * h;
 
@@ -284,8 +308,8 @@ void FeatureTracker::extractDescriptors(const vector<cv::Point2f>& pts, vector<D
 {
 	if(!descs.empty())
 		descs.clear();
-	int w = feature_tracker_config.col / 8;
-	int h = feature_tracker_config.row / 8;
+	int w = feature_tracker_config.resized_width / 8;
+	int h = feature_tracker_config.resized_height / 8;
 	int s = 8;
 	float sx = 2.f / (w * s - s / 2 - 0.5);
 	float bx = (1 - s) / (w * s - s / 2 - 0.5) - 1;
@@ -344,15 +368,20 @@ void FeatureTracker::extractSquareROIPtsDesc(const cv::Point2f& ori_pt, int half
 {
 	if(cur_heatmap == nullptr || cur_desc == nullptr)
 		return;
-	int w = feature_tracker_config.col;
-	int h = feature_tracker_config.row;
-	int ori_x = std::floor(ori_pt.x);
-	int ori_y = std::floor(ori_pt.y);
+	int w = feature_tracker_config.resized_width;
+	int h = feature_tracker_config.resized_height;
+	//scale cof
+	double w_scale = feature_tracker_config.resized_width / (double)feature_tracker_config.col;
+	double h_scale = feature_tracker_config.resized_height / (double)feature_tracker_config.row;
+
+	int ori_x = std::floor(ori_pt.x) * w_scale;
+	int ori_y = std::floor(ori_pt.y) * h_scale;
 	int min_x = feature_tracker_config.borders;
 	int min_y = feature_tracker_config.borders;;
 	int max_x = w - feature_tracker_config.borders;
 	int max_y = h - feature_tracker_config.borders;
-	//extract pts
+
+	//extract pts(resized)
 	for(int i = ori_x - half_len; i <= ori_x + half_len; i++)
 	{
 		for(int j = ori_y - half_len; j <= ori_y + half_len; j++)
@@ -364,6 +393,8 @@ void FeatureTracker::extractSquareROIPtsDesc(const cv::Point2f& ori_pt, int half
 	}
 	//extract desc
 	extractDescriptors(pts, descs);
+	//recover the scale
+	pts = pts_resized_to_ori(pts);
 }
 //基于描述子匹配实现重追踪，输入光流追踪结果，输出重追踪后的当前帧特征点和status
 void FeatureTracker::retrackThroughDescMatch(const vector<cv::Point2f>& prev_pts, vector<DescV> prev_desc, vector<cv::Point2f>& cur_pts, vector<uchar>& status)
@@ -513,6 +544,8 @@ void FeatureTracker::track_img_use_opticalflow(double _cur_time, const cv::Mat &
 		if(feature_tracker_config.use_retrack)
 		{//retrack模式下，已经提取过heatmap
 			extractKeyPoints(new_pts_v);
+			//scale
+			new_pts_v = pts_resized_to_ori(new_pts_v);
 			new_pts_num = new_pts_v.size();
 		}
 		else
@@ -632,8 +665,9 @@ void FeatureTracker::track_img_use_opticalflow(double _cur_time, const cv::Mat &
         prevLeftPtsMap[cur_ids[i]] = cur_pts[i];
 	//update descriptors
 	if(feature_tracker_config.use_retrack)
-	{
-		extractDescriptors(prev_pts, prev_xdesc);
+	{	//scale
+		auto prev_pts_resized = pts_ori_to_resized(prev_pts);
+		extractDescriptors(prev_pts_resized, prev_xdesc);
 	}
 
 	ROS_INFO("xfeat tracker cost %lf ms", tic_all.toc());
