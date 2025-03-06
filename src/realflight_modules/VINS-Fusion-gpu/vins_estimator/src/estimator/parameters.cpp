@@ -82,6 +82,8 @@ int ASSOCIATE_POINTS_TO_LINES;
 double STRUCT_LINE_SQRT_INFO;
 int ENABLE_STRUCT_LINE_MARGIN;
 
+int PUB_IMAGE_AT_BACKEND;
+
 template <typename T>
 T readParam(ros::NodeHandle &n, std::string name)
 {
@@ -271,5 +273,6 @@ void readParameters(std::string config_file)
     ASSOCIATE_POINTS_TO_LINES = fsSettings["line_config"]["associate_points_to_lines"];
     STRUCT_LINE_SQRT_INFO = fsSettings["line_config"]["struct_line_sqrt_info"];
     ENABLE_STRUCT_LINE_MARGIN = fsSettings["line_config"]["enable_struct_line_margin"];
+    PUB_IMAGE_AT_BACKEND = fsSettings["line_config"]["pub_image_at_backend"];
     fsSettings.release();
 }

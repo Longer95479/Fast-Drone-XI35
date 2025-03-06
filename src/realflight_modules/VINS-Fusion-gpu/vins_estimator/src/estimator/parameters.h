@@ -100,6 +100,8 @@ extern int ASSOCIATE_POINTS_TO_LINES;
 extern double STRUCT_LINE_SQRT_INFO;
 extern int ENABLE_STRUCT_LINE_MARGIN;
 
+extern int PUB_IMAGE_AT_BACKEND;
+
 void readParameters(std::string config_file);
 
 enum SIZE_PARAMETERIZATION

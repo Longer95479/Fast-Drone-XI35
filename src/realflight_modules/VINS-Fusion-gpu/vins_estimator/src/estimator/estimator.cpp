@@ -243,6 +243,13 @@ void Estimator::processMeasurements()
             header.frame_id = "world";
             header.stamp = ros::Time(feature.first);
 
+            //publish image
+            if(PUB_IMAGE_AT_BACKEND)
+            {
+                DrawImage(feature.first);
+                pubBackendImage(*this, header);
+            }
+
             pubOdometry(*this, header);
             pubKeyPoses(*this, header);
             pubCameraPose(*this, header);
@@ -2969,10 +2976,36 @@ Vector3d Estimator::vpxNormalize(Vector3d vpx_in)
     return vpx_out;
 }
 
-//初始化已划分线条的两参数(StructVIO方案)
-vector<Vector2d> Estimator::lineParamInitialization(int frame_count, const vector<pair<int, Eigen::Matrix<double, 8, 1>>> &new_lines, const vector<LineType> &lines_type)
+Vector2d Estimator::getVpxFromCurLMHT()
 {
-    //TODO
+    Matrix3d R_wc = Rs[frame_count] * ric[0];
+    Vector3d vpx_w = Vector3d(cos(local_mht), sin(local_mht), 0);
+    Vector3d vpx_c = R_wc.transpose() * vpx_w;
+    Vector2d vpx = getVpFromDDs(vpx_c);//vanish point
+    return vpx;
+}
+Vector2d Estimator::getVpyFromCurLMHT()
+{
+    Matrix3d R_wc = Rs[frame_count] * ric[0];
+    Vector3d vpy_w = Vector3d(-sin(local_mht), cos(local_mht), 0);
+    Vector3d vpy_c = R_wc.transpose() * vpy_w;
+    Vector2d vpy = getVpFromDDs(vpy_c);//vanish point
+    return vpy;
+}
+//得到自适应主消失点，用于可视化
+Vector2d Estimator::getAdaptiveVp()
+{
+    Matrix3d R_wc = Rs[frame_count] * ric[0];
+    Vector3d vpx_w = Vector3d(cos(local_mht), sin(local_mht), 0);
+    Vector3d vpx_c = R_wc.transpose() * vpx_w;
+    if(fabs(vpx_c.z()) < 0.25)
+    {
+        Vector3d vpy_w = Vector3d(-sin(local_mht), cos(local_mht), 0);
+        Vector3d vpy_c = R_wc.transpose() * vpy_w;
+        vpx_c = vpy_c;
+    }   
+    Vector2d vpx = getVpFromDDs(vpx_c);//vanish point
+    return vpx;
 }
 
 void Estimator::calAssociaPtsForLines(const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &cur_pts, const vector<pair<int, Vector4d>> &lines, vector<pair<int, vector<pair<int, double>>>> &associa_pts)
@@ -3026,4 +3059,97 @@ void Estimator::calAssociaPtsForLines(const map<int, vector<pair<int, Eigen::Mat
         associa_pts.emplace_back(line.first, pt_id_dist);
         //ROS_DEBUG("calAssociaPtsForLines: line-%d associate %d points", line.first, pt_id_dist.size());
     }
+}
+
+cv::Mat Estimator::getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg)
+{
+    cv_bridge::CvImageConstPtr ptr;
+    ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::BGR8);
+    cv::Mat img = ptr->image.clone();
+    return img;
+}
+
+void Estimator::DrawImage(double cur_header)
+{
+    cv::Mat cur_img;
+    {
+        std::lock_guard<std::mutex> lck(mtx_img_buf);
+        while(!img0_buf.empty() && img0_buf.front()->header.stamp.toSec() < cur_header)
+        {
+            img0_buf.pop();
+        }
+        if(img0_buf.empty())
+            return;
+        if(img0_buf.front()->header.stamp.toSec() != cur_header)
+        {
+            img0_buf.pop();
+            return;
+        }
+        cur_img = getImageFromMsg(img0_buf.front());
+        img0_buf.pop();
+    }
+    //draw a string
+    //text1
+    string text1;
+    if(mht_state == HOLD)
+    {
+        text1.append("LMW orientation: ");
+        double local_mht_d = local_mht / M_PI * 180.;
+        text1.append(std::to_string(local_mht_d));
+        text1.append(" deg");
+    }
+    else
+    {
+        text1.append("LMW Updating...");
+        // double local_mht_d = mht_manager.getLatestMHT() / M_PI * 180.;
+        // text1.append(std::to_string(local_mht_d));
+    }
+    int fontFace = cv::FONT_HERSHEY_COMPLEX_SMALL; // 字体类型 FONT_HERSHEY_COMPLEX_SMALL  FONT_HERSHEY_SIMPLEX
+    double fontScale = 1.0;                  // 字体缩放比例
+    int thickness = 1;                       // 线条粗细
+    cv::Scalar color(0, 255, 0);             // 绿色（BGR格式）
+    int baseline;
+    cv::Size text1Size = cv::getTextSize(text1, fontFace, fontScale, thickness, &baseline);
+
+    int margin = 10;
+    int x1 = cur_img.cols - text1Size.width - margin;
+    int y1 = cur_img.rows - margin;
+    cv::Point textOrg1(x1, y1);
+    cv::putText(cur_img, text1, textOrg1, fontFace, fontScale, color, thickness);
+
+    //text2
+    string text2;
+    text2.append("yaw orientation: ");
+    Vector3d cur_ypr = Utility::R2ypr(Rs[frame_count]);
+    double yaw_deg = cur_ypr[0];
+    text2.append(std::to_string(yaw_deg));
+    text2.append(" deg");
+
+    cv::Size text2Size = cv::getTextSize(text2, fontFace, fontScale, thickness, &baseline);
+    int x2 = cur_img.cols - text2Size.width - margin;
+    int y2 = y1 - text1Size.height - 5;
+    cv::Point textOrg2(x2, y2);
+    cv::putText(cur_img, text2, textOrg2, fontFace, fontScale, color, thickness);
+
+    //draw arrow
+    if(mht_state == HOLD)
+    {
+        Vector2d vpx = getAdaptiveVp();
+        double fx = 389.6706237792969;
+        double fy = 389.6706237792969;
+        double cx =  323.40972900390625;
+        double cy = 232.05543518066406;
+
+        Vector2d st_uv;
+        st_uv << (640. / 2.), (480. - 100.);
+        Vector2d st_xy  = Vector2d((st_uv[0] - cx) / fx, (st_uv[1] - cy) / fy);
+        Vector2d direction = (vpx - st_xy).normalized();
+        Vector2d end_uv = st_uv + 60 * direction;
+
+        cv::Point2f st(st_uv[0], st_uv[1]);
+        cv::Point2f ed(end_uv[0], end_uv[1]);
+        cv::arrowedLine(cur_img, st, ed, cv::Scalar(0, 255, 0), 3, cv::LINE_AA, 0, 0.1);
+    }
+
+    imTrack = cur_img.clone();
 }

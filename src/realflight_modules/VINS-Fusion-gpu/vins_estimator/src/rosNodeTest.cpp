@@ -238,6 +238,7 @@ int main(int argc, char **argv)
 
     ros::Subscriber sub_imu = n.subscribe(IMU_TOPIC, 2000, imu_callback, ros::TransportHints().tcpNoDelay());
     ros::Subscriber sub_feature = n.subscribe("/feature_tracker/feature", 2000, feature_callback);
+    ros::Subscriber sub_img_frontend = n.subscribe<sensor_msgs::Image>("/feature_tracker/line_img", 2000, std::bind(&Estimator::imgCallback, &estimator, std::placeholders::_1));
     if(USE_EXTERNAL_TRACKER == 0)
     {
         ros::Subscriber sub_img0 = n.subscribe(IMAGE0_TOPIC, 100, img0_callback);

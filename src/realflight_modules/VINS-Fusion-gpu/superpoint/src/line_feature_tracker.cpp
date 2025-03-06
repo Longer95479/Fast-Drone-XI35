@@ -575,6 +575,7 @@ cv::Mat LineFeatureTracker::getTrackImage()
 {
 	return imTrack;
 }
+
 // 3 / fx = 0.00769
 void LineFeatureTracker::calAssociaPtsForLines(const vector<cv::Point2f> &cur_un_pts, const vector<cv::Point2f> &cur_pts, const vector<Vector4d> &cur_un_lines, vector<vector<cv::Point2f>> &associa_pts)
 {

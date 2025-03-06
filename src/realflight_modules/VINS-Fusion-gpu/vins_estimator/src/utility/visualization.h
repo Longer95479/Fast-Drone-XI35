@@ -72,3 +72,5 @@ void pubCar(const Estimator & estimator, const std_msgs::Header &header);
 void pubLinesCloud(const Estimator &estimator, const std_msgs::Header &header);
 
 void pubStructLinesCloud(Estimator &estimator, const std_msgs::Header &header);
+
+void pubBackendImage(Estimator &estimator, const std_msgs::Header &header);

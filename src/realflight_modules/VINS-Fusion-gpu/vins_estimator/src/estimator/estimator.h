@@ -18,8 +18,12 @@
 #include <unordered_map>
 #include <queue>
 #include <opencv2/core/eigen.hpp>
+#include <opencv2/opencv.hpp>
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Geometry>
+#include <sensor_msgs/Image.h>
+#include <cv_bridge/cv_bridge.h>
+
 
 #include "parameters.h"
 #include "feature_manager.h"
@@ -108,8 +112,25 @@ class Estimator
     int countNumForHorizonClassify(const vector<pair<int, Eigen::Matrix<double, 8, 1>>> &cur_lines_all, const Vector2d &vp_x, const Vector2d &vp_y);
     Vector3d vpxNormalize(Vector3d vpx_in);
     void onlyOptimizeMhtAndLines();
+    Vector2d getVpxFromCurLMHT();
+    Vector2d getVpyFromCurLMHT();
+    Vector2d getAdaptiveVp();
     //associate points to lines
     void calAssociaPtsForLines(const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &cur_pts, const vector<pair<int, Vector4d>> &lines, vector<pair<int, vector<pair<int, double>>>> &associa_pts);
+    //draw image 
+    void DrawImage(double cur_header);
+
+    cv::Mat getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg);
+    cv::Mat getImage()
+    {
+        return imTrack;
+    }
+    //ros image callback
+    void imgCallback(const sensor_msgs::ImageConstPtr &img_msg)
+    {
+        std::lock_guard<std::mutex> lck(mtx_img_buf);
+        img0_buf.push(img_msg);
+    }
 
     enum SolverFlag
     {
@@ -199,6 +220,10 @@ class Estimator
     vector<Vector3d> key_poses;
     double initial_timestamp;
 
+    //image from frontend
+    std::mutex mtx_img_buf;
+    queue<sensor_msgs::ImageConstPtr> img0_buf;
+    cv::Mat imTrack;
 
     double para_Pose[WINDOW_SIZE + 1][SIZE_POSE];
     double para_SpeedBias[WINDOW_SIZE + 1][SIZE_SPEEDBIAS];
