@@ -229,7 +229,7 @@ void Estimator::processMeasurements()
             pubPointCloud(*this, header);
             pubKeyframe(*this);
             pubTF(*this, header);
-            printf("current used features counts: %d.\n", f_manager.getFeatureCount());
+            ROS_DEBUG("current used features counts: %d.\n", f_manager.getFeatureCount());
             printf("process measurement time: %f\n", t_process.toc());
             if(record_csv)
             {
