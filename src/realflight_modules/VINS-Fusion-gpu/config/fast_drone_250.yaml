@@ -76,7 +76,7 @@ use_gpu_acc_flow: 1
 
 #feature traker paprameters
 max_cnt: 150            # max feature number in feature tracking
-min_dist: 30            # min distance between two features 
+min_dist: 30            # min distance between two features 30
 freq: 10                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
 F_threshold: 1.0        # ransac threshold (pixel)
 show_track: 1           # publish tracking image as topic
@@ -97,7 +97,7 @@ g_norm: 9.805         # gravity magnitude
 #unsynchronization parameters
 estimate_td: 1                      # online estimate time offset between camera and imu
 #td: -0.003116                            # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)
-td: -0.001                           # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)
+td: -0.001                           # -0.001 initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)
 
 #loop closure parameters
 load_previous_pose_graph: 0        # load and reuse previous pose graph; load from 'pose_graph_save_path'
@@ -107,6 +107,14 @@ save_image: 1                   # save image in pose graph for visualization pru
 odometry_type: 0 #0为原始里程计，1为加了偏置后的里程计
 drone_id: 1
 single_offset: 2.0
+
+enable_pub_imu_path: 1 #发布里程计轨迹
+
+enable_imu_odom_smooth: 1   #平滑imu里程计
+velocity_limit: 1.5
+
+enable_ex_prior: 0  #对外参施加先验
+ex_prior_sqrt_info: 10000  #外参先验因子权重 5000
 
 use_external_front_end: 1 #0：前端使用自带的光流跟踪，1：使用外部特征跟踪器
 
@@ -118,21 +126,21 @@ plnet:
     use_opticalflow: 1 #0：匹配使用lightglue 1：使用光流
     use_superpoint: 2   #1: superpoint 2: xfeat
     use_retrack: 1 #1: 使用描述子匹配进行重跟踪
-    max_keypoints: 250  #200 sp或xfeat提取特征点数量上限
+    max_keypoints: 300  #200 250 sp或xfeat提取特征点数量上限
     keypoint_threshold: 0.1 #0.004 0.001 for superpoint 0.05 ~ 0.1for xfeat
     remove_borders: 4
-    dist_thresh: 20 #nms dist
+    dist_thresh: 30 #nms dist
     line_threshold: 0.75
     line_length_threshold: 50
-    pub_freq: 15
+    pub_freq: 10
     show_track: 3 #0：不显示，1：显示左目与上一帧匹配结果，2：显示左右目匹配结果 3：可视化左目特征点追踪次数
-    use_opticalflow_stereo: 1 #0：左右目匹配使用superpoint+lightglue 1：左右目匹配使用光流
+    use_opticalflow_stereo: 1 #0：左右目匹配使用superpoint+lightglue 1：左右目匹配使用光流 （左目跟踪采用光流的情况下此选项无效）
 
     record_csv: 0 # 记录当前帧成功追踪的特征点数量
     csv_file_path: "/home/nx05/csv/vins-frontend/xp_opticalflow_retrack.csv" # xp_opticalflow.csv
 
-    of_max_cnt: 200 # max feature number in feature tracking for opticalflow
-    of_min_dist: 20 # min distance between two features for opticalflow 光流nms半径
+    of_max_cnt: 150 # max feature number in feature tracking for opticalflow 200
+    of_min_dist: 30 # min distance between two features for opticalflow 光流nms半径 20
 
     superpoint_onnx_model: "superpoint_v1_sim_int32.onnx"
     superpoint_trt_model: "superpoint_v1_sim_int32.engine"
@@ -148,11 +156,11 @@ xfeat_opticalflow:
     max_search_dist: 100 #搜寻最近成功点的最大搜寻距离，超过这个距离视为搜寻失败
     max_roi_len: 40 #预测点的最大ROI边长
     min_match_dist: 0.9 #匹配成功的最小余弦距离
-    roi_pts_threshold: 0.05 #roi内视为特征点的heatmap阈值
+    roi_pts_threshold: 0.1 #roi内视为特征点的heatmap阈值
     
 point_matcher:
     matcher: 0   # 0 for lightglue
-    F_threshold: 3.0
+    F_threshold: 1.0 # 3.0
     image_width: 640
     image_height: 480
     onnx_file: "superpoint_lightglue.onnx"

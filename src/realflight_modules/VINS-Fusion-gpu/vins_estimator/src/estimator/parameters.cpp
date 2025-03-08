@@ -60,6 +60,14 @@ int USE_EXTERNAL_TRACKER;
 int record_csv;
 std::string csv_file_path;
 
+int enable_pub_imu_path;
+
+int enable_imu_odom_smooth;
+double velocity_limit;
+
+int enable_ex_prior;
+double ex_prior_sqrt_info;
+
 template <typename T>
 T readParam(ros::NodeHandle &n, std::string name)
 {
@@ -229,5 +237,10 @@ void readParameters(std::string config_file)
     USE_EXTERNAL_TRACKER = fsSettings["use_external_front_end"];
     record_csv = fsSettings["record_csv"];
     fsSettings["csv_file_path"] >> csv_file_path;
+    enable_pub_imu_path = fsSettings["enable_pub_imu_path"];
+    enable_imu_odom_smooth = fsSettings["enable_imu_odom_smooth"];
+    velocity_limit = fsSettings["velocity_limit"];
+    enable_ex_prior = fsSettings["enable_ex_prior"];
+    ex_prior_sqrt_info = fsSettings["ex_prior_sqrt_info"];
     fsSettings.release();
 }

@@ -753,6 +753,6 @@ void FeatureTracker::printTrackCnt()
         // if(i >= 19)
         //     break;
     }
-    std::cout << "good track cnt is " << good_track_cnt << std::endl;
+    //std::cout << "good track cnt is " << good_track_cnt << std::endl;
     //std::cout << "current track cnt: " << cnt_str << ", good track cnt is "<< good_track_cnt << std::endl;
 }

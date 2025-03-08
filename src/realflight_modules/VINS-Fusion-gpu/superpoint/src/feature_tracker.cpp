@@ -437,7 +437,7 @@ void FeatureTracker::track_img_use_opticalflow(double _cur_time, const cv::Mat &
 	cur_img = _img;
 	cur_pts.clear();
 	cur_features.setZero();
-	cout << "*********** current frame ***********" << cur_time << endl;
+	ROS_DEBUG("*********** current frame ***********  %lf", cur_time);
 	if(feature_tracker_config.use_retrack)
 		feature_detector->DetectHDUseXfeat(cur_img, cur_heatmap, cur_desc);
 	if(prev_pts.size() > 0)
@@ -865,7 +865,7 @@ void FeatureTracker::track_img(double _cur_time, const cv::Mat &_img, const cv::
 		if(ele.second >= 4)
 			good_track_cnt++;
 	}
-	printf("good track cnt is %d.\n", good_track_cnt);
+	ROS_DEBUG("good track cnt is %d.\n", good_track_cnt);
 
 	prev_img = cur_img;
 	prev_pts = cur_pts;
@@ -1122,7 +1122,7 @@ void FeatureTracker::printTrackCnt()
         // if(i >= 19)
         //     break;
     }
-    std::cout << "good track cnt is " << good_track_cnt << std::endl;
+    //std::cout << "good track cnt is " << good_track_cnt << std::endl;
     //std::cout << "current track cnt: " << cnt_str << ", good track cnt is "<< good_track_cnt << std::endl;
 	//record cur_pts.size() to csv
 	if(feature_tracker_config.record_csv)
