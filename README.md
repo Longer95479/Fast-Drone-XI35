@@ -7,6 +7,9 @@ categories:
     - fast-drone
 ---
 
+<img src="images/xi35悬停图2.jpg" width = 32% height = 32% div align=left />
+<img src="images/八架xi35.jpg" width = 34% height = 34% div align=center />
+
 本文介绍了：
 - 152mm 轴距四旋翼无人机（XI35）的组装过程
 - 飞控的参数配置
@@ -25,9 +28,18 @@ categories:
 > 若需了解，可阅读本工程的其他文档，以及公开的论文。
 
 本工程实现的功能：
-- 在轴距更小的 XI35 上实现 fast-drone-250 的自主飞行避障功能。
-- 多机通信
+- 在轴距更小的 XI35 上实现 fast-drone-250 的自主飞行避障功能
+  <img src="images/xi35避障.jpg" width = 34% height = 34% div align=center />
+  
+- 多机通信协同
+<img src="images/双机通信协同.gif" width = 40% height = 40% div align=center />
+
 - 预设航迹，搜索特定数字标识，正确识别后并降落
+<img src="images/搜索识别降落.gif" width = 30% height = 30% div align=center />
+  
+- 自主跟随墙面飞行
+<img src="images/跟墙飞行成功2长距离6点-2025-01-17-00-16-39_output.gif" width = 40% height = 40% div align=left />
+<img src="images/走廊跟墙第三视角3.gif" width = 40% height = 40% div align=center />
 
 
 ## 目录
