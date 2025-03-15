@@ -29,7 +29,7 @@ categories:
 
 本工程实现的功能：
 - 在轴距更小的 XI35 上实现 fast-drone-250 的自主飞行避障功能
-<img src="images/xi35避障.jpg" width = 34% height = 34% div align=center />
+<img src="images/avoid.gif" width = 34% height = 34% div align=center />
   
 - 多机通信协同
 <img src="images/双机通信协同.gif" width = 50% height = 50% div align=center />
