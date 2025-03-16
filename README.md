@@ -31,7 +31,7 @@ categories:
 - 在轴距更小的 XI35 上实现 fast-drone-250 的自主飞行避障功能
 <img src="images/avoid.gif" width = 50% height = 50% div align=center />
   
-- 多机通信协同
+- 双机通信协同
 <img src="images/双机通信协同.gif" width = 50% height = 50% div align=center />
 
 - 预设航迹，搜索特定数字标识，正确识别后并降落
