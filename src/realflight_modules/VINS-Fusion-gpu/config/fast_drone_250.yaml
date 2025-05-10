@@ -86,6 +86,8 @@ enable_pub_imu_path: 1
 enable_imu_odom_smooth: 1
 velocity_limit: 1.5
 
+set_initial_yaw: 0 #设置初始yaw，单位：° 155
+
 use_external_front_end: 1 #0：前端使用自带的光流跟踪，1：使用外部特征跟踪器
 
 record_csv: 0 #记录滑窗优化最新帧的时间戳、滑窗内可用的特征点数目、xyz、td
@@ -157,10 +159,10 @@ line_config:
     use_struct_line: 1 #0：普通线特征 1：结构化线特征
     vertical_judge_dist: 5 #用于结构线划分 单位：像素
     vertical_judge_ang: 0.1047 #用于结构线划分，单位：rad (6° = 0.1047 ， 5° = 0.0873)  
-    new_mht_detect_thresh: 0.3 #划分成功线条比例小于阈值时检测新的局部曼哈顿
+    new_mht_detect_thresh: 0.5 #划分成功线条比例小于阈值时检测新的局部曼哈顿
     ransac_max_iterations: 10 #1-line RANSAC迭代次数
     mht_Window_neighbor_diff_thresh: 0.174 #mht窗口内相邻mht相差阈值
     enable_mht_optimization: 1 #是否优化mht
     associate_points_to_lines: 1 #将线与点进行关联以辅助三角化
-    struct_line_sqrt_info: 5 #结构线约束项权重
+    struct_line_sqrt_info: 10 #结构线约束项权重
     enable_struct_line_margin: 0 #结构线加入边缘化信息

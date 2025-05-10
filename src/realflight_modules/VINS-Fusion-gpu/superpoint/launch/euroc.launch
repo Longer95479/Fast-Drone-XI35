@@ -3,7 +3,7 @@
 	<node name="feature_tracker_node" pkg="superpoint"  type="feature_tracker_node" output="screen" args="$(find vins)/../config/euroc/euroc_stereo_imu_config.yaml">
 		<param name="model_path" value="$(find superpoint)/model" type="string"/>
 		<param name="lightglue_plugin_path" value="$(find superpoint)/scripts/utils/trt_plugins/libcustom_layernorm.so" type="string"/>
-		<param name="print_debug" value="0" type="int"/>
+		<param name="print_debug" value="1" type="int"/>
 		<param name="detect_line" value="1" type="int"/>
 	</node>
 </launch>

@@ -102,6 +102,8 @@ extern int ENABLE_STRUCT_LINE_MARGIN;
 
 extern int PUB_IMAGE_AT_BACKEND;
 
+extern double INITIAL_YAW;
+
 void readParameters(std::string config_file);
 
 enum SIZE_PARAMETERIZATION

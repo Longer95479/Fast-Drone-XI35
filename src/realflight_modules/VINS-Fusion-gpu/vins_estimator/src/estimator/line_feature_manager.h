@@ -185,4 +185,18 @@ public:
 
     vector<double> local_mht_vec;
 };
+
+class GlobalMHTManager
+{
+public:
+    void addLMHT(const vector<double>& mhts)
+    {
+        for(double lmht : mhts)
+            global_mhts.push_back(lmht);
+    }
+
+    double matchGlobalLMHT(double cur_mht);
+
+    vector<double> global_mhts;
+};
 #endif

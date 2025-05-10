@@ -4,7 +4,7 @@ import onnxruntime
 from time import time
 
 # 加载 ONNX 模型
-model_path = "superpoint_lightglue.onnx"
+model_path = "/home/nx05/Fast-Drone-XI35/src/realflight_modules/VINS-Fusion-gpu/superpoint/model/plnet_s1.onnx" #  superpoint_lightglue.onnx
 model = onnx.load(model_path)
 onnx.checker.check_model(model)
 
@@ -28,22 +28,22 @@ for output_tensor in model.graph.output:
     shape = [dim.dim_value for dim in output_tensor.type.tensor_type.shape.dim]
     print(f"Shape: {shape}")
 
-model = onnxruntime.InferenceSession(model_path, providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider', 'CPUExecutionProvider'])
+# model = onnxruntime.InferenceSession(model_path, providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider', 'CPUExecutionProvider'])
 
-dummy_pts0 = np.random.rand(1, 100, 2).astype(np.float32)
-dummy_desc0 = np.random.rand(1, 100, 256).astype(np.float32)
-dummy_pts1 = np.random.rand(1, 102, 2).astype(np.float32)
-dummy_desc1 = np.random.rand(1, 102, 256).astype(np.float32)
+# dummy_pts0 = np.random.rand(1, 100, 2).astype(np.float32)
+# dummy_desc0 = np.random.rand(1, 100, 256).astype(np.float32)
+# dummy_pts1 = np.random.rand(1, 102, 2).astype(np.float32)
+# dummy_desc1 = np.random.rand(1, 102, 256).astype(np.float32)
 
-input0_name = model.get_inputs()[0].name
-input1_name = model.get_inputs()[1].name
-input2_name = model.get_inputs()[2].name
-input3_name = model.get_inputs()[3].name
+# input0_name = model.get_inputs()[0].name
+# input1_name = model.get_inputs()[1].name
+# input2_name = model.get_inputs()[2].name
+# input3_name = model.get_inputs()[3].name
 
-inputs = {input0_name: dummy_pts0, input1_name: dummy_pts1, input2_name: dummy_desc0, input3_name: dummy_desc1}
+# inputs = {input0_name: dummy_pts0, input1_name: dummy_pts1, input2_name: dummy_desc0, input3_name: dummy_desc1}
 
-start_time = time()
-output = model.run(None, inputs)
-runtime = (time() - start_time) * 1000.
-print("model dummy runtime is {}".format(runtime))
-print("output's shape is ", np.squeeze(np.array(output), 0).shape)
+# start_time = time()
+# output = model.run(None, inputs)
+# runtime = (time() - start_time) * 1000.
+# print("model dummy runtime is {}".format(runtime))
+# print("output's shape is ", np.squeeze(np.array(output), 0).shape)

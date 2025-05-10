@@ -838,3 +838,22 @@ double MHTManager::getLatestMHT()
     else
         return 0;
 }
+
+/*********************************************************Global MHT Manager*********************************************************/
+
+double GlobalMHTManager::matchGlobalLMHT(double cur_mht)
+{
+    vector<pair<int, double>> dists;
+    for(int i = 0; i < global_mhts.size(); i++)
+    {
+        dists.emplace_back(i, fabs(cur_mht - global_mhts[i]));
+    }
+    sort(dists.begin(), dists.end(), [](const pair<int, double>& a, const pair<int, double>& b){return a.second < b.second;});
+
+    double dist0 = dists[0].second;
+    double dist1 = dists[1].second;
+    if(dist0 / dist1 > 0.65)
+        return -1;
+    //ROS_WARN("Match mht is %f", global_mhts[dists[0].first] / M_PI * 180.0);
+    return global_mhts[dists[0].first];
+}

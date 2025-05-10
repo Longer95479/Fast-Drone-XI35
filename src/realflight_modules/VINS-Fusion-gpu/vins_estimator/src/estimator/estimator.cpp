@@ -64,6 +64,9 @@ void Estimator::setParameter()
     cout << "set g " << g.transpose() << endl;
     featureTracker.readIntrinsicParameter(CAM_NAMES);
 
+    //add global mht
+    gmht_manager.addLMHT(vector<double>{65.0 * M_PI / 180, 20.0 * M_PI / 180});
+
     std::cout << "MULTIPLE_THREAD is " << MULTIPLE_THREAD << '\n';
     if (MULTIPLE_THREAD)
     {
@@ -247,6 +250,7 @@ void Estimator::processMeasurements()
             if(PUB_IMAGE_AT_BACKEND)
             {
                 DrawImage(feature.first);
+                //DrawImage_v2(feature.first);
                 pubBackendImage(*this, header);
             }
 
@@ -308,8 +312,15 @@ void Estimator::initFirstIMUPose(vector<pair<double, Eigen::Vector3d>> &accVecto
     averAcc = averAcc / n;
     printf("averge acc %f %f %f\n", averAcc.x(), averAcc.y(), averAcc.z());
     Matrix3d R0 = Utility::g2R(averAcc);
-    double yaw = Utility::R2ypr(R0).x();
-    R0 = Utility::ypr2R(Eigen::Vector3d{-yaw, 0, 0}) * R0;
+    if(INITIAL_YAW != 0)
+    {
+        R0 = Utility::ypr2R(Eigen::Vector3d(INITIAL_YAW, 0, 0)) * R0;
+    }
+    else
+    {
+        double yaw = Utility::R2ypr(R0).x();
+        R0 = Utility::ypr2R(Eigen::Vector3d{-yaw, 0, 0}) * R0;
+    }
     Rs[0] = R0;
     cout << "init R0 " << endl << Rs[0] << endl;
     //Vs[0] = Vector3d(5, 0, 0);
@@ -2995,17 +3006,81 @@ Vector2d Estimator::getVpyFromCurLMHT()
 //得到自适应主消失点，用于可视化
 Vector2d Estimator::getAdaptiveVp()
 {
+    // Matrix3d R_wc = Rs[frame_count] * ric[0];
+    // Vector3d vpx_w = Vector3d(cos(local_mht), sin(local_mht), 0);
+    // Vector3d vpx_c = R_wc.transpose() * vpx_w;
+    // if(fabs(vpx_c.z()) < 0.25)
+    // {
+    //     Vector3d vpy_w = Vector3d(-sin(local_mht), cos(local_mht), 0);
+    //     Vector3d vpy_c = R_wc.transpose() * vpy_w;
+    //     vpx_c = vpy_c;
+    // }   
+    // Vector2d vpx = getVpFromDDs(vpx_c);//vanish point
+    Vector3d cur_ypr = Utility::R2ypr(Rs[frame_count]);
+    double yaw_rad = cur_ypr[0] / 180.0 * M_PI;
+    //消失点采用识别的lmht
+    double relative_ang_recog = normalizeAngle(yaw_rad - local_mht);
+    double dominant_ang_recog;
+    if(relative_ang_recog >= -M_PI / 4 && relative_ang_recog < M_PI / 4)
+        dominant_ang_recog = local_mht;
+    else if(relative_ang_recog >= M_PI / 4 && relative_ang_recog < 3 * M_PI / 4)
+        dominant_ang_recog = normalizeAngle(local_mht + M_PI / 2);
+    else if(relative_ang_recog >= 3 * M_PI / 4 || relative_ang_recog <  -3 * M_PI / 4)
+        dominant_ang_recog = normalizeAngle(local_mht + M_PI);
+    else
+        dominant_ang_recog = normalizeAngle(local_mht - M_PI / 2);
     Matrix3d R_wc = Rs[frame_count] * ric[0];
-    Vector3d vpx_w = Vector3d(cos(local_mht), sin(local_mht), 0);
+    Vector3d vpx_w = Vector3d(cos(dominant_ang_recog), sin(dominant_ang_recog), 0);
     Vector3d vpx_c = R_wc.transpose() * vpx_w;
-    if(fabs(vpx_c.z()) < 0.25)
-    {
-        Vector3d vpy_w = Vector3d(-sin(local_mht), cos(local_mht), 0);
-        Vector3d vpy_c = R_wc.transpose() * vpy_w;
-        vpx_c = vpy_c;
-    }   
-    Vector2d vpx = getVpFromDDs(vpx_c);//vanish point
+    Vector2d vpx = getVpFromDDs(vpx_c);
     return vpx;
+}
+
+//得到自适应主方向角度（靠近当前机体x轴指向的那个）以及消失点，主方向来源于地图先验
+pair<double, Vector2d> Estimator::getAdaptiveDDs()
+{
+    pair<double, Vector2d> res(-1, Vector2d(0, 0));
+    if(mht_state == UPDATING)
+        return res;
+
+    double cur_gmht = gmht_manager.matchGlobalLMHT(local_mht);
+    if(cur_gmht == -1)
+        return res;
+
+    Vector3d cur_ypr = Utility::R2ypr(Rs[frame_count]);
+    double yaw_rad = cur_ypr[0] / 180.0 * M_PI;
+    double relative_ang = normalizeAngle(yaw_rad - cur_gmht);
+    //从四个主轴中挑一个最靠近yaw的
+    double dominant_ang;
+    if(relative_ang >= -M_PI / 4 && relative_ang < M_PI / 4)
+        dominant_ang = cur_gmht;
+    else if(relative_ang >= M_PI / 4 && relative_ang < 3 * M_PI / 4)
+        dominant_ang = normalizeAngle(cur_gmht + M_PI / 2);
+    else if(relative_ang >= 3 * M_PI / 4 || relative_ang <  -3 * M_PI / 4)
+        dominant_ang = normalizeAngle(cur_gmht + M_PI);
+    else
+        dominant_ang = normalizeAngle(cur_gmht - M_PI / 2);
+
+    //消失点采用识别的lmht
+    double relative_ang_recog = normalizeAngle(yaw_rad - local_mht);
+    double dominant_ang_recog;
+    if(relative_ang_recog >= -M_PI / 4 && relative_ang_recog < M_PI / 4)
+        dominant_ang_recog = local_mht;
+    else if(relative_ang_recog >= M_PI / 4 && relative_ang_recog < 3 * M_PI / 4)
+        dominant_ang_recog = normalizeAngle(local_mht + M_PI / 2);
+    else if(relative_ang_recog >= 3 * M_PI / 4 || relative_ang_recog <  -3 * M_PI / 4)
+        dominant_ang_recog = normalizeAngle(local_mht + M_PI);
+    else
+        dominant_ang_recog = normalizeAngle(local_mht - M_PI / 2);
+
+    Matrix3d R_wc = Rs[frame_count] * ric[0];
+    //Vector3d vpx_w = Vector3d(cos(dominant_ang), sin(dominant_ang), 0);
+    Vector3d vpx_w = Vector3d(cos(dominant_ang_recog), sin(dominant_ang_recog), 0);
+    Vector3d vpx_c = R_wc.transpose() * vpx_w;
+
+    res.first = dominant_ang / M_PI * 180.0;
+    res.second = getVpFromDDs(vpx_c);
+    return res;
 }
 
 void Estimator::calAssociaPtsForLines(const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &cur_pts, const vector<pair<int, Vector4d>> &lines, vector<pair<int, vector<pair<int, double>>>> &associa_pts)
@@ -3118,6 +3193,90 @@ void Estimator::DrawImage(double cur_header)
     cv::putText(cur_img, text1, textOrg1, fontFace, fontScale, color, thickness);
 
     //text2
+    // string text2;
+    // text2.append("yaw orientation: ");
+    // Vector3d cur_ypr = Utility::R2ypr(Rs[frame_count]);
+    // double yaw_deg = cur_ypr[0];
+    // text2.append(std::to_string(yaw_deg));
+    // text2.append(" deg");
+
+    // cv::Size text2Size = cv::getTextSize(text2, fontFace, fontScale, thickness, &baseline);
+    // int x2 = cur_img.cols - text2Size.width - margin;
+    // int y2 = y1 + text1Size.height + 5;
+    // cv::Point textOrg2(x2, y2);
+    // cv::putText(cur_img, text2, textOrg2, fontFace, fontScale, color, thickness);
+
+    //draw arrow
+    if(mht_state == HOLD)
+    {
+        Vector2d vpx = getAdaptiveVp();
+        double fx = 389.6706237792969;
+        double fy = 389.6706237792969;
+        double cx =  323.40972900390625;
+        double cy = 232.05543518066406;
+
+        Vector2d st_uv;
+        st_uv << (640. / 2.), (480. - 100.);
+        Vector2d st_xy  = Vector2d((st_uv[0] - cx) / fx, (st_uv[1] - cy) / fy);
+        Vector2d direction = (vpx - st_xy).normalized();
+        Vector2d end_uv = st_uv + 60 * direction;
+
+        cv::Point2f st(st_uv[0], st_uv[1]);
+        cv::Point2f ed(end_uv[0], end_uv[1]);
+        cv::arrowedLine(cur_img, st, ed, cv::Scalar(0, 255, 0), 3, cv::LINE_AA, 0, 0.1);
+    }
+
+    imTrack = cur_img.clone();
+}
+
+void Estimator::DrawImage_v2(double cur_header)
+{
+    cv::Mat cur_img;
+    {
+        std::lock_guard<std::mutex> lck(mtx_img_buf);
+        while(!img0_buf.empty() && img0_buf.front()->header.stamp.toSec() < cur_header)
+        {
+            img0_buf.pop();
+        }
+        if(img0_buf.empty())
+            return;
+        if(img0_buf.front()->header.stamp.toSec() != cur_header)
+        {
+            img0_buf.pop();
+            return;
+        }
+        cur_img = getImageFromMsg(img0_buf.front());
+        img0_buf.pop();
+    }
+    //compute current dominant direction
+    auto cur_DD_info = getAdaptiveDDs();
+    //draw a string
+    //text1
+    string text1;
+    if(mht_state == HOLD && cur_DD_info.first != -1)
+    {
+        text1.append("Dominant Direction: ");
+        text1.append(std::to_string(cur_DD_info.first));
+        text1.append(" deg");
+    }
+    else
+    {
+        text1.append("Dominant Direction: Updating...");
+    }
+    int fontFace = cv::FONT_HERSHEY_COMPLEX_SMALL; // 字体类型 FONT_HERSHEY_COMPLEX_SMALL  FONT_HERSHEY_SIMPLEX
+    double fontScale = 1.0;                  // 字体缩放比例
+    int thickness = 1;                       // 线条粗细
+    cv::Scalar color(0, 255, 0);             // 绿色（BGR格式）
+    int baseline;
+    cv::Size text1Size = cv::getTextSize(text1, fontFace, fontScale, thickness, &baseline);
+
+    int margin = 10;
+    int x1 = cur_img.cols - text1Size.width - margin;
+    int y1 = text1Size.height + margin;
+    cv::Point textOrg1(x1, y1);
+    cv::putText(cur_img, text1, textOrg1, fontFace, fontScale, color, thickness);
+
+    //text2
     string text2;
     text2.append("yaw orientation: ");
     Vector3d cur_ypr = Utility::R2ypr(Rs[frame_count]);
@@ -3127,14 +3286,36 @@ void Estimator::DrawImage(double cur_header)
 
     cv::Size text2Size = cv::getTextSize(text2, fontFace, fontScale, thickness, &baseline);
     int x2 = cur_img.cols - text2Size.width - margin;
-    int y2 = y1 - text1Size.height - 5;
+    int y2 = y1 + text2Size.height + 5;
     cv::Point textOrg2(x2, y2);
     cv::putText(cur_img, text2, textOrg2, fontFace, fontScale, color, thickness);
 
+    //text3
+    // string text3;
+    // if(mht_state == HOLD)
+    // {
+    //     text3.append("LMW orientation: ");
+    //     double local_mht_d = local_mht / M_PI * 180.;
+    //     text3.append(std::to_string(local_mht_d));
+    //     text3.append(" deg");
+    // }
+    // else
+    // {
+    //     text3.append("LMW Updating...");
+    //     // double local_mht_d = mht_manager.getLatestMHT() / M_PI * 180.;
+    //     // text1.append(std::to_string(local_mht_d));
+    // }
+    
+    // cv::Size text3Size = cv::getTextSize(text3, fontFace, fontScale, thickness, &baseline);
+    // int x3 = cur_img.cols - text3Size.width - margin;
+    // int y3 = y2 + text3Size.height + 5;
+    // cv::Point textOrg3(x3, y3);
+    // cv::putText(cur_img, text3, textOrg3, fontFace, fontScale, color, thickness);
+
     //draw arrow
-    if(mht_state == HOLD)
+    if(mht_state == HOLD && cur_DD_info.first != -1)
     {
-        Vector2d vpx = getAdaptiveVp();
+        Vector2d vpx = cur_DD_info.second;
         double fx = 389.6706237792969;
         double fy = 389.6706237792969;
         double cx =  323.40972900390625;

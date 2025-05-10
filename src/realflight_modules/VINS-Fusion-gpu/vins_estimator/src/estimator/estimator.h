@@ -115,10 +115,12 @@ class Estimator
     Vector2d getVpxFromCurLMHT();
     Vector2d getVpyFromCurLMHT();
     Vector2d getAdaptiveVp();
+    pair<double, Vector2d> getAdaptiveDDs();
     //associate points to lines
     void calAssociaPtsForLines(const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &cur_pts, const vector<pair<int, Vector4d>> &lines, vector<pair<int, vector<pair<int, double>>>> &associa_pts);
     //draw image 
     void DrawImage(double cur_header);
+    void DrawImage_v2(double cur_header);
 
     cv::Mat getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg);
     cv::Mat getImage()
@@ -203,7 +205,8 @@ class Estimator
     FeatureManager f_manager;
     LineFeatureManager line_manager;
     StructLineFeatureManager struct_line_manager;
-    MHTManager mht_manager;
+    MHTManager mht_manager; //滑窗内lmht管理
+    GlobalMHTManager gmht_manager; //全局先验mht
 
     vector<LineType> struct_lines_opt_type;
     bool have_h_lines_opt = false;
