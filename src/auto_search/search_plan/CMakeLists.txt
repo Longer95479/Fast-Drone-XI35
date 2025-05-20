@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   message_runtime
   quadrotor_msgs
+  lcm_node
 )
 find_package(Eigen3 REQUIRED)
 

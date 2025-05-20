@@ -1,0 +1,6 @@
+<launch>
+	
+	<node pkg="lcm_node" type="lcm_node" name="lcm_node" output="screen">
+	</node>
+
+</launch>

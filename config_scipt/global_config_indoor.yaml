@@ -22,6 +22,12 @@ paths:
 
   src/auto_search/search_plan/launch/search_plan.launch:
     - 
+      # 无人机个体 id
+      <param name="drone_id" value="\d+" type="int"/>: <param name="drone_id" value="1" type="int"/>
+      <param name="total_drone_num" value="\d+" type="int"/>: <param name="total_drone_num" value="2" type="int"/>
+      <param name="sent_colla_signal_dura" value="\d+.\d+" type="double"/>: <param name="sent_colla_signal_dura" value="4.0" type="double"/>
+      <param name="enable_colla_mode" value="\w+" type="bool"/>: <param name="enable_colla_mode" value="false" type="bool"/>
+
       # search plan 判断是否到达给定点的阈值半径
       <param name="arrive_threshold" value="\d+.\d+" type="double"/>: <param name="arrive_threshold" value="0.4" type="double"/>
 

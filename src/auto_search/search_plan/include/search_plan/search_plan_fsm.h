@@ -14,6 +14,7 @@
 #include <nav_msgs/Odometry.h>
 #include <quadrotor_msgs/TakeoffLand.h>
 #include <std_msgs/Bool.h>
+#include <lcm_node/CollaSignal.h>
 
 #include <search_plan/SearchService.h>
 
@@ -62,11 +63,13 @@ namespace auto_search
 		ros::Publisher pub_Target;
 		ros::Publisher pub_Land;
 		ros::Publisher pub_CallHover;
+    ros::Publisher pub_colla_signal;
 
 		ros::Subscriber sub_Odom;
 		ros::Subscriber sub_Trigger;
 		ros::Subscriber sub_target_merged;
 		ros::Subscriber sub_SearchHover;
+		ros::Subscriber sub_colla_signal;
 
 		ros::ServiceServer srv_slowdown;
 
@@ -74,6 +77,11 @@ namespace auto_search
 
 
 		// param
+    int drone_id_;
+    int total_drone_num_;
+    double sent_colla_signal_dura_;
+    bool enable_colla_mode_;
+
 		std::string odom_Topic;
 		double exec_Frequency, arrive_Threshold;
 		int search_hover_type = 0;
@@ -107,6 +115,9 @@ namespace auto_search
 		double slow_down_height_;
 		double my_target_hover_height_;
 		double publish_target_threshold_;
+    
+    bool is_kplus1_drone_hovered_;
+    bool is_kminus1_drone_forward_;
 
 
 		// callback
@@ -117,6 +128,7 @@ namespace auto_search
 		bool slowDownServiceCallBack(search_plan::SearchService::Request  &req,
                              		 search_plan::SearchService::Response &res);
 		void slowDownCallback(const std_msgs::BoolConstPtr &msg);
+    void receiveCollaSignalCallBack(const lcm_node::CollaSignalConstPtr msg);
 		// function
 		void publishTarget();		// 发布飞行目标点,只有目标点跟上次不一样时才发布
 		void publishLand();
@@ -128,6 +140,7 @@ namespace auto_search
 		bool targetBeSeenByMyself(const ros::Time &now_time);
 		void getDistanceToTarget();
 		void callSearchHover(bool req_type);
+    void sent_colla_signal(const std::string& signal_name);
 
 		void printFSMExecState();
 		void changeMainState(MAIN_STATE next_state, std::string pos_call);

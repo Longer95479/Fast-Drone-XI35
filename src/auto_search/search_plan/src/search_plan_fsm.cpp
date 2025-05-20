@@ -6,6 +6,21 @@ namespace auto_search
 //执行起始阶段状态机
 void Search_Plan_FSM::execStartStage()
 {
+  // useful tool in state machine
+  static auto repeat_1st_and_do_2nd = [] (auto first_thing, 
+                                          auto second_thing,
+                                          const int interval, 
+                                          const int times, 
+                                          int& counter) {
+
+    if (counter % interval == 0) first_thing();
+    if (counter == interval * (times - 1)) { second_thing(); counter = -1;}
+    if (counter != -1) counter++;
+  };
+
+  static int times = 5;
+  static int interval = static_cast<int>( sent_colla_signal_dura_ * exec_Frequency / times ); 
+
   switch (start_SubState)
   {
   case TAKE_OFF:
@@ -22,16 +37,113 @@ void Search_Plan_FSM::execStartStage()
     current_Target = search_StartPoint;
     if(haveArrivedTarget())
     {
-      changeStartSubState(WAIT_FOR_START, "execStartStage()");
-      // ROS_INFO("Start substate switch: FLY_TO_START ======> WAIT_FOR_START");
+      if (enable_colla_mode_ == true) {
+
+        if (drone_id_ == total_drone_num_) {
+          // sent HV_N sent_colla_signal_dura sec
+          static int cnt = 0;
+          repeat_1st_and_do_2nd( [this] () { sent_colla_signal("HV"); 
+                                             std::cout << "sent_HV_signal()" << std::endl; }, 
+                                 [this] () { changeStartSubState(WAIT_FOR_START, "execStartStage()"); },
+                                 interval,
+                                 times,
+                                 cnt );
+        }
+        else {
+          if (is_kplus1_drone_hovered_ == true) {
+            if (drone_id_ != 1) {
+              static int cnt = 0;
+              repeat_1st_and_do_2nd( [this] () { sent_colla_signal("HV");
+                                                 std::cout << "sent_HV_signal()" << std::endl; }, 
+                                     [this] () { changeStartSubState(WAIT_FOR_START, "execStartStage()"); },
+                                     interval,
+                                     times,
+                                     cnt );
+            }
+            else {
+              // wait sent_colla_signal_dura sec 
+              static int cnt = 0;
+              repeat_1st_and_do_2nd( [this] () { std::cout << "wait_a_second()" << std::endl; }, 
+                                     [this] () { changeStartSubState(WAIT_FOR_START, "execStartStage()"); },
+                                     interval,
+                                     times,
+                                     cnt );
+            }
+          }
+          else {
+            // if timeout: take land
+            static int cnt = 0;
+            repeat_1st_and_do_2nd( [this] () { std::cout << "wait_a_second()" << std::endl; }, 
+                                   [this] () { changeMainState(LAND_STAGE, "execStartStage()");
+                                               changeLandSubState(TAKE_LAND, "execLandStage()"); },
+                                   interval,
+                                   times,
+                                   cnt );
+          }
+        }
+
+      }
+      else {
+        // origin simple version
+        changeStartSubState(WAIT_FOR_START, "execStartStage()");
+      }
     }
     break;
   }
   case WAIT_FOR_START:
   {
-    //todo 所有无人机就绪后再进入搜索阶段
-    changeMainState(SEARCH_STAGE, "execStartStage()");
-    // ROS_INFO("Main state switch: STARTING_AREA_STAGE ======> SEARCH_STAGE");
+    if (enable_colla_mode_ == true) {
+
+      if (drone_id_ == 1) {
+        //repeat sent FW1 sent_colla_signal_dura sec
+        static int cnt = 0;
+        repeat_1st_and_do_2nd( [this] () { sent_colla_signal("FW");
+                                           std::cout << "sent_FW_signal()" << std::endl; }, 
+                               [this] () { changeMainState(SEARCH_STAGE, "execStartStage()"); },
+                               interval,
+                               times,
+                               cnt );
+      }
+      else {
+        if (is_kminus1_drone_forward_ == true) {
+          if (drone_id_ != total_drone_num_) {
+            // repeat sent FW sent_colla_signal_dura sec
+            static int cnt = 0;
+            repeat_1st_and_do_2nd( [this] () { sent_colla_signal("FW");
+                                               std::cout << "sent_FW_signal()" << std::endl; }, 
+                                   [this] () { changeMainState(SEARCH_STAGE, "execStartStage()"); },
+                                   interval,
+                                   times,
+                                   cnt );
+          }
+          else {
+            // wait
+            static int cnt = 0;
+            repeat_1st_and_do_2nd( [this] () { std::cout << "wait_a_second()" << std::endl; }, 
+                                   [this] () { changeMainState(SEARCH_STAGE, "execStartStage()"); },
+                                   interval,
+                                   times,
+                                   cnt );
+          }
+        }
+        else {
+          // if timeout: take land
+          static int cnt = 0;
+          repeat_1st_and_do_2nd( [this] () { std::cout << "wait_a_second()" << std::endl; }, 
+                                 [this] () { changeMainState(LAND_STAGE, "execStartStage()");
+                                             changeLandSubState(TAKE_LAND, "execLandStage()"); },
+                                 interval,
+                                 times,
+                                 cnt );
+        }
+      }
+
+    }
+    else {
+      // origin simple version
+      changeMainState(SEARCH_STAGE, "execStartStage()");
+    }
+
     break;
   }
   }
@@ -370,6 +482,7 @@ bool Search_Plan_FSM::slowDownServiceCallBack(search_plan::SearchService::Reques
   return true;
 }
 
+
 void Search_Plan_FSM::slowDownCallback(const std_msgs::BoolConstPtr &msg)
 {
   if(search_hover_type != 1)
@@ -382,6 +495,27 @@ void Search_Plan_FSM::slowDownCallback(const std_msgs::BoolConstPtr &msg)
       reset_slow_down_clock_ = true;
   }
 }
+
+
+void Search_Plan_FSM::receiveCollaSignalCallBack(const lcm_node::CollaSignalConstPtr msg)
+{
+  if ( msg->signal_name == "HV" &&
+       msg->from_id == drone_id_ + 1 &&
+       msg->to_id == drone_id_ &&
+       msg->is_ready == true ) {
+    is_kplus1_drone_hovered_ = true;
+    std::cout << "receive HV from " << drone_id_+1 << "to" << drone_id_ << std::endl;
+  }
+
+  if ( msg->signal_name == "FW" &&
+       msg->from_id == drone_id_ - 1 &&
+       msg->to_id == drone_id_ &&
+       msg->is_ready == true) {
+    is_kminus1_drone_forward_ = true;
+    std::cout << "receive FW from " << drone_id_-1 << "to" << drone_id_ << std::endl;
+  }
+}
+
 
 void Search_Plan_FSM::publishTarget()
 {
@@ -577,6 +711,25 @@ void Search_Plan_FSM::callSearchHover(bool req_type)
 }
 
 
+void Search_Plan_FSM::sent_colla_signal(const std::string& signal_name)
+{
+  lcm_node::CollaSignal msg;
+  if (signal_name == "HV") {
+    msg.from_id = drone_id_;
+    msg.to_id = drone_id_ - 1;
+    msg.signal_name = "HV";
+    msg.is_ready = true;
+  }
+  else if (signal_name == "FW") {
+    msg.from_id = drone_id_;
+    msg.to_id = drone_id_ + 1;
+    msg.signal_name = "FW";
+    msg.is_ready = true;
+  }
+  pub_colla_signal.publish(msg);
+}
+
+
 void Search_Plan_FSM::init(ros::NodeHandle& nh)
 {
   // var init
@@ -588,8 +741,15 @@ void Search_Plan_FSM::init(ros::NodeHandle& nh)
   has_found_my_target_ = false;
   has_slow_down_req_ = false;
   reset_slow_down_clock_ = false;
+  is_kplus1_drone_hovered_ = false;
+  is_kminus1_drone_forward_ = false;
 
   // param
+  nh.param<int>("/search_plan_node/drone_id", drone_id_, 1);
+  nh.param<int>("/search_plan_node/total_drone_num", total_drone_num_, 3);
+  nh.param<double>("/search_plan_node/sent_colla_signal_dura", sent_colla_signal_dura_, 0.5);
+  nh.param<bool>("/search_plan_node/enable_colla_mode", enable_colla_mode_, false);
+
   nh.param<std::string>("/search_plan_node/odom_topic", odom_Topic, "/vins_fusion/imu_propagate");
   nh.param<double>("/search_plan_node/exec_frequency", exec_Frequency, 100);
   nh.param<double>("/search_plan_node/arrive_threshold", arrive_Threshold, 0.3);
@@ -627,12 +787,14 @@ void Search_Plan_FSM::init(ros::NodeHandle& nh)
   sub_Trigger = nh.subscribe("/traj_start_trigger", 1, &Search_Plan_FSM::triggerCallback, this);
   sub_target_merged = nh.subscribe("/target_merge/target_to_search", 1, &Search_Plan_FSM::targetToSearchCallBack, this);
   sub_SearchHover = nh.subscribe("/target_merge/search_hover", 1, &Search_Plan_FSM::slowDownCallback, this);
+  sub_colla_signal = nh.subscribe("/start_stage_colla/receive_colla_signal", 1, &Search_Plan_FSM::receiveCollaSignalCallBack, this);
   
 
   // pub
   pub_Target = nh.advertise<geometry_msgs::PoseStamped>("/search_plan/pos_cmd", 50);
   pub_Land = nh.advertise<quadrotor_msgs::TakeoffLand>("/px4ctrl/takeoff_land", 5, true);
   pub_CallHover = nh.advertise<std_msgs::Bool>("/Search_plan/search_hover", 1);
+  pub_colla_signal = nh.advertise<lcm_node::CollaSignal>("/start_stage_colla/send_colla_signal", 1);
 
   // srv
   srv_slowdown = nh.advertiseService("/search_plan/slowdown_for_reg", &Search_Plan_FSM::slowDownServiceCallBack, this);
