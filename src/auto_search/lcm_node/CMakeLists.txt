@@ -28,3 +28,7 @@ target_link_libraries(test_node lcm)
 target_link_libraries(test_node ${catkin_LIBRARIES})
 add_dependencies(test_node ${lcm_node_EXPORTED_TARGETS})
 
+add_executable(sent_takeoff_node src/sent_takeoff.cpp)
+target_link_libraries(sent_takeoff_node lcm)
+target_link_libraries(sent_takeoff_node ${catkin_LIBRARIES})
+add_dependencies(sent_takeoff_node ${lcm_node_EXPORTED_TARGETS})
