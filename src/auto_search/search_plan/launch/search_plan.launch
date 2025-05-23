@@ -25,8 +25,9 @@
 
     <node pkg="search_plan" name="search_plan_node" type="search_node" output="screen">
         <param name="drone_id" value="1" type="int"/>
-        <param name="total_drone_num" value="2" type="int"/>
-        <param name="sent_colla_signal_dura" value="4.0" type="double"/>
+        <param name="total_drone_num" value="3" type="int"/>
+        <param name="sent_times" value="20" type="int"/>
+        <param name="sent_colla_signal_dura" value="5.0" type="double"/>
         <param name="enable_colla_mode" value="true" type="bool"/>
 
         <param name="odom_topic" value="/vins_fusion/imu_propagate" type="string"/>

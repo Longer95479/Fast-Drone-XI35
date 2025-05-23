@@ -18,7 +18,7 @@ void Search_Plan_FSM::execStartStage()
     if (counter != -1) counter++;
   };
 
-  static int times = 5;
+  static int times = sent_times_;
   static int interval = static_cast<int>( sent_colla_signal_dura_ * exec_Frequency / times ); 
 
   switch (start_SubState)
@@ -747,6 +747,7 @@ void Search_Plan_FSM::init(ros::NodeHandle& nh)
   // param
   nh.param<int>("/search_plan_node/drone_id", drone_id_, 1);
   nh.param<int>("/search_plan_node/total_drone_num", total_drone_num_, 3);
+  nh.param<int>("/search_plan_node/sent_times", sent_times_, 20);
   nh.param<double>("/search_plan_node/sent_colla_signal_dura", sent_colla_signal_dura_, 0.5);
   nh.param<bool>("/search_plan_node/enable_colla_mode", enable_colla_mode_, false);
 

@@ -81,6 +81,7 @@ namespace auto_search
     int total_drone_num_;
     double sent_colla_signal_dura_;
     bool enable_colla_mode_;
+    int sent_times_;
 
 		std::string odom_Topic;
 		double exec_Frequency, arrive_Threshold;
