@@ -125,8 +125,8 @@ void PX4CtrlFSM::process()
                             ros::spinOnce();
                           }
 			}
-			controller.resetThrustMapping(bat_data);
-			// controller.resetThrustMapping();
+			// controller.resetThrustMapping(bat_data);  // Only suit for 6s, not 4s yet.
+			controller.resetThrustMapping();
 
 			set_start_pose_for_takeoff_land(odom_data);
 			toggle_offboard_mode(true);				  // toggle on offboard before arm
