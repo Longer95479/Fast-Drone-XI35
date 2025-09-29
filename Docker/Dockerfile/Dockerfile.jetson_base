@@ -5,7 +5,7 @@ LABEL maintainer="bkbk_b <1320832053@qq.com>"
 USER root
 
 ARG ROS_VERSION=noetic
-#7.2 for Xavier / 8.7 for Orin 
+#7.2 for Xavier / 8.7 for Orin
 ARG CUDA_ARCH_BIN=8.7
 ARG USE_PROC=8
 ARG ENABLE_NEON="ON"
@@ -105,16 +105,21 @@ aruco,videoio,ccalib && \
 #Build cv_bridge for opencv4.5.4
 RUN   mkdir -p /root/cv_bridge${OPENCV_VERSION}_ws/src && \
       mv /root/cv_bridge${OPENCV_VERSION} /root/cv_bridge${OPENCV_VERSION}_ws/src && \
-      /bin/bash -c 'source /opt/ros/${ROS_VERSION}/setup.bash && \ 
+      /bin/bash -c 'source /opt/ros/${ROS_VERSION}/setup.bash && \
       cd /root/cv_bridge${OPENCV_VERSION}_ws && catkin_make && echo "source /root/cv_bridge${OPENCV_VERSION}_ws/devel/setup.bash" >> /root/.bashrc'
 
 #Install realsense
 RUN   apt-get install -y software-properties-common && \
-      apt-key adv --keyserver keyserver.ubuntu.com --recv-key F6E65AC044F831AC80A06380C8B3A55A6F3EFCDE || \ 
+      apt-key adv --keyserver keyserver.ubuntu.com --recv-key F6E65AC044F831AC80A06380C8B3A55A6F3EFCDE || \
       apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-key  F6E65AC044F831AC80A06380C8B3A55A6F3EFCDE && \
       add-apt-repository "deb https://librealsense.intel.com/Debian/apt-repo $(lsb_release -cs) main" -u && \
       apt-get update -y && \
-      apt-get install -y librealsense2-utils librealsense2-dev librealsense2-dbg
+      apt install librealsense2-dev=2.55.1-0~realsense.3336 \
+                       librealsense2=2.55.1-0~realsense.3336 \
+                       librealsense2-utils=2.55.1-0~realsense.3336 \
+                       librealsense2-dbg=2.55.1-0~realsense.3336 \
+                       librealsense2-gl=2.55.1-0~realsense.3336 -y  && \
+      apt-mark hold librealsense2 librealsense2-dev librealsense2-utils librealsense2-dbg
 
 # Install MAVROS
 RUN   apt-get install -y ros-${ROS_VERSION}-mavros && \
