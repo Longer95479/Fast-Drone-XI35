@@ -331,7 +331,7 @@ bool SuperPointLightGlue::deserialize_engine() {
 		delete[] model_stream;
 		return false;
 		}
-		std::cout << "deserialize lightglue engine successfully!" << std::endl;
+		ROS_WARN("deserialize lightglue engine successfully!");
 		delete[] model_stream;
 		return true;
 	}

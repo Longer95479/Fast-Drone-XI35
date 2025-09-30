@@ -251,8 +251,8 @@ int main(int argc, char** argv)
 		return 1;
 	}
 	string config_file = argv[1];
-	printf("config_file: %s\n", argv[1]);
-	printf("model_path: %s\n", model_path.c_str());
+	ROS_INFO("config_file: %s\n", argv[1]);
+	ROS_INFO("model_path: %s\n", model_path.c_str());
 	tracker.readConfigParameter(config_file, model_path, lightglue_plugin_path);
 
 	tracker.prewarmForTracker();

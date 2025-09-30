@@ -1075,7 +1075,7 @@ void FeatureTracker::prewarmForTracker()
 	cv::Size(21, 21), 3, 30, false);
 	d_pyrLK_sparse->calc(cur_gpu_img, right_gpu_Img, cur_gpu_pts, cur_right_gpu_pts, gpu_status);
 	ROS_DEBUG("prewarm opticalflow cost %f ms.", tic_3.toc());
-	std::cout << "Prewarm for feature tracker completed!" << std::endl;
+	ROS_WARN("Prewarm for feature tracker completed!");
 	// cv::cvtColor(dummyImage0, dummyImage0, cv::COLOR_GRAY2RGB);
 	// cv::imshow("dummy", dummyImage0);
     // cv::waitKey(0);

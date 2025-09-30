@@ -464,7 +464,7 @@ bool Xfeat::deserialize_engine() {
         engine_ = std::shared_ptr<nvinfer1::ICudaEngine>(runtime->deserializeCudaEngine(model_stream, size));
         delete[] model_stream;
         if (engine_ == nullptr) return false;
-        std::cout << "deserialize xfeat engine successfully!" << std::endl;
+        ROS_WARN("deserialize xfeat engine successfully!");
         return true;
     }
     return false;
