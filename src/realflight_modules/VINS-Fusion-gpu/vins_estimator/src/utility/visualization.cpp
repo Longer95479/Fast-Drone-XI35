@@ -191,8 +191,9 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header) {
             3, "time: %f, t: %f %f %f q: %f %f %f %f", header.stamp.toSec(), tmp_T.x(), tmp_T.y(),
             tmp_T.z(), tmp_Q.w(), tmp_Q.x(), tmp_Q.y(), tmp_Q.z());
         ROS_INFO(
-            "time: %f, t: %f %f %f q: %f %f %f %f", header.stamp.toSec(), tmp_T.x(), tmp_T.y(),
-            tmp_T.z(), tmp_Q.w(), tmp_Q.x(), tmp_Q.y(), tmp_Q.z());
+            "[odom_t_x]:[%f] [odom_t_y]:[%f] [odom_t_z]:[%f] [odom_q_w]:[%f] [odom_q_x]:[%f] "
+            "[odom_q_y]:[%f] [odom_q_z]:[%f]",
+            tmp_T.x(), tmp_T.y(), tmp_T.z(), tmp_Q.w(), tmp_Q.x(), tmp_Q.y(), tmp_Q.z());
     }
 }
 

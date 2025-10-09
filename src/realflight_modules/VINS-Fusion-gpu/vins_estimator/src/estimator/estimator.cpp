@@ -201,8 +201,8 @@ void Estimator::processMeasurements() {
             pubPointCloud(*this, header);
             pubKeyframe(*this);
             pubTF(*this, header);
-            ROS_DEBUG("current used features counts: %d.\n", f_manager.getFeatureCount());
-            ROS_INFO("process measurement time: %f\n", t_process.toc());
+            ROS_DEBUG("current used features counts: %d", f_manager.getFeatureCount());
+            ROS_INFO("process measurement time: %f", t_process.toc());
             if (record_csv) {
                 double cur_timestamp = feature.first;
                 if (!csv_file_path.empty()) {

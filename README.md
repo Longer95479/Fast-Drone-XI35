@@ -607,7 +607,7 @@ sudo docker exec -it  fd_runtime bash
 
 - `sh Fast-Drone-XI35/shfiles/takeoff.sh`
 
-### 5.3 调参 
+### 5.3 调参
 
 一些常用的参数可能需要频繁调整，但参数分布在不同文件里，为了提高修改效率，编写了脚本批量修改参数，无需直接在原文件内修改，只需在 `Fast-Drone-XI35/config_scipt` 目录下修改 `xxx.yaml` 配置文件，文件里已列出一系列参数和值。修改完毕后可执行脚本 读取 和 真正写入 参数：
 
@@ -624,6 +624,82 @@ pid 的参数需单独在 `Fast-Drone-XI35/src/realflight_modules/px4ctrl/config
 
 
 ## 6 开发流程
+### 曲线日志的使用与解析
+在开发过程中，难免有时需要对一个变量随时间的变化情况进行观察，或者对自己打印的某个log在实验结束后进行复盘，基于此开发了如下功能：
+
+- 将ROS自带的文件系统日志记录到代码主目录下的/log文件夹
+
+- 通过在代码中调用ROS日志输出特定格式的键值对来记录“曲线日志”
+
+- 使用/scripts/process_log.py对所有架次的日志进行解析，输出为文本日志和csv曲线日志
+
+下面是具体开发指南：
+
+1. 修改ROS日志在文件系统内的默认位置
+
+ROS的日志在启动时会获取ROS_LOG_DIR环境变量的值，将日志保存在此位置，所以需要在.bashrc添加一个环境变量。
+
+- 在非Docker环境中，需要在~/.bashrc中自行添加环境变量（下面的绝对路径换成自己的代码中log目录位置）。
+
+```
+export ROS_LOG_DIR=/home/zhangrun/code/Fast-Drone-XI35/log
+```
+
+- 在Docker环境中，配置脚本已经添加了加入环境变量的步骤，所以无需操作。
+
+2. 在代码中记录曲线日志
+
+通过键值对[status]:[12.76]的格式调用ROS_INFO或ROS_WARN或ROS_INFO_THROTTLE等进行记录，如：
+
+```
+ROS_INFO("[odom_tx]:[%f] [odom_ty]:[%f] [odom_tz]:[%f], tmp_T.x(), tmp_T.y(), tmp_T.z());
+```
+
+注意只支持英文字母。
+
+3. 日志解析
+
+通过在代码/scripts/process_log.py脚本进行解析处理
+
+```
+python3 scripts/process_log.py
+```
+
+将会有如下输出：
+
+```
+Processing /home/zhangrun/code/Fast-Drone-XI35/scripts/../log/2d61da22-a4b5-11f0-b4af-488f4b616bfc ...
+Done: /home/zhangrun/code/Fast-Drone-XI35/scripts/../log/2025-10-09 10:10:50
+Processing /home/zhangrun/code/Fast-Drone-XI35/scripts/../log/711678c8-a4b4-11f0-9342-488f4b616bfc ...
+Done: /home/zhangrun/code/Fast-Drone-XI35/scripts/../log/2025-10-09 10:05:34
+```
+
+上边参考输出表示将2d61da22-a4b5-11f0-b4af-488f4b616bfc文件夹的日志输出到log/2025-10-09 10:10:50目录下，其中有两种日志：'2025-10-09 10:10:50.csv'  '2025-10-09 10:10:50.log'，分别对应曲线日志和文本日志。
+
+4. 曲线日志的查看
+
+通过ROS的Plotjuggler进行查看.csv格式的曲线日志。亦可以将日志下载到Windows电脑，通过win平台的Plotjuggler进行查看
+
+安装：
+
+```
+sudo apt install ros-noetic-plotjuggler-ros
+```
+
+启动：
+```
+rosrun plotjuggler plotjuggler
+```
+
+导入.csv文件，选定timestamp为X轴后，将想要显示的曲线拖动到右侧表中即可显示。
+
+<p align="center">
+  <img src="images/plotjuggler-1.png" width="90%">
+</p>
+
+<p align="center">
+  <img src="images/plotjuggler-2.png" width="90%">
+</p>
 
 ## 注意事项
 
@@ -631,7 +707,7 @@ pid 的参数需单独在 `Fast-Drone-XI35/src/realflight_modules/px4ctrl/config
 
 - 安装好后typeC不好插
 
-- 小心滤波电容短路 
+- 小心滤波电容短路
 
 - QGC v4.0.11无法识别 px4 pro 1.14.0
   - QGC 4.3.0 可以识别
