@@ -48,7 +48,14 @@ RUN   sh -c 'echo "deb http://mirrors.ustc.edu.cn/ros/ubuntu/ `lsb_release -cs` 
       ros-${ROS_VERSION}-tf \
       ros-${ROS_VERSION}-catkin \
       ros-${ROS_VERSION}-roslint \
-      ros-${ROS_VERSION}-ddynamic-reconfigure && \
+      ros-${ROS_VERSION}-ddynamic-reconfigure \
+      ros-${ROS_VERSION}-vrpn \
+      ros-${ROS_VERSION}-geometry-msgs \
+      ros-${ROS_VERSION}-tf2-ros \
+      ros-${ROS_VERSION}-roscpp \
+      ros-${ROS_VERSION}-roslaunch \
+      ros-${ROS_VERSION}-roslint \
+      ros-${ROS_VERSION}-vrpn-client-ros && \
       echo "source /opt/ros/${ROS_VERSION}/setup.bash" >> /root/.bashrc
 
 #unzip the 3rd_party
