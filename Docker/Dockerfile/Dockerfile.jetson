@@ -6,18 +6,17 @@ ENV FDRONE_WS=/root/Fast-Drone-XI35
 
 SHELL ["bash", "-c", "-l"]
 
-#Build Fast-Drone-XI35
+# Clone Fast-Drone-XI35
 RUN  git config --global http.lowSpeedLimit 0 && \
      git config --global http.lowSpeedTime 999999 && \
      git config --global http.postBuffer 1024288000 && \
+     # optional : set http proxy if unable to successfully execute git clone
+     # git config --global http.proxy 192.168.31.6:7897 && \
+     # git config --global https.proxy 192.168.31.6:7897 && \
      cd /root && git clone https://github.com/Longer95479/Fast-Drone-XI35.git -b board
 WORKDIR ${FDRONE_WS}
-RUN  source /opt/ros/${ROS_VERSION}/setup.bash && \
-     source /root/cv_bridge${OPENCV_VERSION}_ws/devel/setup.bash && \
-     catkin_make && \
-     echo "source ${FDRONE_WS}/devel/setup.bash" >> /root/.bashrc
 
-#container init
+# container init
 COPY ./container_init.sh /
 COPY ./daemon /daemon
 RUN  chmod +x /container_init.sh
