@@ -6,7 +6,7 @@ imu: 1
 num_of_cam: 2
 
 
-imu_topic: "/mavros/imu/data_raw"
+imu_topic: "/imu_filter/data"
 image0_topic: "/camera/infra1/image_rect_raw"
 image1_topic: "/camera/infra2/image_rect_raw"
 

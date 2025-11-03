@@ -1,0 +1,7 @@
+<launch>
+  <node pkg="imu_filter" type="imu_filter_node" name="imu_filter_node" output="screen">
+    <param name="filter_type" value="iir2" />
+    <param name="cutoff_freq" value="60.0" />
+    <param name="sampling_freq" value="250.0" />
+  </node>
+</launch>
