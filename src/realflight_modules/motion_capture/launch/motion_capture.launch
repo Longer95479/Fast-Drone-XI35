@@ -1,0 +1,6 @@
+<launch>
+	<node pkg="motion_capture" type="motion_capture" name="motion_capture" output="screen">
+        <rosparam command="load" file="$(find motion_capture)/config/motion_capture.yaml" />
+	</node>
+ 
+</launch>

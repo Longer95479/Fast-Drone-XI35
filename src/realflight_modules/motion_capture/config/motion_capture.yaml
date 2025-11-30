@@ -1,0 +1,3 @@
+motion_capture_pose_topic: "/vrpn_client_node/uav0/pose"
+motion_capture_twist_topic: "/vrpn_client_node/uav0/twist"
+motion_capture_accel_topic: "/vrpn_client_node/uav0/accel"
