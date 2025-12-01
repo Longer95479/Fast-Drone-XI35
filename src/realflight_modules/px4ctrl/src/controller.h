@@ -5,92 +5,80 @@
 #ifndef __CONTROLLER_H
 #define __CONTROLLER_H
 
+#include "input.h"
+#include <Eigen/Dense>
 #include <mavros_msgs/AttitudeTarget.h>
 #include <quadrotor_msgs/Px4ctrlDebug.h>
 #include <queue>
 
-#include "input.h"
-#include <Eigen/Dense>
+struct Desired_State_t {
+    Eigen::Vector3d p;
+    Eigen::Vector3d v;
+    Eigen::Vector3d a;
+    Eigen::Vector3d j;
+    Eigen::Quaterniond q;
+    double yaw;
+    double yaw_rate;
 
-struct Desired_State_t
-{
-	Eigen::Vector3d p;
-	Eigen::Vector3d v;
-	Eigen::Vector3d a;
-	Eigen::Vector3d j;
-	Eigen::Quaterniond q;
-	double yaw;
-	double yaw_rate;
+    Desired_State_t(){};
 
-	Desired_State_t(){};
-
-	Desired_State_t(Odom_Data_t &odom)
-		: p(odom.p),
-		  v(Eigen::Vector3d::Zero()),
-		  a(Eigen::Vector3d::Zero()),
-		  j(Eigen::Vector3d::Zero()),
-		  q(odom.q),
-		  yaw(uav_utils::get_yaw_from_quaternion(odom.q)),
-		  yaw_rate(0){};
+    Desired_State_t(Odom_Data_t &odom)
+        : p(odom.p),
+          v(Eigen::Vector3d::Zero()),
+          a(Eigen::Vector3d::Zero()),
+          j(Eigen::Vector3d::Zero()),
+          q(odom.q),
+          yaw(uav_utils::get_yaw_from_quaternion(odom.q)),
+          yaw_rate(0){};
 };
 
-struct Controller_Output_t
-{
+struct Controller_Output_t {
+    // Orientation of the body frame with respect to the world frame
+    Eigen::Quaterniond q;
 
-	// Orientation of the body frame with respect to the world frame
-	Eigen::Quaterniond q;
+    // Body rates in body frame
+    Eigen::Vector3d bodyrates;  // [rad/s]
 
-	// Body rates in body frame
-	Eigen::Vector3d bodyrates; // [rad/s]
+    // Collective mass normalized thrust
+    double thrust;
 
-	// Collective mass normalized thrust
-	double thrust;
-
-	//Eigen::Vector3d des_v_real;
+    // Eigen::Vector3d des_v_real;
 };
 
+class LinearControl {
+  public:
+    LinearControl(Parameter_t &);
 
-class LinearControl
-{
-public:
-  LinearControl(Parameter_t &);
+    quadrotor_msgs::Px4ctrlDebug calculateControl(
+        const Desired_State_t &des, const Odom_Data_t &odom, const Imu_Data_t &imu,
+        Controller_Output_t &u);
 
-  quadrotor_msgs::Px4ctrlDebug calculateControl(const Desired_State_t &des,
-      const Odom_Data_t &odom,
-      const Imu_Data_t &imu, 
-      Controller_Output_t &u);
+    bool estimateThrustModel(const Eigen::Vector3d &est_v, const Parameter_t &param);
+    bool estimateThrustModelUsingVelFB(const Eigen::Vector3d &est_v, const Parameter_t &param);
+    bool estimateThrustModel(
+        const Eigen::Vector3d &est_a, const Parameter_t &param, const Battery_Data_t &bat_data);
 
-  bool estimateThrustModel(const Eigen::Vector3d &est_v,
-      const Parameter_t &param);
-  bool estimateThrustModelUsingVelFB(const Eigen::Vector3d &est_v,
-    const Parameter_t &param);
-  bool estimateThrustModel(
-    const Eigen::Vector3d &est_a,
-    const Parameter_t &param, 
-    const Battery_Data_t &bat_data);
+    void resetThrustMapping(void);
+    void resetThrustMapping(Battery_Data_t &bat_data);
 
-  void resetThrustMapping(void);
-  void resetThrustMapping(Battery_Data_t &bat_data);
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  private:
+    Parameter_t param_;
+    quadrotor_msgs::Px4ctrlDebug debug_msg_;
+    std::queue<std::pair<ros::Time, double>> timed_thrust_;
+    std::queue<Eigen::Vector3d> timed_vel_;
+    static constexpr double kMinNormalizedCollectiveThrust_ = 3.0;
 
-private:
-  Parameter_t param_;
-  quadrotor_msgs::Px4ctrlDebug debug_msg_;
-  std::queue<std::pair<ros::Time, double>> timed_thrust_;
-  std::queue<Eigen::Vector3d> timed_vel_;
-  static constexpr double kMinNormalizedCollectiveThrust_ = 3.0;
+    // Thrust-accel mapping params
+    const double rho2_ = 0.998;  // do not change
+    double thr2acc_;
+    double alpha_ = 1.0;
+    double P_;
 
-  // Thrust-accel mapping params
-  const double rho2_ = 0.998; // do not change
-  double thr2acc_;
-  double alpha_ = 1.0;
-  double P_;
-
-  double computeDesiredCollectiveThrustSignal(const Eigen::Vector3d &des_acc);
-  double fromQuaternion2yaw(Eigen::Quaterniond q);
-  double volt2HoverPerOverM0(double volt);
+    double computeDesiredCollectiveThrustSignal(const Eigen::Vector3d &des_acc);
+    double fromQuaternion2yaw(Eigen::Quaterniond q);
+    double volt2HoverPerOverM0(double volt);
 };
-
 
 #endif

@@ -18,7 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
-find_package(Eigen3 REQUIRED) 
+find_package(Eigen3 REQUIRED)
 
 catkin_package(
 )
@@ -30,7 +30,7 @@ include_directories(
   include
 )
 
-add_executable(px4ctrl_node 
+add_executable(px4ctrl_node
   src/px4ctrl_node.cpp
   src/PX4CtrlFSM.cpp
   src/PX4CtrlParam.cpp
