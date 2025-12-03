@@ -79,7 +79,7 @@ categories:
 
 - 将M3转M2橡胶减震柱穿过电驱和飞控的四角安装孔（技巧：橡皮筋技巧）
 
-- 使用M2*20安装电驱，8pin接口朝机头，接口贴着机架			
+- 使用M2*20安装电驱，8pin接口朝机头，接口贴着机架
 
 - 电机线修修剪（用剥线钳），焊接(加松香)；电源线和滤波电容焊接
 
@@ -127,9 +127,9 @@ categories:
 - 遥控器和接收机对频，并在地面站校准
 
 - 配置通道功能，用于飞行模式切换、紧急停止等（注意：有三档的前两档一致）详见 [px4ctrl](https://gitee.com/jerry-ironman/px4ctrl)
-  - 5通道2档：自稳和offboard 
-  - 6通道3档：是否接受命令 
-  - 7通道3档：急停 
+  - 5通道2档：自稳和offboard
+  - 6通道3档：是否接受命令
+  - 7通道3档：急停
   - 8通道2档：px4ctrl对px4的重启
 
 - 飞控与罗盘方向设置
@@ -149,10 +149,9 @@ categories:
 - MAV_0_FORWARD: Enabled
 - MAV_0_MODE: External Vision
 - MAV_0_RADIO_CTL: Enabled
-- MAV_0_RATE: 92160 B/s
+- MAV_0_RATE: 921600 B/s
 
-
-### 2.3 获得高分辨率和高频率的 IMU 数据所需的配置
+获得高分辨率和高频率的 IMU 数据所需的配置
 
 create file in your tf-card /etc/extras.txt
 
@@ -165,15 +164,12 @@ mavlink stream -d /dev/ttyS3 -s HIGHRES_IMU -r 1000
 then using the following settings:
 - IMU_GYRO_RATEMAX: 2000Hz
 - IMU_INTEG_RATE: 400Hz
-- MAV_0_MODE: External vision
-- Set Uart4(SER_TELE2) to 921600
-- MAV_0_RATE 92160B/s
 
 after these settings you will have 250Hz /imu/data_raw /imu/data
 
 ## 3 ORIN NX 配置
 
-### 3.1 安装 jetpack 5.1.3 linux for jetson orin nx modules: 
+### 3.1 安装 jetpack 5.1.3 linux for jetson orin nx modules:
 
 - 在 PC 上的 ubuntu 里安装 sdkmanager
 
@@ -324,11 +320,11 @@ sudo nmcli connection add type wifi ifname wlan1 con-name HITADHOC mode adhoc ss
 ```shell
 sudo nmcli connection modify HITADHOC ipv4.method manual ipv4.addresses 10.10.10.11/24
 ```
-  
+
 - 通过con-name激活网络配置，激活后会开机自启动
 ```shell
 sudo nmcli connection up HITADHOC
-```  
+```
 
 - 如果后续要删除配置，可以通过con-name删除
 ```shell
@@ -379,7 +375,7 @@ pip install scikit-image
 部分软件库（ceres、glog和cv_bridge）和编译一些软件库所需要的额外的文件（比如编译opencv_contrib需要一些额外文件）打包进一个压缩包3rd_party.zip，放在docker执行的上下文目录，供构建镜像时解压使用。
 构建环境基础镜像，在终端执行：
 ```shell
-make jetson_base 
+make jetson_base
 ```
 
 **具体使用见 4.6**
@@ -389,7 +385,7 @@ make jetson_base
 由于dockerhub在国内无法访问，基础环境镜像暂时没有push到远程仓库，通过docker save打包成.tar文件，借助u盘拷贝至宿主机，再通过docker load解压得到基础环境镜像local/fastdronexi35:orin_base_35.3.1。
 要构建Fast-Drone-XI35镜像，在终端执行:
 ```shell
-make jetson 
+make jetson
 ```
 初始化脚本"container_init.sh"说明：
 初始化脚本也放在构建镜像的上下文目录，构建阶段拷贝至镜像/root目录下，用于执行启动容器时的一些初始化操作，目前的初始化操作比较简单，主要是启动ssh服务，还有一个操作是改变mavros的px4.launch中的参数用于设配实际硬件，这样避免了重新构建基础镜像。
