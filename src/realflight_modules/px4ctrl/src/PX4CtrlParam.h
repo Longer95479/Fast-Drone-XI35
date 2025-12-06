@@ -7,10 +7,8 @@ class Parameter_t {
   public:
     struct Gain {
         double Kp0, Kp1, Kp2;
-        double Kv0, Kv1, Kv2;
-        double Kvi0, Kvi1, Kvi2;
-        double Kvd0, Kvd1, Kvd2;
-        double KAngR, KAngP, KAngY;
+        double Ki0, Ki1, Ki2;
+        double Kd0, Kd1, Kd2;
     };
 
     struct RotorDrag {
@@ -68,6 +66,12 @@ class Parameter_t {
 
     bool use_bodyrate_ctrl;
     // bool print_dbg;
+
+    bool use_motion_capture_odom;
+
+    // mavros params
+    int mavros_battery_id;
+    float mavros_bat_msg_freq;
 
     Parameter_t();
     void config_from_ros_handle(const ros::NodeHandle &nh);

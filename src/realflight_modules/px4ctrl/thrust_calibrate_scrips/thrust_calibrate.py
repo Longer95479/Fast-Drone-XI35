@@ -21,7 +21,7 @@ class ThrustCalibration:
         self.vbat_min = float(
             rospy.get_param('~min_battery_voltage', 13.2))
         self.mass_kg = float(
-            rospy.get_param('~mass_kg', 1.0))
+            rospy.get_param('~mass_kg', 0.725))
 
         # store measurements of vbat and commanded thrusts
         self.volt_buf = np.array([])
