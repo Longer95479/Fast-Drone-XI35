@@ -1,0 +1,71 @@
+#ros topic
+imu_topic: "/imu_filter/data" #/imu_filter/data /mavros/imu/data_raw
+odom_topic: "/vins_fusion/odometry"
+motion_capture_topic: "/motion_capture/motion_capture_odom"
+
+#imu noise parameter
+accel_noise_std: 0.1
+gyro_noise_std: 0.02
+accel_walk_std: 1e-3
+gyro_walk_std: 1e-4
+
+# motion capture
+use_motion_capture: true
+
+# bias relevant
+enable_merge_vins_bias: true #融合vins零偏
+bias_accel_init: [-0.14, 0.038, 0.167]
+
+#init state_cov
+imu_ori_init_cov: 4e-5
+imu_yaw_init_cov: 1e-5
+imu_posi_init_cov: 1e-5
+imu_vel_init_cov: 0.1 #0.09
+gyro_bias_init_cov: 1e-7
+acc_bias_init_cov: 0.1 #1e-2
+ext_ori_init_cov: 1e-6
+ext_posi_init_cov: 1e-4
+
+#obv odom cov
+obv_odom_rot_cov: [0.001, 0.001, 0.005] #[0.02, 0.02, 0.05]
+obv_odom_posi_cov: [0.005, 0.005, 0.01] #[0.05, 0.05, 0.1]
+obv_odom_vel_cov: [0.001, 0.001, 0.002] #[0.01, 0.01, 0.02]
+obv_vins_bias_cov: [0.001, 0.001, 0.002]
+
+#motion capture cov
+obv_mc_rot_cov: [0.0005, 0.0005, 0.0005] #[0.02, 0.02, 0.05]
+obv_mc_posi_cov: [0.001, 0.001, 0.001] #[0.05, 0.05, 0.1]
+obv_mc_vel_cov: [0.001, 0.001, 0.001] #[0.01, 0.01, 0.02]
+
+#zupt cov
+obv_zupt_gyro_cov: [0.0001, 0.0001, 0.0005]
+obv_zupt_accel_cov: [0.0001, 0.0001, 0.0005]
+obv_zupt_vel_cov: [0.0001, 0.0001, 0.0005]
+
+#initializer
+static_check_dura_s: 5.0
+thresh_gyro_avg: 0.01
+thresh_accel_avg: 0.2 
+thresh_gyro_var: 0.002
+thresh_accel_var: 0.1
+
+#odom external param
+T_imu_body:
+  - [1.0, 0.0, 0.0, 0.0]
+  - [0.0, 1.0, 0.0, 0.0]
+  - [0.0, 0.0, 1.0, 0.0]
+  - [0.0, 0.0, 0.0, 1.0]
+
+#motion external param
+T_imu_mbody:
+  - [1.0, 0.0, 0.0, -0.055]
+  - [0.0, 1.0, 0.0, 0.055]
+  - [0.0, 0.0, 1.0, 0.025]
+  - [0.0, 0.0, 0.0, 1.0]
+
+# enable estimation of ext-param
+estimate_ext_rot: false
+estimate_ext_tvec: false
+
+#kf_coordinator
+imu_que_dura_length: 1  #unit:s
