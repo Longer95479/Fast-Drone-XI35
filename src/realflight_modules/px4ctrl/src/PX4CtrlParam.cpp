@@ -35,6 +35,7 @@ void Parameter_t::config_from_ros_handle(const ros::NodeHandle &nh) {
     read_essential_param(nh, "max_manual_vel", max_manual_vel);
     read_essential_param(nh, "max_angle", max_angle);
     read_essential_param(nh, "low_voltage", low_voltage);
+    read_essential_param(nh, "use_motion_capture_odom", use_motion_capture_odom);
 
     read_essential_param(nh, "rc_reverse/roll", rc_reverse.roll);
     read_essential_param(nh, "rc_reverse/pitch", rc_reverse.pitch);
@@ -55,6 +56,9 @@ void Parameter_t::config_from_ros_handle(const ros::NodeHandle &nh) {
     read_essential_param(nh, "thrust_model/hover_percentage", thr_map.hover_percentage);
     read_essential_param(
         nh, "thrust_model/imu_acc_lpf_freq_cutoff", thr_map.imu_acc_lpf_freq_cutoff);
+
+    read_essential_param(nh, "mavros/bat_msg_freq", mavros_bat_msg_freq);
+    read_essential_param(nh, "mavros/battery_id", mavros_battery_id);
 
     max_angle /= (180.0 / M_PI);
 

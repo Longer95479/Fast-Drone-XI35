@@ -39,6 +39,8 @@ PX4CtrlFSM::PX4CtrlFSM(Parameter_t &param_, LinearControl &controller_)
 
 */
 
+void PX4CtrlFSM::process_new() {}
+
 void PX4CtrlFSM::process() {
     ros::Time now_time = ros::Time::now();
     Controller_Output_t u;
@@ -46,6 +48,11 @@ void PX4CtrlFSM::process() {
     bool rotor_low_speed_during_land = false;
 
     // STEP1: state machine runs
+
+    bool odom_status  = odom_is_received(now_time);
+    bool cmd_status   = cmd_is_received(now_time);
+    bool rc_connected = rc_is_received(now_time);
+
     switch (state) {
         case MANUAL_CTRL: {
             if (rc_data.enter_hover_mode)  // Try to jump to AUTO_HOVER
@@ -102,8 +109,7 @@ void PX4CtrlFSM::process() {
                         "landed now!");
                     break;
                 }
-                if (rc_is_received(now_time))  // Check this only if RC is connected.
-                {
+                if (rc_is_received(now_time)) {
                     if (!rc_data.is_hover_mode || !rc_data.is_command_mode ||
                         !rc_data.check_centered()) {
                         ROS_ERROR(
@@ -187,7 +193,9 @@ void PX4CtrlFSM::process() {
                 set_start_pose_for_takeoff_land(odom_data);
 
                 ROS_INFO("\033[32m[px4ctrl] AUTO_HOVER(L2) --> AUTO_LAND\033[32m");
-                if (emergency_hover) ROS_WARN("Switch to AUTO_LAND due to Emergency!");
+                if (emergency_hover) {
+                    ROS_WARN("Switch to AUTO_LAND due to Emergency!");
+                }
             } else {
                 set_hov_with_rc();
                 des = get_hover_des();
@@ -205,7 +213,7 @@ void PX4CtrlFSM::process() {
             break;
         }
 
-        case CMD_CTRL: {  // offboard模式
+        case CMD_CTRL: {
             if (!rc_data.is_hover_mode || !odom_is_received(now_time)) {
                 state = MANUAL_CTRL;
                 toggle_offboard_mode(false);
@@ -332,7 +340,7 @@ void PX4CtrlFSM::process() {
     }
 
     // STEP3: solve and update new control commands
-    if (rotor_low_speed_during_land)  // used at the start of auto takeoff
+    if (rotor_low_speed_during_land)  // used at the start of auto land
     {
         motors_idling(imu_data, u);
     } else {
@@ -358,6 +366,12 @@ void PX4CtrlFSM::process() {
     rc_data.enter_command_mode  = false;
     rc_data.toggle_reboot       = false;
     takeoff_land_data.triggered = false;
+
+    // ROS_INFO(
+    //     "[odom_status]:[%d] [cmd_status]:[%d] [rc_connected]:[%d] [state]:[%d]", odom_status,
+    //     cmd_status, rc_connected, state);
+
+    // ROS_INFO("[odom_z]:[%f]", odom_data.p(2));
 }
 
 void PX4CtrlFSM::motors_idling(const Imu_Data_t &imu, Controller_Output_t &u) {
@@ -494,13 +508,13 @@ void PX4CtrlFSM::set_hov_with_rc() {
     last_set_hover_pose_time = now;
 
     hover_pose(0) +=
-        rc_data.ch[1] * param.max_manual_vel * delta_t * (param.rc_reverse.pitch ? 1 : -1);
+        rc_data.ch[1] * param.max_manual_vel * delta_t * (param.rc_reverse.pitch ? -1 : 1);
     hover_pose(1) +=
-        rc_data.ch[0] * param.max_manual_vel * delta_t * (param.rc_reverse.roll ? 1 : -1);
+        rc_data.ch[0] * param.max_manual_vel * delta_t * (param.rc_reverse.roll ? -1 : 1);
     hover_pose(2) +=
-        rc_data.ch[2] * param.max_manual_vel * delta_t * (param.rc_reverse.throttle ? 1 : -1);
+        rc_data.ch[2] * param.max_manual_vel * delta_t * (param.rc_reverse.throttle ? -1 : 1);
     hover_pose(3) +=
-        rc_data.ch[3] * param.max_manual_vel * delta_t * (param.rc_reverse.yaw ? 1 : -1);
+        rc_data.ch[3] * param.max_manual_vel * delta_t * (param.rc_reverse.yaw ? -1 : 1);
 
     if (hover_pose(2) < -0.3) hover_pose(2) = -0.3;
 
@@ -603,8 +617,9 @@ bool PX4CtrlFSM::toggle_offboard_mode(bool on_off) {
 
     if (on_off) {
         state_data.state_before_offboard = state_data.current_state;
-        if (state_data.state_before_offboard.mode == "OFFBOARD")  // Not allowed
+        if (state_data.state_before_offboard.mode == "OFFBOARD") {  // Not allowed
             state_data.state_before_offboard.mode = "MANUAL";
+        }
 
         offb_set_mode.request.custom_mode = "OFFBOARD";
         if (!(set_FCU_mode_srv.call(offb_set_mode) && offb_set_mode.response.mode_sent)) {

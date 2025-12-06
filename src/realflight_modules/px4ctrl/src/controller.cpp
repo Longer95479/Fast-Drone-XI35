@@ -66,7 +66,7 @@ quadrotor_msgs::Px4ctrlDebug LinearControl::calculateControl(
     des_acc = des.a + des_acc_fb;
     des_acc += Eigen::Vector3d(0, 0, param_.gra);
 
-    u.thrust = computeDesiredCollectiveThrustSignal(des_acc);
+    u.thrust = computeDesiredCollectiveThrustSignal(des_acc);  // TODO: 飞机掉高度
     double roll, pitch, yaw, yaw_imu;
     double yaw_odom = fromQuaternion2yaw(odom.q);
     double sin      = std::sin(yaw_odom);
