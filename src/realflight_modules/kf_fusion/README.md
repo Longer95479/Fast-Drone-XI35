@@ -1,5 +1,5 @@
 # 功能
-实现了基于ESKF的松耦合定位框架，通过松耦合的形式融合IMU、GNSS、外部里程计（VINS）和动捕，输出平滑、高频的定位信息（位置、姿态和速度）。
+实现了基于ESKF的松耦合定位框架kf-fusion，通过松耦合的形式融合IMU、GNSS、外部里程计（VINS）和动捕，输出平滑、高频的定位信息（位置、姿态和速度）。
 1. 通用IMU-ESKF框架，不考虑地球自转带来的非惯性系虚拟力，适用于低成本IMU。
 2. 支持以松耦合的形式融合外部里程计/动捕、GNSS（后续支持），融合里程计或动捕时支持动态标定外参（杆臂）。
 3. 实现了基于IMU预积分的延迟更新，相比于传统延迟更新方式更高效、平滑。
@@ -108,3 +108,37 @@ IMU状态以及外参状态（统称为二级状态类）继承自这些状态�
 1. 判定是否kf完成初始化，若没有初始化则调用state_initializer.initState()以及kf_coordiantor_.init()方法完成初始化。
 2. 若已完成初始化，如果当前测量数据是imu，则调用kf_coordiantor.imuStatePropagate()递推状态和协方差，并调用static_check.inputImu()检测是否检测到静止，若检测到静止则调用kf_coordiantor.updateWithZUPT()进行零速更新；若是odom或gps数据，调用相关update函数实现kf更新。
 3. 通过ros广播相关处理结果。
+
+# 外参离线标定工具
+kf-fusion融合外部里程计时，考虑了imu坐标系到里程计机体系之间的相对位姿即外参，但是经过实际测试发现在线标定效果较差，原因是目前的观测模型无法使外参变得可观，因此kf-fusion暂时取消在线估计外参，单独开发了一个基于手眼标定法的简易外参离线标定工具，用于标定两个相互固定且独立的里程计之间单独外参。  
+## 使用
+1. 在config/config.yaml中修改两个里程计的话题名，目前默认为动捕里程计话题名和vins里程计话题名：  
+   ```plain
+   odom_topic: "/vins_fusion/odometry"
+   motion_capture_topic: "/motion_capture/motion_capture_odom"
+   ```
+2. 依次启动两个里程计后，再启动标定工具：  
+   ```plain
+   #启动vins
+   sh shfiles/rspx4_xp.sh
+   #启动动捕
+   roslaunch motion_capture motion_capture.launch
+   #启动外参标定工具
+   roslaunch kf_fusion ext_calib.launch
+   ```
+3. 启动外参标定工具后注意终端打印的日志，出现提示“Calibration start, please move the drone fully.”后即可移动机体，保证六自由度的充分运动，程序会自动截取运动充分的数据用于结算外参。  
+4. 终端会实时打印有效数据的数量，当有效数量大于50时，若持续2秒没有检测到有效数据，则会停止采集数据，进行外参解算。为了保证求解精度，建议持续运动保证有效数据数量在100以上。外参求解结果会打印在终端：  
+   ```plain
+   [ WARN] [1765373385.708512653]: Collecting data finished, total size is 411.
+   [ WARN] [1765373385.710690551]: Start solve external pose.
+   [ WARN] [1765373385.753432781]: Solve external rotation successfully!
+   External rotation calib result is:
+     0.996615 -0.0312618  0.0760409
+    0.0341498   0.998732 -0.0369798
+   -0.0747885  0.0394514   0.996419
+   [ WARN] [1765373385.755121709]: Solve external position successfully!.
+   External position calib result is:
+   -0.0491892
+     0.041708
+    0.0242918
+   ```

@@ -35,13 +35,15 @@ class ExtCalib {
     termination = 3
   };
   struct Config {
-    bool calib_ori{false};
+    bool calib_ori{true};
     std::string vins_topic;
     std::string mc_topic;
     Eigen::Quaterniond ext_q_init;
 
     void loadConfig() {
-      calib_ori = ParamReader::getInstance().getBool("estimate_ext_rot", false);
+      // calib_ori = ParamReader::getInstance().getBool("estimate_ext_rot",
+      // false);
+      calib_ori = true;
       vins_topic =
           ParamReader::getInstance().getString("odom_topic", "/odometry");
       mc_topic = ParamReader::getInstance().getString("motion_capture_topic",
