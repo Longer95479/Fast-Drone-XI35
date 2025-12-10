@@ -1,0 +1,3 @@
+<launch>
+	<node name="ext_calib" pkg="kf_fusion" type="ext_calib_node" output="screen" args="$(find kf_fusion)/config/config.yaml"/>
+</launch>
