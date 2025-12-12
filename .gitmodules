@@ -1,0 +1,3 @@
+[submodule "hardware/3d-models/allcct-3D-print"]
+	path = hardware/3d-models/allcct-3D-print
+	url = git@github.com:zhangrun-HIT/allcct-3D-print.git

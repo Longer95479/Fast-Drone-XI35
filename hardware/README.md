@@ -25,3 +25,11 @@
 <img src="../images/landing_gear.png" width = 50% height = 50% div align=center />
 
 设计by 宋子一
+
+# 3D 打印件
+
+教程和切片软件已通过submodule方式放在 hardware/3d-models/allcct-3D-print，通过submodule初始化进行拉取
+
+```
+git submodule update --init --recursive
+```
