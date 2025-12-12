@@ -72,3 +72,10 @@ msg_timeout:
 mavros:
     battery_id: 147 # BATTERY_STATUS
     bat_msg_freq: 10 # Hz
+
+mode:
+    manual_priority: 0
+    auto_hover_priority: 10
+    auto_takeoff_priority: 20
+    auto_land_priority: 30
+    cmd_ctrl_priority: 40

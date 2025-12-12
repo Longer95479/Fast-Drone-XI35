@@ -2,6 +2,7 @@
 #define __PX4CTRLPARAM_H
 
 #include <ros/ros.h>
+#include <sys/types.h>
 
 class Parameter_t {
   public:
@@ -74,6 +75,13 @@ class Parameter_t {
     // mavros params
     int mavros_battery_id;
     float mavros_bat_msg_freq;
+
+    // mode params
+    int manual_priority;
+    int auto_hover_priority;
+    int auto_takeoff_priority;
+    int auto_land_priority;
+    int cmd_ctrl_priority;
 
     Parameter_t();
     void config_from_ros_handle(const ros::NodeHandle &nh);

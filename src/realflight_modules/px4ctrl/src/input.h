@@ -15,6 +15,21 @@
 
 class RC_Data_t {
   public:
+    RC_Data_t(const Parameter_t &param)
+        : last_mode(-1.0),
+          last_gear(-1.0),
+          last_reboot_cmd(0.0),
+          have_init_last_mode(false),
+          have_init_last_gear(false),
+          have_init_last_reboot_cmd(false),
+          rcv_stamp(ros::Time(0)),
+          is_command_mode(true),
+          enter_command_mode(false),
+          is_hover_mode(true),
+          enter_hover_mode(false),
+          toggle_reboot(false),
+          param_(param) {}
+
     double mode;
     double gear;
     double reboot_cmd;
@@ -24,7 +39,7 @@ class RC_Data_t {
     bool have_init_last_mode{false};
     bool have_init_last_gear{false};
     bool have_init_last_reboot_cmd{false};
-    double ch[4];
+    double ch[4]{0.0, 0.0, 0.0, 0.0};
 
     mavros_msgs::RCIn msg;
     ros::Time rcv_stamp;
@@ -40,15 +55,22 @@ class RC_Data_t {
     static constexpr double REBOOT_THRESHOLD_VALUE   = 0.5;
     static constexpr double DEAD_ZONE                = 0.25;
 
-    RC_Data_t();
     void check_validity();
     bool check_centered();
     void feed(mavros_msgs::RCInConstPtr pMsg);
     bool is_received(const ros::Time &now_time);
+
+  private:
+    const Parameter_t &param_;
 };
 
 class Odom_Data_t {
   public:
+    Odom_Data_t(const Parameter_t &param)
+        : q(Eigen::Quaterniond::Identity()),
+          rcv_stamp(ros::Time(0)),
+          recv_new_msg(false),
+          param_(param) {}
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     Eigen::Vector3d p;
     Eigen::Vector3d v;
@@ -59,12 +81,17 @@ class Odom_Data_t {
     ros::Time rcv_stamp;
     bool recv_new_msg;
 
-    Odom_Data_t();
     void feed(nav_msgs::OdometryConstPtr pMsg);
+
+    bool is_received(const ros::Time &now_time);
+
+  private:
+    const Parameter_t &param_;
 };
 
 class Imu_Data_t {
   public:
+    Imu_Data_t(const Parameter_t &param) : rcv_stamp(ros::Time(0)), param_(param) {}
     Eigen::Quaterniond q;
     Eigen::Vector3d w;
     Eigen::Vector3d a;
@@ -72,8 +99,11 @@ class Imu_Data_t {
     sensor_msgs::Imu msg;
     ros::Time rcv_stamp;
 
-    Imu_Data_t();
     void feed(sensor_msgs::ImuConstPtr pMsg);
+    bool is_received(const ros::Time &now_time);
+
+  private:
+    const Parameter_t &param_;
 };
 
 class State_Data_t {
@@ -95,6 +125,7 @@ class ExtendedState_Data_t {
 
 class Command_Data_t {
   public:
+    Command_Data_t(const Parameter_t &param) : rcv_stamp(ros::Time(0)), param_(param) {}
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     Eigen::Vector3d p;
     Eigen::Vector3d v;
@@ -106,12 +137,16 @@ class Command_Data_t {
     quadrotor_msgs::PositionCommand msg;
     ros::Time rcv_stamp;
 
-    Command_Data_t();
     void feed(quadrotor_msgs::PositionCommandConstPtr pMsg);
+    bool is_received(const ros::Time &now_time);
+
+  private:
+    const Parameter_t &param_;
 };
 
 class Battery_Data_t {
   public:
+    Battery_Data_t(const Parameter_t &param) : rcv_stamp(ros::Time(0)), param_(param) {}
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     double volt{0.0};
     double percentage{0.0};
@@ -119,8 +154,11 @@ class Battery_Data_t {
     sensor_msgs::BatteryState msg;
     ros::Time rcv_stamp;
 
-    Battery_Data_t();
     void feed(sensor_msgs::BatteryStateConstPtr pMsg);
+    bool is_received(const ros::Time &now_time);
+
+  private:
+    const Parameter_t &param_;
 };
 
 class Takeoff_Land_Data_t {

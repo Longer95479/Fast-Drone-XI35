@@ -60,6 +60,12 @@ void Parameter_t::config_from_ros_handle(const ros::NodeHandle &nh) {
     read_essential_param(nh, "mavros/bat_msg_freq", mavros_bat_msg_freq);
     read_essential_param(nh, "mavros/battery_id", mavros_battery_id);
 
+    read_essential_param(nh, "mode/manual_priority", manual_priority);
+    read_essential_param(nh, "mode/auto_hover_priority", auto_hover_priority);
+    read_essential_param(nh, "mode/auto_takeoff_priority", auto_takeoff_priority);
+    read_essential_param(nh, "mode/auto_land_priority", auto_land_priority);
+    read_essential_param(nh, "mode/cmd_ctrl_priority", cmd_ctrl_priority);
+
     max_angle /= (180.0 / M_PI);
 
     if (takeoff_land.enable_auto_arm && !takeoff_land.enable) {

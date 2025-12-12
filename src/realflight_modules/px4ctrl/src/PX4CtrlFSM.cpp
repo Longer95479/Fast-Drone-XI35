@@ -1,17 +1,36 @@
 #include "PX4CtrlFSM.h"
+#include "input.h"
 #include <uav_utils/converters.h>
+#include <utility>
 
 using namespace std;
 using namespace uav_utils;
 
 PX4CtrlFSM::PX4CtrlFSM(Parameter_t &param_, LinearControl &controller_)
     : param(param_),
+      rc_data(param_),
+      odom_data(param_),
+      imu_data(param_),
+      cmd_data(param_),
+      bat_data(param_),
       controller(controller_) /*, thrust_curve(thrust_curve_)*/
 {
     state = MANUAL_CTRL;
     hover_pose.setZero();
     imu_acc_lpf.setZero();
     flag_init_imu_acc_lpf = false;
+
+    manual_mode       = new ManualCtrl(this);
+    auto_hover_mode   = new AutoHover(this);
+    auto_takeoff_mode = new AutoTakeoff(this);
+    auto_land_mode    = new AutoLand(this);
+    cmd_ctrl_mode     = new CmdCtrl(this);
+
+    modes.push_back(std::shared_ptr<Mode>(manual_mode));
+    modes.push_back(std::shared_ptr<Mode>(auto_hover_mode));
+    modes.push_back(std::shared_ptr<Mode>(auto_takeoff_mode));
+    modes.push_back(std::shared_ptr<Mode>(auto_land_mode));
+    modes.push_back(std::shared_ptr<Mode>(cmd_ctrl_mode));
 }
 
 /*
@@ -39,7 +58,102 @@ PX4CtrlFSM::PX4CtrlFSM(Parameter_t &param_, LinearControl &controller_)
 
 */
 
-void PX4CtrlFSM::process_new() {}
+void PX4CtrlFSM::update_status() {
+    ros::Time now_time = ros::Time::now();
+
+    std::vector<StatusItem> items = {
+        {"ODOM", [this, now_time]() { return odom_data.is_received(now_time); }, &odom_status},
+        {"CMD", [this, now_time]() { return cmd_data.is_received(now_time); }, &cmd_status},
+        {"RC", [this, now_time]() { return rc_data.is_received(now_time); }, &rc_connected},
+        {"BAT", [this, now_time]() { return bat_data.is_received(now_time); }, &bat_status},
+        {"IMU", [this, now_time]() { return imu_data.is_received(now_time); }, &imu_status},
+        {"RC_HOVER", [this]() { return rc_data.is_hover_mode; }, &rc_hover_mode},
+        {"RC_CMD", [this]() { return rc_data.is_command_mode; }, &rc_cmd_mode},
+        {"RC_REBOOT", [this]() { return rc_data.toggle_reboot; }, &rc_reboot_mode}};
+
+    for (auto &item : items) {
+        updateSingleStatus(item);
+    }
+}
+
+void PX4CtrlFSM::handle_events() {
+    if (rc_data.toggle_reboot)  // Try to reboot. EKF2 based PX4 FCU requires reboot when
+                                // its state estimator goes wrong.
+    {
+        if (!state_data.current_state.armed) {
+            reboot_FCU();
+
+        } else {
+            ROS_ERROR("[px4ctrl] Reject reboot! Disarm the drone first!");
+        }
+    }
+}
+
+void PX4CtrlFSM::process_new() {
+    update_status();
+    Mode *current = nullptr;
+    Mode *best    = nullptr;
+
+    for (auto &m : modes) {
+        if (m->canEnter()) {
+            if (!best || m->priority > best->priority) {
+                best = m.get();
+            }
+        }
+    }
+
+    if (best != current) {
+        if (current) current->onExit();
+        best->onEnter();
+        current = best;
+    }
+
+    current->run();
+    handle_events();
+
+    // STEP1.5: LPF imu acc data
+    if (state == AUTO_TAKEOFF || state == AUTO_HOVER || state == CMD_CTRL) {
+        LPF_imu_a(imu_data.a);
+    }
+
+    // STEP2: estimate thrust model
+    if (state == AUTO_TAKEOFF) {
+        ros::Time now  = ros::Time::now();
+        double delta_t = (now - takeoff_land.toggle_takeoff_land_time).toSec() -
+                         AutoTakeoffLand_t::MOTORS_SPEEDUP_TIME;
+        if (delta_t > 0.2) controller.estimateThrustModel(imu_acc_lpf, param);
+    }
+
+    if (state == AUTO_HOVER || state == CMD_CTRL) {
+        controller.estimateThrustModel(imu_acc_lpf, param);
+    }
+
+    // STEP3: solve and update new control commands
+    if (rotor_low_speed_during_land)  // used at the start of auto land
+    {
+        motors_idling(imu_data, u);
+    } else {
+        debug_msg              = controller.calculateControl(des, odom_data, imu_data, u);
+        debug_msg.header.stamp = now_time;
+        debug_pub.publish(debug_msg);
+    }
+
+    // STEP4: publish control commands to mavros
+    if (param.use_bodyrate_ctrl) {
+        publish_bodyrate_ctrl(u, now_time);
+    } else {
+        publish_attitude_ctrl(u, now_time);
+    }
+
+    // STEP5: Detect if the drone has landed
+    land_detector(state, des, odom_data);
+
+    // STEP6: Clear flags beyound their lifetime
+    rc_data.enter_hover_mode    = false;
+    rc_data.enter_command_mode  = false;
+    rc_data.toggle_reboot       = false;
+    takeoff_land_data.triggered = false;
+}
 
 void PX4CtrlFSM::process() {
     ros::Time now_time = ros::Time::now();
@@ -49,9 +163,9 @@ void PX4CtrlFSM::process() {
 
     // STEP1: state machine runs
 
-    bool odom_status  = odom_is_received(now_time);
-    bool cmd_status   = cmd_is_received(now_time);
-    bool rc_connected = rc_is_received(now_time);
+    odom_status  = odom_is_received(now_time);
+    cmd_status   = cmd_is_received(now_time);
+    rc_connected = rc_is_received(now_time);
 
     switch (state) {
         case MANUAL_CTRL: {
@@ -160,6 +274,7 @@ void PX4CtrlFSM::process() {
             if (rc_data.toggle_reboot)  // Try to reboot. EKF2 based PX4 FCU requires reboot when
                                         // its state estimator goes wrong.
             {
+                // TODO:写到handle_events() 里
                 if (state_data.current_state.armed) {
                     ROS_ERROR("[px4ctrl] Reject reboot! Disarm the drone first!");
                     break;

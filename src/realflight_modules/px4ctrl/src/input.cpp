@@ -1,22 +1,5 @@
 #include "input.h"
 
-RC_Data_t::RC_Data_t() {
-    rcv_stamp = ros::Time(0);
-
-    last_mode = -1.0;
-    last_gear = -1.0;
-
-    // Parameter initilation is very important in RC-Free usage!
-    is_hover_mode      = true;
-    enter_hover_mode   = false;
-    is_command_mode    = true;
-    enter_command_mode = false;
-    toggle_reboot      = false;
-    for (int i = 0; i < 4; ++i) {
-        ch[i] = 0.0;
-    }
-}
-
 void RC_Data_t::feed(mavros_msgs::RCInConstPtr pMsg) {
     msg       = *pMsg;
     rcv_stamp = ros::Time::now();
@@ -119,11 +102,9 @@ bool RC_Data_t::check_centered() {
     return centered;
 }
 
-Odom_Data_t::Odom_Data_t() {
-    rcv_stamp = ros::Time(0);
-    q.setIdentity();
-    recv_new_msg = false;
-};
+bool RC_Data_t::is_received(const ros::Time &now_time) {
+    return (now_time - rcv_stamp).toSec() < param_.msg_timeout.rc;
+}
 
 void Odom_Data_t::feed(nav_msgs::OdometryConstPtr pMsg) {
     ros::Time now = ros::Time::now();
@@ -160,7 +141,9 @@ void Odom_Data_t::feed(nav_msgs::OdometryConstPtr pMsg) {
     one_min_count++;
 }
 
-Imu_Data_t::Imu_Data_t() { rcv_stamp = ros::Time(0); }
+bool Odom_Data_t::is_received(const ros::Time &now_time) {
+    return (now_time - rcv_stamp).toSec() < param_.msg_timeout.odom;
+}
 
 void Imu_Data_t::feed(sensor_msgs::ImuConstPtr pMsg) {
     ros::Time now = ros::Time::now();
@@ -194,6 +177,10 @@ void Imu_Data_t::feed(sensor_msgs::ImuConstPtr pMsg) {
     one_min_count++;
 }
 
+bool Imu_Data_t::is_received(const ros::Time &now_time) {
+    return (now_time - rcv_stamp).toSec() < param_.msg_timeout.imu;
+}
+
 State_Data_t::State_Data_t() {}
 
 void State_Data_t::feed(mavros_msgs::StateConstPtr pMsg) { current_state = *pMsg; }
@@ -203,8 +190,6 @@ ExtendedState_Data_t::ExtendedState_Data_t() {}
 void ExtendedState_Data_t::feed(mavros_msgs::ExtendedStateConstPtr pMsg) {
     current_extended_state = *pMsg;
 }
-
-Command_Data_t::Command_Data_t() { rcv_stamp = ros::Time(0); }
 
 void Command_Data_t::feed(quadrotor_msgs::PositionCommandConstPtr pMsg) {
     msg       = *pMsg;
@@ -232,7 +217,9 @@ void Command_Data_t::feed(quadrotor_msgs::PositionCommandConstPtr pMsg) {
     yaw_rate = msg.yaw_dot;
 }
 
-Battery_Data_t::Battery_Data_t() { rcv_stamp = ros::Time(0); }
+bool Command_Data_t::is_received(const ros::Time &now_time) {
+    return (now_time - rcv_stamp).toSec() < param_.msg_timeout.cmd;
+}
 
 void Battery_Data_t::feed(sensor_msgs::BatteryStateConstPtr pMsg) {
     static bool lpf_init = false;
@@ -266,6 +253,10 @@ void Battery_Data_t::feed(sensor_msgs::BatteryStateConstPtr pMsg) {
             last_print_t = rcv_stamp;
         }
     }
+}
+
+bool Battery_Data_t::is_received(const ros::Time &now_time) {
+    return (now_time - rcv_stamp).toSec() < param_.msg_timeout.bat;
 }
 
 Takeoff_Land_Data_t::Takeoff_Land_Data_t() { rcv_stamp = ros::Time(0); }

@@ -13,6 +13,13 @@
 // #include "ThrustCurve.h"
 #include "controller.h"
 
+class Mode;
+class ManualCtrl;
+class AutoHover;
+class AutoTakeoff;
+class AutoLand;
+class CmdCtrl;
+
 struct AutoTakeoffLand_t {
     bool landed{true};
     ros::Time toggle_takeoff_land_time;
@@ -69,7 +76,17 @@ class PX4CtrlFSM {
         AUTO_LAND
     };
 
+    bool odom_status    = 0;
+    bool cmd_status     = 0;
+    bool bat_status     = 0;
+    bool imu_status     = 0;
+    bool rc_connected   = 0;
+    bool rc_hover_mode  = 0;
+    bool rc_cmd_mode    = 0;
+    bool rc_reboot_mode = 0;
+
     PX4CtrlFSM(Parameter_t &, LinearControl &);
+
     void process();
     void process_new();
     bool rc_is_received(const ros::Time &now_time);
@@ -82,6 +99,7 @@ class PX4CtrlFSM {
     bool get_landed() { return takeoff_land.landed; }
 
     void LPF_imu_a(Eigen::Vector3d &imu_data_acc);
+    void handle_events();
 
     // add by bk
     bool emergency_hover = false;
@@ -93,9 +111,43 @@ class PX4CtrlFSM {
     bool search_hover = false;
     void search_hover_callback(const std_msgs::BoolConstPtr &msg) { search_hover = msg->data; }
 
+    // ---- tools ----
+    void set_hov_with_odom();
+    void set_hov_with_rc();
+
+    bool toggle_offboard_mode(bool on_off);  // It will only try to toggle once, so not blocked.
+    bool toggle_arm_disarm(bool arm);        // It will only try to toggle once, so not blocked.
+
+    void set_start_pose_for_takeoff_land(const Odom_Data_t &odom);
+
   private:
     State_t state;  // Should only be changed in PX4CtrlFSM::process() function!
     AutoTakeoffLand_t takeoff_land;
+
+    std::vector<std::shared_ptr<Mode>> modes;
+    Mode *manual_mode;
+    Mode *auto_hover_mode;
+    Mode *auto_takeoff_mode;
+    Mode *auto_land_mode;
+    Mode *cmd_ctrl_mode;
+
+    struct StatusItem {
+        const char *name;
+        std::function<bool()> check_func;
+        bool *value_ptr;
+    };
+
+    void updateSingleStatus(const StatusItem &item) {
+        bool old          = *(item.value_ptr);
+        bool new_value    = item.check_func();
+        *(item.value_ptr) = new_value;
+
+        if (old != new_value) {
+            ROS_INFO("%s status changed: %d -> %d", item.name, old, new_value);
+        }
+    }
+
+    void update_status();
 
     // ---- control related ----
     Desired_State_t get_hover_des();
@@ -106,21 +158,110 @@ class PX4CtrlFSM {
     void land_detector(
         const State_t state, const Desired_State_t &des,
         const Odom_Data_t &odom);  // Detect landing
-    void set_start_pose_for_takeoff_land(const Odom_Data_t &odom);
+
     Desired_State_t get_rotor_speed_up_des(const ros::Time now);
     Desired_State_t get_takeoff_land_des(const double speed);
 
-    // ---- tools ----
-    void set_hov_with_odom();
-    void set_hov_with_rc();
-
-    bool toggle_offboard_mode(bool on_off);  // It will only try to toggle once, so not blocked.
-    bool toggle_arm_disarm(bool arm);        // It will only try to toggle once, so not blocked.
+    // tools
     void reboot_FCU();
 
     void publish_bodyrate_ctrl(const Controller_Output_t &u, const ros::Time &stamp);
     void publish_attitude_ctrl(const Controller_Output_t &u, const ros::Time &stamp);
     void publish_trigger(const nav_msgs::Odometry &odom_msg);
+};
+
+class Mode {
+  public:
+    Mode(PX4CtrlFSM *fsm) : priority(0), fsm_(fsm) {}
+    int priority;
+    virtual bool canEnter() = 0;  // 是否允许进入
+    virtual void onEnter(){};     // 进入时执行
+    virtual void onExit(){};      // 离开时执行
+    virtual void run() = 0;       // 主逻辑
+  protected:
+    PX4CtrlFSM *fsm_;
+};
+
+class ManualCtrl : public Mode {
+  public:
+    ManualCtrl(PX4CtrlFSM *fsm) : Mode(fsm) { priority = fsm_->param.manual_priority; }
+    bool canEnter() override { return true; }
+
+    void onEnter() override { fsm_->toggle_offboard_mode(false); }
+
+    void run() override {
+        // Manual mode does nothing
+    }
+};
+
+class AutoHover : public Mode {
+  public:
+    AutoHover(PX4CtrlFSM *fsm) : Mode(fsm) { priority = fsm_->param.auto_hover_priority; }
+
+    bool canEnter() override {
+        return (
+            fsm_->rc_hover_mode && fsm_->odom_status && !fsm_->cmd_status &&
+            (fsm_->odom_data.v.norm() < 3.0));
+    }
+
+    void onEnter() override {
+        fsm_->controller.resetThrustMapping();
+        fsm_->set_hov_with_odom();
+        fsm_->toggle_offboard_mode(true);
+    }
+
+    void run() override {}
+};
+
+class AutoTakeoff : public Mode {
+  public:
+    AutoTakeoff(PX4CtrlFSM *fsm) : Mode(fsm) { priority = fsm_->param.auto_takeoff_priority; }
+
+    bool canEnter() override {
+        return (
+            fsm_->param.takeoff_land.enable && fsm_->takeoff_land_data.triggered &&
+            fsm_->takeoff_land_data.takeoff_land_cmd == quadrotor_msgs::TakeoffLand::TAKEOFF &&
+            fsm_->rc_hover_mode && fsm_->odom_status && !fsm_->cmd_status && fsm_->rc_cmd_mode &&
+            fsm_->rc_data.check_centered() && (fsm_->odom_data.v.norm() < 0.1) &&
+            fsm_->get_landed() && fsm_->bat_status);
+    }
+
+    void onEnter() override {
+        fsm_->controller.resetThrustMapping();
+        fsm_->set_start_pose_for_takeoff_land(fsm_->odom_data);
+        fsm_->toggle_offboard_mode(true);
+    }
+
+    void run() override {}
+};
+
+class AutoLand : public Mode {
+  public:
+    AutoLand(PX4CtrlFSM *fsm) : Mode(fsm) { priority = fsm_->param.auto_land_priority; }
+
+    bool canEnter() override {
+        return (fsm_->takeoff_land_data.triggered &&
+                fsm_->takeoff_land_data.takeoff_land_cmd == quadrotor_msgs::TakeoffLand::LAND) ||
+               (fsm_->emergency_hover);
+    }
+
+    void onEnter() override {}
+
+    void run() override {}
+};
+
+class CmdCtrl : public Mode {
+  public:
+    CmdCtrl(PX4CtrlFSM *fsm) : Mode(fsm) { priority = fsm_->param.cmd_ctrl_priority; }
+
+    bool canEnter() override {
+        return (
+            fsm_->rc_cmd_mode && fsm_->cmd_status && !fsm_->emergency_hover && !fsm_->search_hover);
+    }
+
+    void onEnter() override { fsm_->toggle_offboard_mode(true); }
+
+    void run() override {}
 };
 
 #endif
