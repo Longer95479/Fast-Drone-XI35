@@ -13,7 +13,7 @@ image1_topic: "/camera/infra2/image_rect_raw"
 
 
 
-output_path: "/home/orin02/vins_output"
+output_path: "/root/Fast-Drone-XI35/vins_output"
 
 
 cam0_calib: "left.yaml"
@@ -92,7 +92,7 @@ acc_n: 0.1          # accelerometer measurement noise standard deviation. #0.2  
 gyr_n: 0.01         # gyroscope measurement noise standard deviation.     #0.05  0.004
 acc_w: 0.001         # accelerometer bias random work noise standard deviation.  #0.002
 gyr_w: 0.0001       # gyroscope bias random work noise standard deviation.     #4.0e-5
-g_norm: 9.805         # gravity magnitude
+g_norm: 9.8066         # gravity magnitude
 
 #unsynchronization parameters
 estimate_td: 1                      # online estimate time offset between camera and imu
@@ -165,3 +165,6 @@ point_matcher:
     image_height: 480
     onnx_file: "superpoint_lightglue.onnx"
     engine_file: "superpoint_lightglue.engine"
+
+# ZUPT
+use_zupt: 0

@@ -51,6 +51,7 @@ extern int ROW, COL;
 extern int NUM_OF_CAM;
 extern int STEREO;
 extern int USE_IMU;
+extern int USE_ZUPT;
 extern int MULTIPLE_THREAD;
 extern int USE_GPU;
 extern int USE_GPU_ACC_FLOW;

@@ -35,6 +35,7 @@ double TD;
 int NUM_OF_CAM;
 int STEREO;
 int USE_IMU;
+int USE_ZUPT;
 int MULTIPLE_THREAD;
 int USE_GPU;
 int USE_GPU_ACC_FLOW;
@@ -125,6 +126,9 @@ void readParameters(std::string config_file)
         GYR_W = fsSettings["gyr_w"];
         G.z() = fsSettings["g_norm"];
     }
+
+    USE_ZUPT = fsSettings["use_zupt"];
+    printf("USE_ZUPT: %d\n", USE_ZUPT);
 
     SOLVER_TIME = fsSettings["max_solver_time"];
     NUM_ITERATIONS = fsSettings["max_num_iterations"];
