@@ -51,7 +51,6 @@ extern int ROW, COL;
 extern int NUM_OF_CAM;
 extern int STEREO;
 extern int USE_IMU;
-extern int USE_ZUPT;
 extern int MULTIPLE_THREAD;
 extern int USE_GPU;
 extern int USE_GPU_ACC_FLOW;
@@ -86,6 +85,10 @@ extern double velocity_limit;
 
 extern int enable_ex_prior;
 extern double ex_prior_sqrt_info;
+
+extern int USE_ZUPT;
+extern int ENABLE_ZUPT_DEBUG_LOG;
+extern double ZUPT_ACC_N, ZUPT_GYR_N, ZUPT_VEL_N;
 
 void readParameters(std::string config_file);
 

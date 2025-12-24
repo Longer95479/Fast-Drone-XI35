@@ -8,6 +8,7 @@
 #include <map>
 #include <algorithm>
 #include <Eigen/Dense>
+#include "../estimator/parameters.h"
 
 class LowPassFilter
 {

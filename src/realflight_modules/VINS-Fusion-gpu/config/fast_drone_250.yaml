@@ -168,3 +168,7 @@ point_matcher:
 
 # ZUPT
 use_zupt: 0
+enable_zupt_debug_log: 0
+zupt_acc_n: 10000.0
+zupt_gyr_n: 0.01
+zupt_vel_n: 0.0

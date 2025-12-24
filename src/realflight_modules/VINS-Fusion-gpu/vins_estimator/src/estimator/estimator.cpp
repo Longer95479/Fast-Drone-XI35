@@ -45,6 +45,16 @@ void Estimator::setParameter() {
     cout << "set g " << g.transpose() << endl;
     featureTracker.readIntrinsicParameter(CAM_NAMES);
 
+    ZuptFactor::sqrt_info = Eigen::Matrix<double, 9, 9>::Identity();
+    ZuptFactor::sqrt_info.block<3, 3>(0, 0) = (0 == ZUPT_ACC_N) ? (1e8 * Eigen::Matrix3d::Identity()):
+                                              (1.0 / ZUPT_ACC_N) * Eigen::Matrix3d::Identity();
+    ZuptFactor::sqrt_info.block<3, 3>(3, 3) = (0 == ZUPT_GYR_N) ? (1e8 * Eigen::Matrix3d::Identity()):
+                                              (1.0 / ZUPT_GYR_N) * Eigen::Matrix3d::Identity();
+    ZuptFactor::sqrt_info.block<3, 3>(6, 6) = (0 == ZUPT_VEL_N) ? (1e8 * Eigen::Matrix3d::Identity()):
+                                              (1.0 / ZUPT_VEL_N) * Eigen::Matrix3d::Identity();
+    std::cout << "ZuptFactor::sqrt_info is" << std::endl;
+    std::cout << ZuptFactor::sqrt_info << std::endl;
+
     std::cout << "MULTIPLE_THREAD is " << MULTIPLE_THREAD << '\n';
     if (MULTIPLE_THREAD) {
         processThread = std::thread(&Estimator::processMeasurements, this);
@@ -191,9 +201,10 @@ void Estimator::processMeasurements() {
                 // processZUPT(feature.first);
                 bool is_static = zuptor.zuptDetection(curTime, nullptr, &feature.second);
                 bool is_sccess = zuptor.getResultInfo(curTime, &Zps[frame_count]);
-                ZuptResultInfo zupt_result_info = Zps[frame_count];
 
-                // DEBUG_ZUPT
+                if (ENABLE_ZUPT_DEBUG_LOG) { // DEBUG_ZUPT
+
+                ZuptResultInfo zupt_result_info = Zps[frame_count];
                 static bool is_first = true;
                 if (is_first) {
                     FILE* f = fopen("/root/Fast-Drone-XI35/vins_output/zupt_result_log.csv", "w");
@@ -248,7 +259,8 @@ void Estimator::processMeasurements() {
                     }
                     fclose(f);
                 }
-                // DEBUG_ZUPT
+
+                } // DEBUG_ZUPT
             }
 
             processImage(feature.second, feature.first);
@@ -985,7 +997,7 @@ void Estimator::optimization() {
     }
 
     if (USE_IMU && USE_ZUPT) {
-        for (int i = 0; i < frame_count; i++) {
+        for (int i = 0; i < frame_count + 1; i++) {
             if (!Zps[i].is_static_) continue;
             ZuptFactor *zupt_factor = new ZuptFactor(Zps[i], -g);
             problem.AddResidualBlock(
@@ -1107,6 +1119,18 @@ void Estimator::optimization() {
                     imu_factor, NULL,
                     vector<double *>{
                         para_Pose[0], para_SpeedBias[0], para_Pose[1], para_SpeedBias[1]},
+                    vector<int>{0, 1});
+                marginalization_info->addResidualBlockInfo(residual_block_info);
+            }
+        }
+
+        if (USE_IMU && USE_ZUPT) {
+            if (Zps[0].is_static_) {
+                ZuptFactor *zupt_factor = new ZuptFactor(Zps[0], -g);
+                ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
+                    zupt_factor, NULL,
+                    vector<double *>{
+                        para_Pose[0], para_SpeedBias[0]},
                     vector<int>{0, 1});
                 marginalization_info->addResidualBlockInfo(residual_block_info);
             }

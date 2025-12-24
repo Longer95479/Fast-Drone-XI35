@@ -78,7 +78,8 @@ bool Zupt::zuptDetection(double t, const Eigen::Vector3d* const vel_ptr,
         result_buf_.pop_front();
     }
 
-    // DEBUG
+    if (ENABLE_ZUPT_DEBUG_LOG) { // DEBUG_ZUPT
+
     static bool is_first = true;
     mBuf.lock();
     if (is_first) {
@@ -113,7 +114,8 @@ bool Zupt::zuptDetection(double t, const Eigen::Vector3d* const vel_ptr,
         fclose(f);
     }
     mBuf.unlock();
-    // END DEBUG
+
+    } // DEBUG_ZUPT
 
 
     return is_static;

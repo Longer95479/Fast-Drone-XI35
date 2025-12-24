@@ -35,7 +35,6 @@ double TD;
 int NUM_OF_CAM;
 int STEREO;
 int USE_IMU;
-int USE_ZUPT;
 int MULTIPLE_THREAD;
 int USE_GPU;
 int USE_GPU_ACC_FLOW;
@@ -68,6 +67,10 @@ double velocity_limit;
 
 int enable_ex_prior;
 double ex_prior_sqrt_info;
+
+int USE_ZUPT;
+int ENABLE_ZUPT_DEBUG_LOG;
+double ZUPT_ACC_N, ZUPT_GYR_N, ZUPT_VEL_N;
 
 template <typename T>
 T readParam(ros::NodeHandle &n, std::string name)
@@ -129,6 +132,12 @@ void readParameters(std::string config_file)
 
     USE_ZUPT = fsSettings["use_zupt"];
     printf("USE_ZUPT: %d\n", USE_ZUPT);
+    if (USE_ZUPT) {
+        ENABLE_ZUPT_DEBUG_LOG = fsSettings["enable_zupt_debug_log"];
+        ZUPT_ACC_N = fsSettings["zupt_acc_n"];
+        ZUPT_GYR_N = fsSettings["zupt_gyr_n"];
+        ZUPT_VEL_N = fsSettings["zupt_vel_n"];
+    }
 
     SOLVER_TIME = fsSettings["max_solver_time"];
     NUM_ITERATIONS = fsSettings["max_num_iterations"];
