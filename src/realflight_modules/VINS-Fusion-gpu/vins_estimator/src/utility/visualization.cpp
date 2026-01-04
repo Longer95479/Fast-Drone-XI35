@@ -66,7 +66,7 @@ void registerPub(ros::NodeHandle &n) {
 }
 
 void pubLatestOdometry(const Eigen::Vector3d &P, const Eigen::Quaterniond &Q,
-                       const Eigen::Vector3d &V, double t) {
+                       const Eigen::Vector3d &V, double t, double health_val) {
   nav_msgs::Odometry odometry;
   odometry.header.stamp = ros::Time(t);
   odometry.header.frame_id = "world";
@@ -80,6 +80,7 @@ void pubLatestOdometry(const Eigen::Vector3d &P, const Eigen::Quaterniond &Q,
   odometry.twist.twist.linear.x = V.x();
   odometry.twist.twist.linear.y = V.y();
   odometry.twist.twist.linear.z = V.z();
+  odometry.twist.twist.angular.x = health_val;
   // add
 
   if (ODOM_TYPE == 0)

@@ -38,6 +38,32 @@ catkin_package(
   CATKIN_DEPENDS roscpp rospy std_msgs sensor_msgs geometry_msgs image_transport
 )
 
+if(EXISTS "/usr/local/include/tensorrt")
+    message(STATUS "tensorrt include directory: /usr/local/include/tensorrt")
+    link_directories(/usr/local/tensorrt/lib)
+    include_directories(/usr/local/include/tensorrt)
+else()
+    message(STATUS "external path for tensorrt not found")
+endif()
+
+cuda_add_library(custom_layernorm SHARED
+  trt_plugins/custom_layernorm.cu
+)
+
+target_link_libraries(custom_layernorm
+  nvinfer
+  nvinfer_plugin
+)
+
+set(TRT_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/trt_plugins")
+add_custom_command(TARGET custom_layernorm POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    $<TARGET_FILE:custom_layernorm>
+    ${TRT_TARGET_DIR}/
+  COMMENT "Copying libcustom_layernorm.so to ${TRT_TARGET_DIR}"
+)
+
+
 include_directories(
   ${PROJECT_SOURCE_DIR}
   ${PROJECT_SOURCE_DIR}/include
@@ -59,15 +85,6 @@ add_library(${PROJECT_NAME}_lib SHARED
     src/utils.cpp
     src/xfeat.cpp
 )
-
-# cuda_add_library(custom_layernorm SHARED
-#   trt_plugins/custom_layernorm.cu
-# )
-
-# target_link_libraries(custom_layernorm
-#   libnvinfer.so
-#   libnvinfer_plugin.so
-# )
 
 target_link_libraries(${PROJECT_NAME}_lib
   nvinfer

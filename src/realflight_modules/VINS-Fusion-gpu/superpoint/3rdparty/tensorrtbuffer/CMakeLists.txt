@@ -14,6 +14,14 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/include
 )
 
+if(EXISTS "/usr/local/include/tensorrt")
+    message(STATUS "tensorrt include directory: /usr/local/include/tensorrt")
+    link_directories(/usr/local/tensorrt/lib)
+    include_directories(/usr/local/include/tensorrt)
+else()
+    message(STATUS "external path for tensorrt not found")
+endif()
+
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 add_library(tensorrtbuffer SHARED src/logger.cpp src/sample_options.cpp src/sample_utils.cpp)
