@@ -78,6 +78,7 @@ include_directories(
 add_library(${PROJECT_NAME}_lib SHARED
     src/feature_detector.cpp
     src/feature_tracker.cpp
+    src/feature_predictor.cpp
     src/light_glue.cpp
     src/plnet.cpp
     src/point_matcher.cpp

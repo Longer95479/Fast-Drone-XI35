@@ -157,6 +157,7 @@ xfeat_opticalflow:
     max_roi_len: 40 #预测点的最大ROI边长
     min_match_dist: 0.9 #匹配成功的最小余弦距离
     roi_pts_threshold: 0.1 #roi内视为特征点的heatmap阈值
+    ratio_test_threshold: 1
     
 point_matcher:
     matcher: 0   # 0 for lightglue

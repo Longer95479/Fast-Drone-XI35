@@ -6,7 +6,7 @@ class FeatureManager;
 
 class HealthMonitor {
  public:
-  static constexpr double maxHealthValue = 3.0;
+  static constexpr double maxHealthValue = 2.5;
   static constexpr int visFeatCntMax = 60;
   static constexpr double maxTranslation = 1e4;
   static constexpr double maxVelocity = 50;

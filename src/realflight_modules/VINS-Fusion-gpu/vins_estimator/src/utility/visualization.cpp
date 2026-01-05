@@ -174,6 +174,7 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header) {
     odometry.twist.twist.angular.x = estimator.Bas[WINDOW_SIZE].x();
     odometry.twist.twist.angular.y = estimator.Bas[WINDOW_SIZE].y();
     odometry.twist.twist.angular.z = estimator.Bas[WINDOW_SIZE].z();
+
     pub_odometry.publish(odometry);
 
     geometry_msgs::PoseStamped pose_stamped;
@@ -462,6 +463,9 @@ void pubTF(const Estimator &estimator, const std_msgs::Header &header) {
   odometry.pose.pose.orientation.y = tmp_q.y();
   odometry.pose.pose.orientation.z = tmp_q.z();
   odometry.pose.pose.orientation.w = tmp_q.w();
+  odometry.twist.twist.linear.x = estimator.Bgs[WINDOW_SIZE].x();
+  odometry.twist.twist.linear.y = estimator.Bgs[WINDOW_SIZE].y();
+  odometry.twist.twist.linear.z = estimator.Bgs[WINDOW_SIZE].z();
   pub_extrinsic.publish(odometry);
 }
 
