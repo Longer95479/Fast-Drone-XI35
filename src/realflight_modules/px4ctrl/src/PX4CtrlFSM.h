@@ -53,6 +53,7 @@ class PX4CtrlFSM {
     ros::ServiceClient set_FCU_mode_srv;
     ros::ServiceClient arming_client_srv;
     ros::ServiceClient reboot_FCU_srv;
+    ros::ServiceClient set_bat_freq;
 
     quadrotor_msgs::Px4ctrlDebug debug_msg;  // debug
 
@@ -70,6 +71,7 @@ class PX4CtrlFSM {
 
     PX4CtrlFSM(Parameter_t &, LinearControl &);
     void process();
+    void process_new();
     bool rc_is_received(const ros::Time &now_time);
     bool cmd_is_received(const ros::Time &now_time);
     bool odom_is_received(const ros::Time &now_time);

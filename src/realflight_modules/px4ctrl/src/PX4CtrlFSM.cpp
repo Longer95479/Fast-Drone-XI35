@@ -69,7 +69,7 @@ void PX4CtrlFSM::process() {
                 }
 
                 state = AUTO_HOVER;
-                controller.resetThrustMapping();
+                controller.resetThrustMapping(bat_data);
                 set_hov_with_odom();
                 toggle_offboard_mode(true);
 
@@ -102,8 +102,7 @@ void PX4CtrlFSM::process() {
                         "landed now!");
                     break;
                 }
-                if (rc_is_received(now_time))  // Check this only if RC is connected.
-                {
+                if (rc_is_received(now_time)) {
                     if (!rc_data.is_hover_mode || !rc_data.is_command_mode ||
                         !rc_data.check_centered()) {
                         ROS_ERROR(
@@ -132,8 +131,7 @@ void PX4CtrlFSM::process() {
                         ros::spinOnce();
                     }
                 }
-                // controller.resetThrustMapping(bat_data);  // Only suit for 6s, not 4s yet.
-                controller.resetThrustMapping();
+                controller.resetThrustMapping(bat_data);
 
                 set_start_pose_for_takeoff_land(odom_data);
                 toggle_offboard_mode(true);  // toggle on offboard before arm
@@ -187,7 +185,9 @@ void PX4CtrlFSM::process() {
                 set_start_pose_for_takeoff_land(odom_data);
 
                 ROS_INFO("\033[32m[px4ctrl] AUTO_HOVER(L2) --> AUTO_LAND\033[32m");
-                if (emergency_hover) ROS_WARN("Switch to AUTO_LAND due to Emergency!");
+                if (emergency_hover) {
+                    ROS_WARN("Switch to AUTO_LAND due to Emergency!");
+                }
             } else {
                 set_hov_with_rc();
                 des = get_hover_des();
@@ -205,7 +205,7 @@ void PX4CtrlFSM::process() {
             break;
         }
 
-        case CMD_CTRL: {  // offboard模式
+        case CMD_CTRL: {
             if (!rc_data.is_hover_mode || !odom_is_received(now_time)) {
                 state = MANUAL_CTRL;
                 toggle_offboard_mode(false);
@@ -227,8 +227,9 @@ void PX4CtrlFSM::process() {
             if (takeoff_land_data.triggered &&
                 takeoff_land_data.takeoff_land_cmd == quadrotor_msgs::TakeoffLand::LAND) {
                 ROS_ERROR(
-                    "[px4ctrl] Reject AUTO_LAND, which must be triggered in AUTO_HOVER. \
-					Stop sending control commands for longer than %fs to let px4ctrl return to AUTO_HOVER first.",
+                    "[px4ctrl] Reject AUTO_LAND, which must be triggered in AUTO_HOVER. Stop "
+                    "sending control commands for longer than %fs to let px4ctrl return to "
+                    "AUTO_HOVER first.",
                     param.msg_timeout.cmd);
             }
 
@@ -320,19 +321,19 @@ void PX4CtrlFSM::process() {
         ros::Time now  = ros::Time::now();
         double delta_t = (now - takeoff_land.toggle_takeoff_land_time).toSec() -
                          AutoTakeoffLand_t::MOTORS_SPEEDUP_TIME;
-        if (delta_t > 0.2) controller.estimateThrustModel(imu_acc_lpf, param);
+        if (delta_t > 0.2) controller.estimateThrustModel(imu_acc_lpf, param, bat_data);
     }
 
     if (state == AUTO_HOVER || state == CMD_CTRL) {
         // controller.estimateThrustModel(imu_data.a, bat_data.volt, param);
         // controller.estimateThrustModel(imu_data.a, param);
         // controller.estimateThrustModelUsingVelFB(odom_data.v, param);
-        controller.estimateThrustModel(imu_acc_lpf, param);
+        controller.estimateThrustModel(imu_acc_lpf, param, bat_data);
         // controller.estimateThrustModel(imu_acc_lpf, param, bat_data);
     }
 
     // STEP3: solve and update new control commands
-    if (rotor_low_speed_during_land)  // used at the start of auto takeoff
+    if (rotor_low_speed_during_land)  // used at the start of auto land
     {
         motors_idling(imu_data, u);
     } else {
@@ -494,13 +495,13 @@ void PX4CtrlFSM::set_hov_with_rc() {
     last_set_hover_pose_time = now;
 
     hover_pose(0) +=
-        rc_data.ch[1] * param.max_manual_vel * delta_t * (param.rc_reverse.pitch ? 1 : -1);
+        rc_data.ch[1] * param.max_manual_vel * delta_t * (param.rc_reverse.pitch ? -1 : 1);
     hover_pose(1) +=
-        rc_data.ch[0] * param.max_manual_vel * delta_t * (param.rc_reverse.roll ? 1 : -1);
+        rc_data.ch[0] * param.max_manual_vel * delta_t * (param.rc_reverse.roll ? -1 : 1);
     hover_pose(2) +=
-        rc_data.ch[2] * param.max_manual_vel * delta_t * (param.rc_reverse.throttle ? 1 : -1);
+        rc_data.ch[2] * param.max_manual_vel * delta_t * (param.rc_reverse.throttle ? -1 : 1);
     hover_pose(3) +=
-        rc_data.ch[3] * param.max_manual_vel * delta_t * (param.rc_reverse.yaw ? 1 : -1);
+        rc_data.ch[3] * param.max_manual_vel * delta_t * (param.rc_reverse.yaw ? -1 : 1);
 
     if (hover_pose(2) < -0.3) hover_pose(2) = -0.3;
 
@@ -603,8 +604,9 @@ bool PX4CtrlFSM::toggle_offboard_mode(bool on_off) {
 
     if (on_off) {
         state_data.state_before_offboard = state_data.current_state;
-        if (state_data.state_before_offboard.mode == "OFFBOARD")  // Not allowed
+        if (state_data.state_before_offboard.mode == "OFFBOARD") {  // Not allowed
             state_data.state_before_offboard.mode = "MANUAL";
+        }
 
         offb_set_mode.request.custom_mode = "OFFBOARD";
         if (!(set_FCU_mode_srv.call(offb_set_mode) && offb_set_mode.response.mode_sent)) {
