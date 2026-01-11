@@ -86,6 +86,10 @@ extern double velocity_limit;
 extern int enable_ex_prior;
 extern double ex_prior_sqrt_info;
 
+extern int USE_ZUPT;
+extern int ENABLE_ZUPT_DEBUG_LOG;
+extern double ZUPT_ACC_N, ZUPT_GYR_N, ZUPT_VEL_N;
+
 void readParameters(std::string config_file);
 
 enum SIZE_PARAMETERIZATION
