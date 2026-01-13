@@ -1,8 +1,8 @@
 /*******************************************************
  * Copyright (C) 2019, Aerial Robotics Group, Hong Kong University of Science and Technology
- * 
+ *
  * This file is part of VINS.
- * 
+ *
  * Licensed under the GNU General Public License v3.0;
  * you may not use this file except in compliance with the License.
  *******************************************************/
@@ -73,54 +73,47 @@ int ENABLE_ZUPT_DEBUG_LOG;
 double ZUPT_ACC_N, ZUPT_GYR_N, ZUPT_VEL_N;
 
 template <typename T>
-T readParam(ros::NodeHandle &n, std::string name)
-{
+T readParam(ros::NodeHandle &n, std::string name) {
     T ans;
-    if (n.getParam(name, ans))
-    {
+    if (n.getParam(name, ans)) {
         ROS_INFO_STREAM("Loaded " << name << ": " << ans);
-    }
-    else
-    {
+    } else {
         ROS_ERROR_STREAM("Failed to load " << name);
         n.shutdown();
     }
     return ans;
 }
 
-void readParameters(std::string config_file)
-{
-    FILE *fh = fopen(config_file.c_str(),"r");
-    if(fh == NULL){
+void readParameters(std::string config_file) {
+    FILE *fh = fopen(config_file.c_str(), "r");
+    if (fh == NULL) {
         ROS_WARN("config_file dosen't exist; wrong config_file path");
         ROS_BREAK();
-        return;          
+        return;
     }
     fclose(fh);
 
     cv::FileStorage fsSettings(config_file, cv::FileStorage::READ);
-    if(!fsSettings.isOpened())
-    {
+    if (!fsSettings.isOpened()) {
         std::cerr << "ERROR: Wrong path to settings" << std::endl;
     }
 
     fsSettings["image0_topic"] >> IMAGE0_TOPIC;
     fsSettings["image1_topic"] >> IMAGE1_TOPIC;
-    MAX_CNT = fsSettings["max_cnt"];
-    MIN_DIST = fsSettings["min_dist"];
+    MAX_CNT     = fsSettings["max_cnt"];
+    MIN_DIST    = fsSettings["min_dist"];
     F_THRESHOLD = fsSettings["F_threshold"];
-    SHOW_TRACK = fsSettings["show_track"];
-    FLOW_BACK = fsSettings["flow_back"];
+    SHOW_TRACK  = fsSettings["show_track"];
+    FLOW_BACK   = fsSettings["flow_back"];
 
     MULTIPLE_THREAD = fsSettings["multiple_thread"];
 
-    USE_GPU = fsSettings["use_gpu"];
+    USE_GPU          = fsSettings["use_gpu"];
     USE_GPU_ACC_FLOW = fsSettings["use_gpu_acc_flow"];
 
     USE_IMU = fsSettings["imu"];
     printf("USE_IMU: %d\n", USE_IMU);
-    if(USE_IMU)
-    {
+    if (USE_IMU) {
         fsSettings["imu_topic"] >> IMU_TOPIC;
         printf("IMU_TOPIC: %s\n", IMU_TOPIC.c_str());
         ACC_N = fsSettings["acc_n"];
@@ -134,15 +127,15 @@ void readParameters(std::string config_file)
     printf("USE_ZUPT: %d\n", USE_ZUPT);
     if (USE_ZUPT) {
         ENABLE_ZUPT_DEBUG_LOG = fsSettings["enable_zupt_debug_log"];
-        ZUPT_ACC_N = fsSettings["zupt_acc_n"];
-        ZUPT_GYR_N = fsSettings["zupt_gyr_n"];
-        ZUPT_VEL_N = fsSettings["zupt_vel_n"];
+        ZUPT_ACC_N            = fsSettings["zupt_acc_n"];
+        ZUPT_GYR_N            = fsSettings["zupt_gyr_n"];
+        ZUPT_VEL_N            = fsSettings["zupt_vel_n"];
     }
 
-    SOLVER_TIME = fsSettings["max_solver_time"];
+    SOLVER_TIME    = fsSettings["max_solver_time"];
     NUM_ITERATIONS = fsSettings["max_num_iterations"];
-    MIN_PARALLAX = fsSettings["keyframe_parallax"];
-    MIN_PARALLAX = MIN_PARALLAX / FOCAL_LENGTH;
+    MIN_PARALLAX   = fsSettings["keyframe_parallax"];
+    MIN_PARALLAX   = MIN_PARALLAX / FOCAL_LENGTH;
 
     fsSettings["output_path"] >> OUTPUT_FOLDER;
     VINS_RESULT_PATH = OUTPUT_FOLDER + "/vio.csv";
@@ -151,22 +144,17 @@ void readParameters(std::string config_file)
     fout.close();
 
     ESTIMATE_EXTRINSIC = fsSettings["estimate_extrinsic"];
-    if (ESTIMATE_EXTRINSIC == 2)
-    {
+    if (ESTIMATE_EXTRINSIC == 2) {
         ROS_WARN("have no prior about extrinsic param, calibrate extrinsic param");
         RIC.push_back(Eigen::Matrix3d::Identity());
         TIC.push_back(Eigen::Vector3d::Zero());
         EX_CALIB_RESULT_PATH = OUTPUT_FOLDER + "/extrinsic_parameter.csv";
-    }
-    else 
-    {
-        if ( ESTIMATE_EXTRINSIC == 1)
-        {
+    } else {
+        if (ESTIMATE_EXTRINSIC == 1) {
             ROS_WARN(" Optimize extrinsic param around initial guess!");
             EX_CALIB_RESULT_PATH = OUTPUT_FOLDER + "/extrinsic_parameter.csv";
         }
-        if (ESTIMATE_EXTRINSIC == 0)
-            ROS_WARN(" fix extrinsic param ");
+        if (ESTIMATE_EXTRINSIC == 0) ROS_WARN(" fix extrinsic param ");
 
         cv::Mat cv_T;
         fsSettings["body_T_cam0"] >> cv_T;
@@ -174,35 +162,32 @@ void readParameters(std::string config_file)
         cv::cv2eigen(cv_T, T);
         RIC.push_back(T.block<3, 3>(0, 0));
         TIC.push_back(T.block<3, 1>(0, 3));
-    } 
-    
+    }
+
     NUM_OF_CAM = fsSettings["num_of_cam"];
     printf("camera number %d\n", NUM_OF_CAM);
 
-    if(NUM_OF_CAM != 1 && NUM_OF_CAM != 2)
-    {
+    if (NUM_OF_CAM != 1 && NUM_OF_CAM != 2) {
         printf("num_of_cam should be 1 or 2\n");
         assert(0);
     }
 
-
-    int pn = config_file.find_last_of('/');
+    int pn                 = config_file.find_last_of('/');
     std::string configPath = config_file.substr(0, pn);
-    
+
     std::string cam0Calib;
     fsSettings["cam0_calib"] >> cam0Calib;
     std::string cam0Path = configPath + "/" + cam0Calib;
     CAM_NAMES.push_back(cam0Path);
 
-    if(NUM_OF_CAM == 2)
-    {
+    if (NUM_OF_CAM == 2) {
         STEREO = 1;
         std::string cam1Calib;
         fsSettings["cam1_calib"] >> cam1Calib;
-        std::string cam1Path = configPath + "/" + cam1Calib; 
-        //printf("%s cam1 path\n", cam1Path.c_str() );
+        std::string cam1Path = configPath + "/" + cam1Calib;
+        // printf("%s cam1 path\n", cam1Path.c_str() );
         CAM_NAMES.push_back(cam1Path);
-        
+
         cv::Mat cv_T;
         fsSettings["body_T_cam1"] >> cv_T;
         Eigen::Matrix4d T;
@@ -212,11 +197,11 @@ void readParameters(std::string config_file)
         fsSettings["publish_rectify"] >> PUB_RECTIFY;
     }
 
-    INIT_DEPTH = 5.0;
+    INIT_DEPTH         = 5.0;
     BIAS_ACC_THRESHOLD = 0.1;
     BIAS_GYR_THRESHOLD = 0.1;
 
-    TD = fsSettings["td"];
+    TD          = fsSettings["td"];
     ESTIMATE_TD = fsSettings["estimate_td"];
     if (ESTIMATE_TD)
         ROS_INFO_STREAM("Unsynchronized sensors, online estimate time offset, initial td: " << TD);
@@ -227,33 +212,30 @@ void readParameters(std::string config_file)
     COL = fsSettings["image_width"];
     ROS_INFO("ROW: %d COL: %d ", ROW, COL);
 
-    if(!USE_IMU)
-    {
+    if (!USE_IMU) {
         ESTIMATE_EXTRINSIC = 0;
-        ESTIMATE_TD = 0;
+        ESTIMATE_TD        = 0;
         printf("no imu, fix extrinsic param; no time offset calibration\n");
     }
-    if(PUB_RECTIFY)
-    {
+    if (PUB_RECTIFY) {
         cv::Mat rectify_left;
         cv::Mat rectify_right;
         fsSettings["cam0_rectify"] >> rectify_left;
         fsSettings["cam1_rectify"] >> rectify_right;
         cv::cv2eigen(rectify_left, rectify_R_left);
         cv::cv2eigen(rectify_right, rectify_R_right);
-
     }
-    ODOM_TYPE = fsSettings["odometry_type"];
-    DRONE_ID = fsSettings["drone_id"];
+    ODOM_TYPE     = fsSettings["odometry_type"];
+    DRONE_ID      = fsSettings["drone_id"];
     SINGLE_OFFSET = fsSettings["single_offset"];
 
     USE_EXTERNAL_TRACKER = fsSettings["use_external_front_end"];
-    record_csv = fsSettings["record_csv"];
+    record_csv           = fsSettings["record_csv"];
     fsSettings["csv_file_path"] >> csv_file_path;
-    enable_pub_imu_path = fsSettings["enable_pub_imu_path"];
+    enable_pub_imu_path    = fsSettings["enable_pub_imu_path"];
     enable_imu_odom_smooth = fsSettings["enable_imu_odom_smooth"];
-    velocity_limit = fsSettings["velocity_limit"];
-    enable_ex_prior = fsSettings["enable_ex_prior"];
-    ex_prior_sqrt_info = fsSettings["ex_prior_sqrt_info"];
+    velocity_limit         = fsSettings["velocity_limit"];
+    enable_ex_prior        = fsSettings["enable_ex_prior"];
+    ex_prior_sqrt_info     = fsSettings["ex_prior_sqrt_info"];
     fsSettings.release();
 }

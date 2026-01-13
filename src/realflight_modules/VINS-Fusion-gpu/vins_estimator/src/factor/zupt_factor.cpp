@@ -2,8 +2,8 @@
 
 Eigen::Matrix<double, 9, 9> ZuptFactor::sqrt_info;
 
-bool ZuptFactor::Evaluate(double const *const *parameters, double *residuals, double **jacobians) const
-{
+bool ZuptFactor::Evaluate(
+    double const *const *parameters, double *residuals, double **jacobians) const {
     Eigen::Vector3d P(parameters[0][0], parameters[0][1], parameters[0][2]);
     Eigen::Quaterniond Q(parameters[0][6], parameters[0][3], parameters[0][4], parameters[0][5]);
 
@@ -12,8 +12,8 @@ bool ZuptFactor::Evaluate(double const *const *parameters, double *residuals, do
     Eigen::Vector3d Bg(parameters[1][6], parameters[1][7], parameters[1][8]);
 
     Eigen::Matrix3d R_IG = Q.inverse().toRotationMatrix();
-    Eigen::Vector3d am = zupt_info_.acc_raw_;
-    Eigen::Vector3d wm = zupt_info_.gyr_raw_;
+    Eigen::Vector3d am   = zupt_info_.acc_raw_;
+    Eigen::Vector3d wm   = zupt_info_.gyr_raw_;
 
     Eigen::Map<Eigen::Matrix<double, 9, 1>> residual(residuals);
     residual.block<3, 1>(0, 0) = am + R_IG * g_global_ - Ba;
@@ -28,17 +28,18 @@ bool ZuptFactor::Evaluate(double const *const *parameters, double *residuals, do
             jacobian_pose.setZero();
 
             jacobian_pose.block<3, 3>(0, 3) = R_IG * Utility::skewSymmetric(-g_global_);
-            jacobian_pose = sqrt_info * jacobian_pose;
+            jacobian_pose                   = sqrt_info * jacobian_pose;
         }
 
         if (jacobians[1]) {
-            Eigen::Map<Eigen::Matrix<double, 9, 9, Eigen::RowMajor>> jacobian_speedbias(jacobians[1]);
+            Eigen::Map<Eigen::Matrix<double, 9, 9, Eigen::RowMajor>> jacobian_speedbias(
+                jacobians[1]);
             jacobian_speedbias.setZero();
 
             jacobian_speedbias.block<3, 3>(0, 3) = -Eigen::Matrix3d::Identity();
             jacobian_speedbias.block<3, 3>(3, 6) = Eigen::Matrix3d::Identity();
             jacobian_speedbias.block<3, 3>(6, 0) = Eigen::Matrix3d::Identity();
-            jacobian_speedbias = sqrt_info * jacobian_speedbias;
+            jacobian_speedbias                   = sqrt_info * jacobian_speedbias;
         }
     }
 
@@ -55,4 +56,3 @@ bool ZuptFactor::Evaluate(double const *const *parameters, double *residuals, do
 
     return true;
 }
-
