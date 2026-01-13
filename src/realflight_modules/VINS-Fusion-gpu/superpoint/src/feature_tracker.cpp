@@ -3,390 +3,323 @@
 const double FOCAL_LENGTH = 460.0;
 
 double distance(cv::Point2f pt1, cv::Point2f pt2) {
-  // printf("pt1: %f %f pt2: %f %f\n", pt1.x, pt1.y, pt2.x, pt2.y);
-  double dx = pt1.x - pt2.x;
-  double dy = pt1.y - pt2.y;
-  return sqrt(dx * dx + dy * dy);
+    // printf("pt1: %f %f pt2: %f %f\n", pt1.x, pt1.y, pt2.x, pt2.y);
+    double dx = pt1.x - pt2.x;
+    double dy = pt1.y - pt2.y;
+    return sqrt(dx * dx + dy * dy);
 }
 
 template <typename T>
 void reduceVector(vector<T> &v, vector<uchar> status) {
-  int j = 0;
-  for (int i = 0; i < int(v.size()); i++)
-    if (status[i]) v[j++] = v[i];
-  v.resize(j);
+    int j = 0;
+    for (int i = 0; i < int(v.size()); i++)
+        if (status[i]) v[j++] = v[i];
+    v.resize(j);
 }
 
 template <typename T>
 void reduceEigenVector(aligned_vector<T> &v, const std::vector<uchar> &status) {
-  int j = 0;
-  for (int i = 0; i < static_cast<int>(v.size()); i++) {
-    if (status[i]) {
-      v[j++] = v[i];
+    int j = 0;
+    for (int i = 0; i < static_cast<int>(v.size()); i++) {
+        if (status[i]) {
+            v[j++] = v[i];
+        }
     }
-  }
-  v.resize(j);
+    v.resize(j);
 }
 
 int clip(int val, int max) {
-  if (val < 0) return 0;
-  return std::min(val, max - 1);
+    if (val < 0) return 0;
+    return std::min(val, max - 1);
 }
 
-double getFlowErr(const vector<cv::Point2f> &ref_pts,
-                  const vector<cv::Point2f> &cur_pts,
-                  const vector<uchar> &status) {
-  double flow_avg = 0;
-  int cnt = 0;
-  for (size_t i = 0; i < status.size(); i++) {
-    if (!status[i]) continue;
-    auto err = cur_pts[i] - ref_pts[i];
-    flow_avg += std::sqrt(err.dot(err));
-    cnt++;
-  }
-  if (cnt != 0) {
-    return flow_avg / cnt;
-  } else {
-    return -1;
-  }
+double getFlowErr(
+    const vector<cv::Point2f> &ref_pts, const vector<cv::Point2f> &cur_pts,
+    const vector<uchar> &status) {
+    double flow_avg = 0;
+    int cnt         = 0;
+    for (size_t i = 0; i < status.size(); i++) {
+        if (!status[i]) continue;
+        auto err = cur_pts[i] - ref_pts[i];
+        flow_avg += std::sqrt(err.dot(err));
+        cnt++;
+    }
+    if (cnt != 0) {
+        return flow_avg / cnt;
+    } else {
+        return -1;
+    }
 }
 
 bool FeatureTracker::inBorder(const cv::Point2f &pt) {
-  int BORDER_SIZE = feature_tracker_config.borders;
-  int img_x = cvRound(pt.x);
-  int img_y = cvRound(pt.y);
-  return BORDER_SIZE <= img_x &&
-         img_x < feature_tracker_config.col - BORDER_SIZE &&
-         BORDER_SIZE <= img_y &&
-         img_y < feature_tracker_config.row - BORDER_SIZE;
+    int BORDER_SIZE = feature_tracker_config.borders;
+    int img_x       = cvRound(pt.x);
+    int img_y       = cvRound(pt.y);
+    return BORDER_SIZE <= img_x && img_x < feature_tracker_config.col - BORDER_SIZE &&
+           BORDER_SIZE <= img_y && img_y < feature_tracker_config.row - BORDER_SIZE;
 }
 
-vector<cv::Point2f> FeatureTracker::undistortedPts(vector<cv::Point2f> &pts,
-                                                   camodocal::CameraPtr cam) {
-  vector<cv::Point2f> un_pts;
-  for (unsigned int i = 0; i < pts.size(); i++) {
-    Eigen::Vector2d a(pts[i].x, pts[i].y);
-    Eigen::Vector3d b;
-    cam->liftProjective(a, b);
-    un_pts.push_back(cv::Point2f(b.x() / b.z(), b.y() / b.z()));
-  }
-  return un_pts;
+vector<cv::Point2f> FeatureTracker::undistortedPts(
+    vector<cv::Point2f> &pts, camodocal::CameraPtr cam) {
+    vector<cv::Point2f> un_pts;
+    for (unsigned int i = 0; i < pts.size(); i++) {
+        Eigen::Vector2d a(pts[i].x, pts[i].y);
+        Eigen::Vector3d b;
+        cam->liftProjective(a, b);
+        un_pts.push_back(cv::Point2f(b.x() / b.z(), b.y() / b.z()));
+    }
+    return un_pts;
 }
 
 vector<cv::Point2f> FeatureTracker::ptsVelocity(
     vector<int> &_cur_ids, vector<cv::Point2f> &_cur_un_pts,
-    unordered_map<int, cv::Point2f> &cur_id_pts,
-    unordered_map<int, cv::Point2f> &prev_id_pts)
+    unordered_map<int, cv::Point2f> &cur_id_pts, unordered_map<int, cv::Point2f> &prev_id_pts)
 
 {
-  vector<cv::Point2f> pts_velocity;
-  cur_id_pts.clear();
-  for (unsigned int i = 0; i < _cur_ids.size(); i++) {
-    cur_id_pts[_cur_ids[i]] = _cur_un_pts[i];
-  }
-
-  // caculate points velocity
-  if (!prev_id_pts.empty()) {
-    double dt = cur_time - prev_time;
-
+    vector<cv::Point2f> pts_velocity;
+    cur_id_pts.clear();
     for (unsigned int i = 0; i < _cur_ids.size(); i++) {
-      std::unordered_map<int, cv::Point2f>::iterator it;
-      it = prev_id_pts.find(_cur_ids[i]);
-      if (it != prev_id_pts.end()) {
-        double v_x = (_cur_un_pts[i].x - it->second.x) / dt;
-        double v_y = (_cur_un_pts[i].y - it->second.y) / dt;
-        pts_velocity.push_back(cv::Point2f(v_x, v_y));
-      } else
-        pts_velocity.push_back(cv::Point2f(0, 0));
+        cur_id_pts[_cur_ids[i]] = _cur_un_pts[i];
     }
-  } else {
-    for (unsigned int i = 0; i < _cur_un_pts.size(); i++) {
-      pts_velocity.push_back(cv::Point2f(0, 0));
+
+    // caculate points velocity
+    if (!prev_id_pts.empty()) {
+        double dt = cur_time - prev_time;
+
+        for (unsigned int i = 0; i < _cur_ids.size(); i++) {
+            std::unordered_map<int, cv::Point2f>::iterator it;
+            it = prev_id_pts.find(_cur_ids[i]);
+            if (it != prev_id_pts.end()) {
+                double v_x = (_cur_un_pts[i].x - it->second.x) / dt;
+                double v_y = (_cur_un_pts[i].y - it->second.y) / dt;
+                pts_velocity.push_back(cv::Point2f(v_x, v_y));
+            } else
+                pts_velocity.push_back(cv::Point2f(0, 0));
+        }
+    } else {
+        for (unsigned int i = 0; i < _cur_un_pts.size(); i++) {
+            pts_velocity.push_back(cv::Point2f(0, 0));
+        }
     }
-  }
-  return pts_velocity;
+    return pts_velocity;
 }
 
 void FeatureTracker::rejectWithF() {
-  if (cur_pts.size() >= 8) {
-    ROS_DEBUG("FM ransac begins");
-    TicToc t_f;
-    vector<cv::Point2f> un_cur_pts(cur_pts.size()),
-        un_prev_pts(prev_pts.size());
-    for (unsigned int i = 0; i < cur_pts.size(); i++) {
-      Eigen::Vector3d tmp_p;
-      m_camera[0]->liftProjective(Eigen::Vector2d(cur_pts[i].x, cur_pts[i].y),
-                                  tmp_p);
-      tmp_p.x() = FOCAL_LENGTH * tmp_p.x() / tmp_p.z() +
-                  feature_tracker_config.col / 2.0;
-      tmp_p.y() = FOCAL_LENGTH * tmp_p.y() / tmp_p.z() +
-                  feature_tracker_config.row / 2.0;
-      un_cur_pts[i] = cv::Point2f(tmp_p.x(), tmp_p.y());
+    if (cur_pts.size() >= 8) {
+        ROS_DEBUG("FM ransac begins");
+        TicToc t_f;
+        vector<cv::Point2f> un_cur_pts(cur_pts.size()), un_prev_pts(prev_pts.size());
+        for (unsigned int i = 0; i < cur_pts.size(); i++) {
+            Eigen::Vector3d tmp_p;
+            m_camera[0]->liftProjective(Eigen::Vector2d(cur_pts[i].x, cur_pts[i].y), tmp_p);
+            tmp_p.x()     = FOCAL_LENGTH * tmp_p.x() / tmp_p.z() + feature_tracker_config.col / 2.0;
+            tmp_p.y()     = FOCAL_LENGTH * tmp_p.y() / tmp_p.z() + feature_tracker_config.row / 2.0;
+            un_cur_pts[i] = cv::Point2f(tmp_p.x(), tmp_p.y());
 
-      m_camera[0]->liftProjective(Eigen::Vector2d(prev_pts[i].x, prev_pts[i].y),
-                                  tmp_p);
-      tmp_p.x() = FOCAL_LENGTH * tmp_p.x() / tmp_p.z() +
-                  feature_tracker_config.col / 2.0;
-      tmp_p.y() = FOCAL_LENGTH * tmp_p.y() / tmp_p.z() +
-                  feature_tracker_config.row / 2.0;
-      un_prev_pts[i] = cv::Point2f(tmp_p.x(), tmp_p.y());
+            m_camera[0]->liftProjective(Eigen::Vector2d(prev_pts[i].x, prev_pts[i].y), tmp_p);
+            tmp_p.x() = FOCAL_LENGTH * tmp_p.x() / tmp_p.z() + feature_tracker_config.col / 2.0;
+            tmp_p.y() = FOCAL_LENGTH * tmp_p.y() / tmp_p.z() + feature_tracker_config.row / 2.0;
+            un_prev_pts[i] = cv::Point2f(tmp_p.x(), tmp_p.y());
+        }
+
+        vector<uchar> status;
+        cv::findFundamentalMat(
+            un_cur_pts, un_prev_pts, cv::FM_RANSAC, feature_tracker_config.F_threshold, 0.99,
+            status);
+        int size_a = cur_pts.size();
+        reduceVector(prev_pts, status);
+        reduceVector(cur_pts, status);
+        reduceEigenVector(cur_xdesc, status);
+        reduceVector(cur_un_pts, status);
+        reduceVector(cur_ids, status);
+        reduceVector(track_cnt, status);
+        ROS_DEBUG(
+            "FM ransac: %d -> %lu: %f", size_a, cur_pts.size(), 1.0 * cur_pts.size() / size_a);
+        ROS_DEBUG("FM ransac costs: %fms", t_f.toc());
     }
-
-    vector<uchar> status;
-    cv::findFundamentalMat(un_cur_pts, un_prev_pts, cv::FM_RANSAC,
-                           feature_tracker_config.F_threshold, 0.99, status);
-    int size_a = cur_pts.size();
-    reduceVector(prev_pts, status);
-    reduceVector(cur_pts, status);
-    reduceEigenVector(cur_xdesc, status);
-    reduceVector(cur_un_pts, status);
-    reduceVector(cur_ids, status);
-    reduceVector(track_cnt, status);
-    ROS_DEBUG("FM ransac: %d -> %lu: %f", size_a, cur_pts.size(),
-              1.0 * cur_pts.size() / size_a);
-    ROS_DEBUG("FM ransac costs: %fms", t_f.toc());
-  }
 }
 
 void FeatureTracker::setMask() {
-  mask = cv::Mat(feature_tracker_config.row, feature_tracker_config.col,
-                 CV_8UC1, cv::Scalar(255));
+    mask =
+        cv::Mat(feature_tracker_config.row, feature_tracker_config.col, CV_8UC1, cv::Scalar(255));
 
-  // prefer to keep features that are tracked for long time
-  vector<pair<int, tuple<cv::Point2f, int, DescV>>> cnt_pts_id_desc;
+    // prefer to keep features that are tracked for long time
+    vector<pair<int, tuple<cv::Point2f, int, DescV>>> cnt_pts_id_desc;
 
-  for (unsigned int i = 0; i < cur_pts.size(); i++) {
-    DescV desc;
-    if (i < cur_xdesc.size()) {
-      desc = cur_xdesc[i];
+    for (unsigned int i = 0; i < cur_pts.size(); i++) {
+        DescV desc;
+        if (i < cur_xdesc.size()) {
+            desc = cur_xdesc[i];
+        }
+        cnt_pts_id_desc.push_back(
+            make_pair(track_cnt[i], make_tuple(cur_pts[i], cur_ids[i], desc)));
     }
-    cnt_pts_id_desc.push_back(
-        make_pair(track_cnt[i], make_tuple(cur_pts[i], cur_ids[i], desc)));
-  }
 
-  sort(cnt_pts_id_desc.begin(), cnt_pts_id_desc.end(),
-       [](const pair<int, tuple<cv::Point2f, int, DescV>> &a,
-          const pair<int, tuple<cv::Point2f, int, DescV>> &b) {
-         return a.first > b.first;
-       });
+    sort(
+        cnt_pts_id_desc.begin(), cnt_pts_id_desc.end(),
+        [](const pair<int, tuple<cv::Point2f, int, DescV>> &a,
+           const pair<int, tuple<cv::Point2f, int, DescV>> &b) { return a.first > b.first; });
 
-  cur_pts.clear();
-  cur_ids.clear();
-  cur_xdesc.clear();
-  track_cnt.clear();
+    cur_pts.clear();
+    cur_ids.clear();
+    cur_xdesc.clear();
+    track_cnt.clear();
 
-  for (auto &it : cnt_pts_id_desc) {
-    auto &point = get<0>(it.second);
-    auto &id = get<1>(it.second);
-    auto &desc = get<2>(it.second);
+    for (auto &it : cnt_pts_id_desc) {
+        auto &point = get<0>(it.second);
+        auto &id    = get<1>(it.second);
+        auto &desc  = get<2>(it.second);
 
-    if (mask.at<uchar>(point) == 255) {
-      cur_pts.push_back(point);
-      cur_ids.push_back(id);
-      cur_xdesc.push_back(desc);
-      track_cnt.push_back(it.first);
-      cv::circle(mask, point, feature_tracker_config.of_min_dist, 0, -1);
+        if (mask.at<uchar>(point) == 255) {
+            cur_pts.push_back(point);
+            cur_ids.push_back(id);
+            cur_xdesc.push_back(desc);
+            track_cnt.push_back(it.first);
+            cv::circle(mask, point, feature_tracker_config.of_min_dist, 0, -1);
+        }
     }
-  }
 }
 
 void FeatureTracker::addPoints() {
-  for (auto &p : n_pts) {
-    cur_pts.push_back(p);
-    cur_ids.push_back(n_id++);
-    track_cnt.push_back(1);
-  }
+    for (auto &p : n_pts) {
+        cur_pts.push_back(p);
+        cur_ids.push_back(n_id++);
+        track_cnt.push_back(1);
+    }
 }
 
 vector<int> FeatureTracker::sort_indexes(vector<float> &data) {
-  std::vector<int> indexes(data.size());
-  iota(indexes.begin(), indexes.end(), 0);
-  sort(indexes.begin(), indexes.end(),
-       [&data](int i1, int i2) { return data[i1] > data[i2]; });
-  return indexes;
+    std::vector<int> indexes(data.size());
+    iota(indexes.begin(), indexes.end(), 0);
+    sort(indexes.begin(), indexes.end(), [&data](int i1, int i2) { return data[i1] > data[i2]; });
+    return indexes;
 }
 //基于网格划分实现nms
 vector<std::pair<int, cv::Point2f>> FeatureTracker::nms_process(
-    const vector<cv::Point2f> &pts, const vector<int> &sorted_idx,
-    float dist_thresh) {
-  int grid_size = dist_thresh;
-  std::unordered_map<int64, std::vector<int>> grid_umap;
-  auto grid_id = [&](int x, int y) -> int64 {
-    return static_cast<int64>(x) << 32 | (y & 0xFFFFFFFF);
-  };
-  // construct umap
-  for (int i = 0; i < sorted_idx.size(); i++) {
-    int grid_x = static_cast<int>(std::floor(pts[sorted_idx[i]].x / grid_size));
-    int grid_y = static_cast<int>(std::floor(pts[sorted_idx[i]].y / grid_size));
-    grid_umap[grid_id(grid_x, grid_y)].push_back(sorted_idx[i]);
-  }
-
-  std::vector<bool> suppressed(pts.size(), false);
-  std::vector<std::pair<int, cv::Point2f>> id_pts;
-  for (int i = 0; i < sorted_idx.size(); i++) {
-    int cur_idx = sorted_idx[i];
-    if (suppressed[cur_idx]) continue;
-    int grid_x = static_cast<int>(std::floor(pts[cur_idx].x / grid_size));
-    int grid_y = static_cast<int>(std::floor(pts[cur_idx].y / grid_size));
-    for (int dx = -1; dx <= 1; dx++) {
-      for (int dy = -1; dy <= 1; dy++) {
-        int neighbor_x = grid_x + dx;
-        int neighbor_y = grid_y + dy;
-        if (grid_umap.find(grid_id(neighbor_x, neighbor_y)) == grid_umap.end())
-          continue;
-        for (auto index : grid_umap[grid_id(neighbor_x, neighbor_y)]) {
-          if (suppressed[index]) continue;
-          if (cv::norm(pts[cur_idx] - pts[index]) < dist_thresh)
-            suppressed[index] = true;
-        }
-      }
+    const vector<cv::Point2f> &pts, const vector<int> &sorted_idx, float dist_thresh) {
+    int grid_size = dist_thresh;
+    std::unordered_map<int64, std::vector<int>> grid_umap;
+    auto grid_id = [&](int x, int y) -> int64 {
+        return static_cast<int64>(x) << 32 | (y & 0xFFFFFFFF);
+    };
+    // construct umap
+    for (int i = 0; i < sorted_idx.size(); i++) {
+        int grid_x = static_cast<int>(std::floor(pts[sorted_idx[i]].x / grid_size));
+        int grid_y = static_cast<int>(std::floor(pts[sorted_idx[i]].y / grid_size));
+        grid_umap[grid_id(grid_x, grid_y)].push_back(sorted_idx[i]);
     }
-    id_pts.emplace_back(cur_idx, pts[cur_idx]);
-  }
-  return id_pts;
+
+    std::vector<bool> suppressed(pts.size(), false);
+    std::vector<std::pair<int, cv::Point2f>> id_pts;
+    for (int i = 0; i < sorted_idx.size(); i++) {
+        int cur_idx = sorted_idx[i];
+        if (suppressed[cur_idx]) continue;
+        int grid_x = static_cast<int>(std::floor(pts[cur_idx].x / grid_size));
+        int grid_y = static_cast<int>(std::floor(pts[cur_idx].y / grid_size));
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                int neighbor_x = grid_x + dx;
+                int neighbor_y = grid_y + dy;
+                if (grid_umap.find(grid_id(neighbor_x, neighbor_y)) == grid_umap.end()) continue;
+                for (auto index : grid_umap[grid_id(neighbor_x, neighbor_y)]) {
+                    if (suppressed[index]) continue;
+                    if (cv::norm(pts[cur_idx] - pts[index]) < dist_thresh) suppressed[index] = true;
+                }
+            }
+        }
+        id_pts.emplace_back(cur_idx, pts[cur_idx]);
+    }
+    return id_pts;
 }
 
 //从heatmap中提取特征点
 void FeatureTracker::extractKeyPoints(vector<cv::Point2f> &new_pts) {
-  new_pts.clear();
-  std::vector<float> scores_v;
-  std::vector<cv::Point2f> kpts;
+    new_pts.clear();
+    std::vector<float> scores_v;
+    std::vector<cv::Point2f> kpts;
 
-  scores_v.reserve(feature_tracker_config.max_cnt * 4);
-  kpts.reserve(feature_tracker_config.max_cnt * 4);
-  int w = feature_tracker_config.col;
-  int h = feature_tracker_config.row;
+    scores_v.reserve(feature_tracker_config.max_cnt * 4);
+    kpts.reserve(feature_tracker_config.max_cnt * 4);
+    int w = feature_tracker_config.col;
+    int h = feature_tracker_config.row;
 
-  int heat_map_size = w * h;
+    int heat_map_size = w * h;
 
-  int min_x = feature_tracker_config.borders;
-  int min_y = feature_tracker_config.borders;
-  int max_x = w - feature_tracker_config.borders;
-  int max_y = h - feature_tracker_config.borders;
+    int min_x = feature_tracker_config.borders;
+    int min_y = feature_tracker_config.borders;
+    int max_x = w - feature_tracker_config.borders;
+    int max_y = h - feature_tracker_config.borders;
 
-  for (int i = 0; i < heat_map_size; ++i) {
-    if (*(cur_heatmap_ori + i) < feature_tracker_config.new_kpts_threshold)
-      continue;
+    for (int i = 0; i < heat_map_size; ++i) {
+        if (*(cur_heatmap_ori + i) < feature_tracker_config.new_kpts_threshold) continue;
 
-    int y = int(i / w);
-    int x = i - y * w;
+        int y = int(i / w);
+        int x = i - y * w;
 
-    if (x < min_x || x > max_x || y < min_y || y > max_y) continue;
+        if (x < min_x || x > max_x || y < min_y || y > max_y) continue;
 
-    scores_v.push_back(*(cur_heatmap_ori + i));
-    kpts.emplace_back(float(x), float(y));
-  }
-  std::vector<int> indexes = sort_indexes(scores_v);
-  if (scores_v.size() > feature_tracker_config.max_cnt) {
-    indexes.resize(feature_tracker_config.max_cnt);
-  }
-  ROS_DEBUG("xp: detect %d points", indexes.size());
-  auto id_pts_reserved =
-      nms_process(kpts, indexes, feature_tracker_config.nms_threshold);
-  int reserved_size = id_pts_reserved.size();
-  for (auto &id_pt : id_pts_reserved) {
-    new_pts.push_back(id_pt.second);
-  }
-  ROS_DEBUG("xp: %d points reserved after nms.", reserved_size);
+        scores_v.push_back(*(cur_heatmap_ori + i));
+        kpts.emplace_back(float(x), float(y));
+    }
+    std::vector<int> indexes = sort_indexes(scores_v);
+    if (scores_v.size() > feature_tracker_config.max_cnt) {
+        indexes.resize(feature_tracker_config.max_cnt);
+    }
+    ROS_DEBUG("xp: detect %d points", indexes.size());
+    auto id_pts_reserved = nms_process(kpts, indexes, feature_tracker_config.nms_threshold);
+    int reserved_size    = id_pts_reserved.size();
+    for (auto &id_pt : id_pts_reserved) {
+        new_pts.push_back(id_pt.second);
+    }
+    ROS_DEBUG("xp: %d points reserved after nms.", reserved_size);
 }
 
 //将目标描述子与一堆描述子进行匹配，返回匹配上的描述子id，若为-1表示没有匹配点
-pair<int, float> FeatureTracker::matchSingleDesc(const DescV &target_desc,
-                                                 aligned_vector<DescV> &descs) {
-  if (descs.size() == 0) {
-    return {-1, 0};
-  }
-  float min_match_dist = static_cast<float>(track_assist_args.min_match_dist);
-  int match_id = -1;
-  vector<pair<int, double>> id_dist;
-  for (int i = 0; i < descs.size(); i++) {
-    DescV candi_desc = descs[i];
-    float cos_dist = target_desc.transpose() * candi_desc;
-    id_dist.emplace_back(i, cos_dist);
-  }
-  sort(id_dist.begin(), id_dist.end(),
-       [&](const pair<int, double> &a, const pair<int, double> &b) {
-         return a.second > b.second;
-       });
-  if (id_dist[0].second < min_match_dist) {
-    return {-1, 0};
-  }
-  if (id_dist.size() == 1 || (id_dist[1].second / id_dist[0].second <
-                              track_assist_args.ratio_test_threshold)) {
-    return id_dist[0];
-  } else {
-    return {-1, 0};
-  }
+pair<int, float> FeatureTracker::matchSingleDesc(
+    const DescV &target_desc, aligned_vector<DescV> &descs) {
+    if (descs.size() == 0) {
+        return {-1, 0};
+    }
+    float min_match_dist = static_cast<float>(track_assist_args.min_match_dist);
+    int match_id         = -1;
+    vector<pair<int, double>> id_dist;
+    for (int i = 0; i < descs.size(); i++) {
+        DescV candi_desc = descs[i];
+        float cos_dist   = target_desc.transpose() * candi_desc;
+        id_dist.emplace_back(i, cos_dist);
+    }
+    sort(
+        id_dist.begin(), id_dist.end(),
+        [&](const pair<int, double> &a, const pair<int, double> &b) {
+            return a.second > b.second;
+        });
+    if (id_dist[0].second < min_match_dist) {
+        return {-1, 0};
+    }
+    if (id_dist.size() == 1 ||
+        (id_dist[1].second / id_dist[0].second < track_assist_args.ratio_test_threshold)) {
+        return id_dist[0];
+    } else {
+        return {-1, 0};
+    }
 }
 
 //提取特征点的描述子
 DescV FeatureTracker::extractSingleDesc(const cv::Point2f &tgt_pt) {
-  DescV tgt_desc;
-  int w = feature_tracker_config.col / 8;
-  int h = feature_tracker_config.row / 8;
-  int s = 8;
-  float sx = 2.f / (w * s - s / 2 - 0.5);
-  float bx = (1 - s) / (w * s - s / 2 - 0.5) - 1;
-  float sy = 2.f / (h * s - s / 2 - 0.5);
-  float by = (1 - s) / (h * s - s / 2 - 0.5) - 1;
+    DescV tgt_desc;
+    int w    = feature_tracker_config.col / 8;
+    int h    = feature_tracker_config.row / 8;
+    int s    = 8;
+    float sx = 2.f / (w * s - s / 2 - 0.5);
+    float bx = (1 - s) / (w * s - s / 2 - 0.5) - 1;
+    float sy = 2.f / (h * s - s / 2 - 0.5);
+    float by = (1 - s) / (h * s - s / 2 - 0.5) - 1;
 
-  float norm_x = (tgt_pt.x * sx + bx + 1) * 0.5;
-  float norm_y = (tgt_pt.y * sy + by + 1) * 0.5;
+    float norm_x = (tgt_pt.x * sx + bx + 1) * 0.5;
+    float norm_y = (tgt_pt.y * sy + by + 1) * 0.5;
 
-  float ix = norm_x * (w - 1);
-  float iy = norm_y * (h - 1);
-
-  int ix_nw = clip(std::floor(ix), w);
-  int iy_nw = clip(std::floor(iy), h);
-
-  int ix_ne = clip(ix_nw + 1, w);
-  int iy_ne = clip(iy_nw, h);
-
-  int ix_sw = clip(ix_nw, w);
-  int iy_sw = clip(iy_nw + 1, h);
-
-  int ix_se = clip(ix_nw + 1, w);
-  int iy_se = clip(iy_nw + 1, h);
-
-  float nw = (ix_se - ix) * (iy_se - iy);
-  float ne = (ix - ix_sw) * (iy_sw - iy);
-  float sw = (ix_ne - ix) * (iy - iy_ne);
-  float se = (ix - ix_nw) * (iy - iy_nw);
-  for (int i = 0; i < 64; ++i) {
-    // x * height * depth + y * depth + z
-    float nw_val = cur_desc_ori[i * h * w + iy_nw * w + ix_nw];
-    float ne_val = cur_desc_ori[i * h * w + iy_ne * w + ix_ne];
-    float sw_val = cur_desc_ori[i * h * w + iy_sw * w + ix_sw];
-    float se_val = cur_desc_ori[i * h * w + iy_se * w + ix_se];
-    tgt_desc(i, 0) = nw_val * nw + ne_val * ne + sw_val * sw + se_val * se;
-  }
-  tgt_desc.colwise().normalize();
-  return tgt_desc;
-}
-
-void FeatureTracker::extractDescriptors(const vector<cv::Point2f> &pts,
-                                        aligned_vector<DescV> &descs) {
-  if (!descs.empty()) descs.clear();
-  descs.reserve(pts.size());
-  int w = feature_tracker_config.col / 8;
-  int h = feature_tracker_config.row / 8;
-  int s = 8;
-  float sx = 2.f / (w * s - s / 2 - 0.5);
-  float bx = (1 - s) / (w * s - s / 2 - 0.5) - 1;
-
-  float sy = 2.f / (h * s - s / 2 - 0.5);
-  float by = (1 - s) / (h * s - s / 2 - 0.5) - 1;
-
-  vector<cv::Point2f> pts_norm;
-  for (int i = 0; i < pts.size(); i++) {
-    float norm_x = (pts[i].x * sx + bx + 1) * 0.5;
-    float norm_y = (pts[i].y * sy + by + 1) * 0.5;
-    pts_norm.emplace_back(norm_x, norm_y);
-  }
-
-  for (int j = 0; j < pts_norm.size(); ++j) {
-    float ix = pts_norm[j].x * (w - 1);
-    float iy = pts_norm[j].y * (h - 1);
+    float ix = norm_x * (w - 1);
+    float iy = norm_y * (h - 1);
 
     int ix_nw = clip(std::floor(ix), w);
     int iy_nw = clip(std::floor(iy), h);
@@ -404,884 +337,907 @@ void FeatureTracker::extractDescriptors(const vector<cv::Point2f> &pts,
     float ne = (ix - ix_sw) * (iy_sw - iy);
     float sw = (ix_ne - ix) * (iy - iy_ne);
     float se = (ix - ix_nw) * (iy - iy_nw);
-
-    DescV desc;
     for (int i = 0; i < 64; ++i) {
-      // x * height * depth + y * depth + z
-      float nw_val = cur_desc_ori[i * h * w + iy_nw * w + ix_nw];
-      float ne_val = cur_desc_ori[i * h * w + iy_ne * w + ix_ne];
-      float sw_val = cur_desc_ori[i * h * w + iy_sw * w + ix_sw];
-      float se_val = cur_desc_ori[i * h * w + iy_se * w + ix_se];
-      desc(i, 0) = nw_val * nw + ne_val * ne + sw_val * sw + se_val * se;
-      // features(i+3, j) = nw_val * nw + ne_val * ne + sw_val * sw + se_val *
-      // se;
+        // x * height * depth + y * depth + z
+        float nw_val   = cur_desc_ori[i * h * w + iy_nw * w + ix_nw];
+        float ne_val   = cur_desc_ori[i * h * w + iy_ne * w + ix_ne];
+        float sw_val   = cur_desc_ori[i * h * w + iy_sw * w + ix_sw];
+        float se_val   = cur_desc_ori[i * h * w + iy_se * w + ix_se];
+        tgt_desc(i, 0) = nw_val * nw + ne_val * ne + sw_val * sw + se_val * se;
     }
-    desc.colwise().normalize();
-    descs.push_back(desc);
-  }
+    tgt_desc.colwise().normalize();
+    return tgt_desc;
+}
+
+void FeatureTracker::extractDescriptors(
+    const vector<cv::Point2f> &pts, aligned_vector<DescV> &descs) {
+    if (!descs.empty()) descs.clear();
+    descs.reserve(pts.size());
+    int w    = feature_tracker_config.col / 8;
+    int h    = feature_tracker_config.row / 8;
+    int s    = 8;
+    float sx = 2.f / (w * s - s / 2 - 0.5);
+    float bx = (1 - s) / (w * s - s / 2 - 0.5) - 1;
+
+    float sy = 2.f / (h * s - s / 2 - 0.5);
+    float by = (1 - s) / (h * s - s / 2 - 0.5) - 1;
+
+    vector<cv::Point2f> pts_norm;
+    for (int i = 0; i < pts.size(); i++) {
+        float norm_x = (pts[i].x * sx + bx + 1) * 0.5;
+        float norm_y = (pts[i].y * sy + by + 1) * 0.5;
+        pts_norm.emplace_back(norm_x, norm_y);
+    }
+
+    for (int j = 0; j < pts_norm.size(); ++j) {
+        float ix = pts_norm[j].x * (w - 1);
+        float iy = pts_norm[j].y * (h - 1);
+
+        int ix_nw = clip(std::floor(ix), w);
+        int iy_nw = clip(std::floor(iy), h);
+
+        int ix_ne = clip(ix_nw + 1, w);
+        int iy_ne = clip(iy_nw, h);
+
+        int ix_sw = clip(ix_nw, w);
+        int iy_sw = clip(iy_nw + 1, h);
+
+        int ix_se = clip(ix_nw + 1, w);
+        int iy_se = clip(iy_nw + 1, h);
+
+        float nw = (ix_se - ix) * (iy_se - iy);
+        float ne = (ix - ix_sw) * (iy_sw - iy);
+        float sw = (ix_ne - ix) * (iy - iy_ne);
+        float se = (ix - ix_nw) * (iy - iy_nw);
+
+        DescV desc;
+        for (int i = 0; i < 64; ++i) {
+            // x * height * depth + y * depth + z
+            float nw_val = cur_desc_ori[i * h * w + iy_nw * w + ix_nw];
+            float ne_val = cur_desc_ori[i * h * w + iy_ne * w + ix_ne];
+            float sw_val = cur_desc_ori[i * h * w + iy_sw * w + ix_sw];
+            float se_val = cur_desc_ori[i * h * w + iy_se * w + ix_se];
+            desc(i, 0)   = nw_val * nw + ne_val * ne + sw_val * sw + se_val * se;
+            // features(i+3, j) = nw_val * nw + ne_val * ne + sw_val * sw + se_val *
+            // se;
+        }
+        desc.colwise().normalize();
+        descs.push_back(desc);
+    }
 }
 
 //提取目标ROI的特征点和描述子
-void FeatureTracker::extractSquareROIPtsDesc(const cv::Point2f &ori_pt,
-                                             int half_len,
-                                             vector<cv::Point2f> &pts,
-                                             aligned_vector<DescV> &descs) {
-  if (cur_heatmap_ori == nullptr || cur_desc_ori == nullptr) return;
-  int w = feature_tracker_config.col;
-  int h = feature_tracker_config.row;
-  int ori_x = std::floor(ori_pt.x);
-  int ori_y = std::floor(ori_pt.y);
-  int min_x = feature_tracker_config.borders;
-  int min_y = feature_tracker_config.borders;
-  int max_x = w - feature_tracker_config.borders;
-  int max_y = h - feature_tracker_config.borders;
-  // extract pts
-  for (int i = ori_x - half_len; i <= ori_x + half_len; i++) {
-    for (int j = ori_y - half_len; j <= ori_y + half_len; j++) {
-      if (i < min_x || i > max_x || j < min_y || j > max_y) continue;
-      if (cur_heatmap_ori[j * w + i] > track_assist_args.roi_pts_threshold)
-        pts.emplace_back(float(i), float(j));
+void FeatureTracker::extractSquareROIPtsDesc(
+    const cv::Point2f &ori_pt, int half_len, vector<cv::Point2f> &pts,
+    aligned_vector<DescV> &descs) {
+    if (cur_heatmap_ori == nullptr || cur_desc_ori == nullptr) return;
+    int w     = feature_tracker_config.col;
+    int h     = feature_tracker_config.row;
+    int ori_x = std::floor(ori_pt.x);
+    int ori_y = std::floor(ori_pt.y);
+    int min_x = feature_tracker_config.borders;
+    int min_y = feature_tracker_config.borders;
+    int max_x = w - feature_tracker_config.borders;
+    int max_y = h - feature_tracker_config.borders;
+    // extract pts
+    for (int i = ori_x - half_len; i <= ori_x + half_len; i++) {
+        for (int j = ori_y - half_len; j <= ori_y + half_len; j++) {
+            if (i < min_x || i > max_x || j < min_y || j > max_y) continue;
+            if (cur_heatmap_ori[j * w + i] > track_assist_args.roi_pts_threshold)
+                pts.emplace_back(float(i), float(j));
+        }
     }
-  }
-  // extract desc
-  extractDescriptors(pts, descs);
+    // extract desc
+    extractDescriptors(pts, descs);
 }
 
-void FeatureTracker::extractROIFeatsWithNMS(const cv::Point2f &ori_pt,
-                                            int half_len,
-                                            vector<cv::Point2f> &pts,
-                                            aligned_vector<DescV> &descs) {
-  if (cur_heatmap_ori == nullptr || cur_desc_ori == nullptr) return;
-  pts.reserve(64);
-  descs.reserve(64);
-  vector<cv::Point2f> kpts;
-  kpts.reserve(half_len * half_len);
-  vector<float> scores;
-  scores.reserve(half_len * half_len);
+void FeatureTracker::extractROIFeatsWithNMS(
+    const cv::Point2f &ori_pt, int half_len, vector<cv::Point2f> &pts,
+    aligned_vector<DescV> &descs) {
+    if (cur_heatmap_ori == nullptr || cur_desc_ori == nullptr) return;
+    pts.reserve(64);
+    descs.reserve(64);
+    vector<cv::Point2f> kpts;
+    kpts.reserve(half_len * half_len);
+    vector<float> scores;
+    scores.reserve(half_len * half_len);
 
-  int w = feature_tracker_config.col;
-  int h = feature_tracker_config.row;
-  int ori_x = std::floor(ori_pt.x);
-  int ori_y = std::floor(ori_pt.y);
-  int min_x = feature_tracker_config.borders;
-  int min_y = feature_tracker_config.borders;
-  int max_x = w - feature_tracker_config.borders;
-  int max_y = h - feature_tracker_config.borders;
-  // extract pts
-  for (int i = ori_x - half_len; i <= ori_x + half_len; i++) {
-    for (int j = ori_y - half_len; j <= ori_y + half_len; j++) {
-      if (i < min_x || i > max_x || j < min_y || j > max_y) continue;
-      if (cur_heatmap_ori[j * w + i] > track_assist_args.roi_pts_threshold) {
-        kpts.emplace_back(float(i), float(j));
-        scores.push_back(cur_heatmap_ori[j * w + i]);
-      }
+    int w     = feature_tracker_config.col;
+    int h     = feature_tracker_config.row;
+    int ori_x = std::floor(ori_pt.x);
+    int ori_y = std::floor(ori_pt.y);
+    int min_x = feature_tracker_config.borders;
+    int min_y = feature_tracker_config.borders;
+    int max_x = w - feature_tracker_config.borders;
+    int max_y = h - feature_tracker_config.borders;
+    // extract pts
+    for (int i = ori_x - half_len; i <= ori_x + half_len; i++) {
+        for (int j = ori_y - half_len; j <= ori_y + half_len; j++) {
+            if (i < min_x || i > max_x || j < min_y || j > max_y) continue;
+            if (cur_heatmap_ori[j * w + i] > track_assist_args.roi_pts_threshold) {
+                kpts.emplace_back(float(i), float(j));
+                scores.push_back(cur_heatmap_ori[j * w + i]);
+            }
+        }
     }
-  }
-  vector<int> indexes = sort_indexes(scores);
-  auto id_pts_reserved = nms_process(kpts, indexes, 5);
-  for (auto &[idx, pt] : id_pts_reserved) {
-    DescV pt_desc = extractSingleDesc(pt);
-    pts.push_back(pt);
-    descs.push_back(pt_desc);
-  }
+    vector<int> indexes  = sort_indexes(scores);
+    auto id_pts_reserved = nms_process(kpts, indexes, 5);
+    for (auto &[idx, pt] : id_pts_reserved) {
+        DescV pt_desc = extractSingleDesc(pt);
+        pts.push_back(pt);
+        descs.push_back(pt_desc);
+    }
 }
 
 // 对光流跟踪成功的点对进行校验，同时采样描述子
 void FeatureTracker::checkAndExtractCurFlow(
     const vector<cv::Point2f> &prev_pts, const aligned_vector<DescV> &prev_desc,
-    const vector<cv::Point2f> &cur_pts, aligned_vector<DescV> &cur_desc,
-    vector<uchar> &status) {
-  cur_desc.resize(prev_pts.size());
-  float min_match_cos = static_cast<float>(track_assist_args.min_match_dist);
-  int out_cnt = 0;
-  for (size_t i = 0; i < prev_pts.size(); i++) {
-    if (!status[i]) {
-      continue;
+    const vector<cv::Point2f> &cur_pts, aligned_vector<DescV> &cur_desc, vector<uchar> &status) {
+    cur_desc.resize(prev_pts.size());
+    float min_match_cos = static_cast<float>(track_assist_args.min_match_dist);
+    int out_cnt         = 0;
+    for (size_t i = 0; i < prev_pts.size(); i++) {
+        if (!status[i]) {
+            continue;
+        }
+        DescV cur_desc_i = extractSingleDesc(cur_pts[i]);
+        double cosm_dist = prev_desc[i].transpose() * cur_desc_i;
+        if (cosm_dist < min_match_cos) {
+            status[i] = 0;
+            out_cnt++;
+        } else {
+            cur_desc[i] = cur_desc_i;
+        }
     }
-    DescV cur_desc_i = extractSingleDesc(cur_pts[i]);
-    double cosm_dist = prev_desc[i].transpose() * cur_desc_i;
-    if (cosm_dist < min_match_cos) {
-      status[i] = 0;
-      out_cnt++;
-    } else {
-      cur_desc[i] = cur_desc_i;
-    }
-  }
-  // ROS_INFO("[xfeat_check_out_cnt]:[%d]", out_cnt);
+    // ROS_INFO("[xfeat_check_out_cnt]:[%d]", out_cnt);
 }
 
 // 基于描述子匹配实现重追踪，输入光流追踪结果，输出重追踪后的当前帧特征点和status
 void FeatureTracker::retrackThroughDescMatch(
     const vector<cv::Point2f> &prev_pts, aligned_vector<DescV> prev_desc,
-    vector<cv::Point2f> &cur_pts, aligned_vector<DescV> &cur_desc,
-    vector<uchar> &status, const vector<cv::Point2f> &cur_predict_pts) {
-  ROS_ASSERT((prev_pts.szie() == cur_pts.size()) &&
-             (prev_pts.szie() == cur_desc.size()) &&
-             (prev_pts.size() == status.size()));
-  int retrack_points = 0, untrack_counts = 0;
-  retrack_ids.clear();  //记录重跟踪成功的特征点id
-  for (int i = 0; i < status.size(); i++) {
-    if (status[i]) continue;
-    untrack_counts++;
-    int f_id = i;
-    // // find the nearest point
-    // double nearest_dist = -1;
-    // int nearest_id = -1;
-    // for (int j = 0; j < status.size(); j++) {
-    //   if (!status[j] || j == f_id) continue;
-    //   double cur_dist = distance(prev_pts[f_id], prev_pts[j]);
-    //   if (nearest_dist == -1) {
-    //     nearest_dist = cur_dist;
-    //     nearest_id = j;
-    //   } else {
-    //     if (cur_dist < nearest_dist) {
-    //       nearest_dist = cur_dist;
-    //       nearest_id = j;
-    //     }
-    //   }
-    // }
-    // if (nearest_dist < 0 || nearest_id < 0 ||
-    //     nearest_dist > track_assist_args.max_search_dist)
-    //   continue;
-    // ROS_DEBUG("retrack: find nearest point: (%f, %f).",
-    // prev_pts[nearest_id].x,
-    //           prev_pts[nearest_id].y);
-    // // predict the cur point
-    // cv::Point2f predict_pt;
-    // float nearest_x_shift = cur_pts[nearest_id].x - prev_pts[nearest_id].x;
-    // float nearest_y_shift = cur_pts[nearest_id].y - prev_pts[nearest_id].y;
-    // predict_pt.x = prev_pts[f_id].x + nearest_x_shift;
-    // predict_pt.y = prev_pts[f_id].y + nearest_y_shift;
-    // if (!inBorder(predict_pt)) continue;
-    // ROS_DEBUG("retrack: find predict point: (%f, %f) ===> (%f, %f)",
-    //           prev_pts[f_id].x, prev_pts[f_id].y, predict_pt.x,
-    //           predict_pt.y);
+    vector<cv::Point2f> &cur_pts, aligned_vector<DescV> &cur_desc, vector<uchar> &status,
+    const vector<cv::Point2f> &cur_predict_pts) {
+    ROS_ASSERT(
+        (prev_pts.szie() == cur_pts.size()) && (prev_pts.szie() == cur_desc.size()) &&
+        (prev_pts.size() == status.size()));
+    int retrack_points = 0, untrack_counts = 0;
+    retrack_ids.clear();  //记录重跟踪成功的特征点id
+    for (int i = 0; i < status.size(); i++) {
+        if (status[i]) continue;
+        untrack_counts++;
+        int f_id = i;
+        // // find the nearest point
+        // double nearest_dist = -1;
+        // int nearest_id = -1;
+        // for (int j = 0; j < status.size(); j++) {
+        //   if (!status[j] || j == f_id) continue;
+        //   double cur_dist = distance(prev_pts[f_id], prev_pts[j]);
+        //   if (nearest_dist == -1) {
+        //     nearest_dist = cur_dist;
+        //     nearest_id = j;
+        //   } else {
+        //     if (cur_dist < nearest_dist) {
+        //       nearest_dist = cur_dist;
+        //       nearest_id = j;
+        //     }
+        //   }
+        // }
+        // if (nearest_dist < 0 || nearest_id < 0 ||
+        //     nearest_dist > track_assist_args.max_search_dist)
+        //   continue;
+        // ROS_DEBUG("retrack: find nearest point: (%f, %f).",
+        // prev_pts[nearest_id].x,
+        //           prev_pts[nearest_id].y);
+        // // predict the cur point
+        // cv::Point2f predict_pt;
+        // float nearest_x_shift = cur_pts[nearest_id].x - prev_pts[nearest_id].x;
+        // float nearest_y_shift = cur_pts[nearest_id].y - prev_pts[nearest_id].y;
+        // predict_pt.x = prev_pts[f_id].x + nearest_x_shift;
+        // predict_pt.y = prev_pts[f_id].y + nearest_y_shift;
+        // if (!inBorder(predict_pt)) continue;
+        // ROS_DEBUG("retrack: find predict point: (%f, %f) ===> (%f, %f)",
+        //           prev_pts[f_id].x, prev_pts[f_id].y, predict_pt.x,
+        //           predict_pt.y);
 
-    // set ROI, extract pts and descs
-    int roi_half_len = static_cast<int>(track_assist_args.max_roi_len / 2);
-    vector<cv::Point2f> candi_pts;
-    aligned_vector<DescV> candi_desc;
-    extractROIFeatsWithNMS(cur_predict_pts[f_id], roi_half_len, candi_pts,
-                           candi_desc);
-    ROS_DEBUG("retrack: find %d candi_pts.", candi_pts.size());
+        // set ROI, extract pts and descs
+        int roi_half_len = static_cast<int>(track_assist_args.max_roi_len / 2);
+        vector<cv::Point2f> candi_pts;
+        aligned_vector<DescV> candi_desc;
+        extractROIFeatsWithNMS(cur_predict_pts[f_id], roi_half_len, candi_pts, candi_desc);
+        ROS_DEBUG("retrack: find %d candi_pts.", candi_pts.size());
 
-    // match the candidate
-    DescV target_desc = prev_desc[f_id];
-    auto match_id_score = matchSingleDesc(target_desc, candi_desc);
-    if (match_id_score.first < 0) continue;
-    cur_pts[f_id] = candi_pts[match_id_score.first];
-    cur_desc[f_id] = candi_desc[match_id_score.first];
-    status[f_id] = 1;
-    retrack_points++;
-    retrack_ids.insert(cur_ids[f_id]);
-    ROS_DEBUG("retrack: match candidates successfully, the match score is %f.",
-              match_id_score.second);
-  }
-  ROS_DEBUG("retrack: retracked %d points. %d -> %d, %f", retrack_points,
-            untrack_counts, retrack_points,
-            float(retrack_points) / float(untrack_counts));
-  // ROS_INFO("[untrack_points]:[%d], [retrack_points]:[%d]", untrack_counts,
-  //          retrack_points);
+        // match the candidate
+        DescV target_desc   = prev_desc[f_id];
+        auto match_id_score = matchSingleDesc(target_desc, candi_desc);
+        if (match_id_score.first < 0) continue;
+        cur_pts[f_id]  = candi_pts[match_id_score.first];
+        cur_desc[f_id] = candi_desc[match_id_score.first];
+        status[f_id]   = 1;
+        retrack_points++;
+        retrack_ids.insert(cur_ids[f_id]);
+        ROS_DEBUG(
+            "retrack: match candidates successfully, the match score is %f.",
+            match_id_score.second);
+    }
+    ROS_DEBUG(
+        "retrack: retracked %d points. %d -> %d, %f", retrack_points, untrack_counts,
+        retrack_points, float(retrack_points) / float(untrack_counts));
+    // ROS_INFO("[untrack_points]:[%d], [retrack_points]:[%d]", untrack_counts,
+    //          retrack_points);
 }
 
 // cnn提取特征点+光流
-void FeatureTracker::track_img_use_opticalflow(double _cur_time,
-                                               const cv::Mat &_img,
-                                               const cv::Mat &_img1) {
-  cur_time = _cur_time;
-  cur_img = _img;
-  cur_pts.clear();
-  cur_xdesc.clear();
-  cur_features.setZero();
-  ROS_DEBUG("*********** current frame ***********  %lf", cur_time);
-  if (feature_tracker_config.use_retrack)
-    feature_detector->DetectHDUseXfeat(cur_img, cur_heatmap_ori, cur_desc_ori);
-  if (prev_pts.size() > 0) {
-    // predict
-    vector<cv::Point2f> cur_pred_pts;
-    feature_predictor.getPrediction(cur_time, cur_pred_pts);
-    cur_pts = cur_pred_pts;
-    // optical flow
-    vector<uchar> status;
-    TicToc t_og;
-    cv::cuda::GpuMat prev_gpu_img(prev_img);
-    cv::cuda::GpuMat cur_gpu_img(cur_img);
-    cv::cuda::GpuMat prev_gpu_pts(prev_pts);
-    cv::cuda::GpuMat cur_gpu_pts(cur_pts);
-    cv::cuda::GpuMat gpu_status;
-    cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse =
-        cv::cuda::SparsePyrLKOpticalFlow::create(cv::Size(21, 21), 3, 30, true);
-    d_pyrLK_sparse->calc(prev_gpu_img, cur_gpu_img, prev_gpu_pts, cur_gpu_pts,
-                         gpu_status);
+void FeatureTracker::track_img_use_opticalflow(
+    double _cur_time, const cv::Mat &_img, const cv::Mat &_img1) {
+    cur_time = _cur_time;
+    cur_img  = _img;
+    cur_pts.clear();
+    cur_xdesc.clear();
+    cur_features.setZero();
+    ROS_DEBUG("*********** current frame ***********  %lf", cur_time);
+    if (feature_tracker_config.use_retrack)
+        feature_detector->DetectHDUseXfeat(cur_img, cur_heatmap_ori, cur_desc_ori);
+    if (prev_pts.size() > 0) {
+        // predict
+        vector<cv::Point2f> cur_pred_pts;
+        feature_predictor.getPrediction(cur_time, cur_pred_pts);
+        cur_pts = cur_pred_pts;
+        // optical flow
+        vector<uchar> status;
+        TicToc t_og;
+        cv::cuda::GpuMat prev_gpu_img(prev_img);
+        cv::cuda::GpuMat cur_gpu_img(cur_img);
+        cv::cuda::GpuMat prev_gpu_pts(prev_pts);
+        cv::cuda::GpuMat cur_gpu_pts(cur_pts);
+        cv::cuda::GpuMat gpu_status;
+        cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse =
+            cv::cuda::SparsePyrLKOpticalFlow::create(cv::Size(21, 21), 3, 30, true);
+        d_pyrLK_sparse->calc(prev_gpu_img, cur_gpu_img, prev_gpu_pts, cur_gpu_pts, gpu_status);
 
-    vector<cv::Point2f> tmp1_cur_pts(cur_gpu_pts.cols);
-    cur_gpu_pts.download(tmp1_cur_pts);
-    cur_pts = tmp1_cur_pts;
+        vector<cv::Point2f> tmp1_cur_pts(cur_gpu_pts.cols);
+        cur_gpu_pts.download(tmp1_cur_pts);
+        cur_pts = tmp1_cur_pts;
 
-    vector<uchar> tmp1_status(gpu_status.cols);
-    gpu_status.download(tmp1_status);
-    status = tmp1_status;
-    // flow back
-    cv::cuda::GpuMat reverse_gpu_status;
-    cv::cuda::GpuMat reverse_gpu_pts = prev_gpu_pts;
-    d_pyrLK_sparse->calc(cur_gpu_img, prev_gpu_img, cur_gpu_pts,
-                         reverse_gpu_pts, reverse_gpu_status);
+        vector<uchar> tmp1_status(gpu_status.cols);
+        gpu_status.download(tmp1_status);
+        status = tmp1_status;
+        // flow back
+        cv::cuda::GpuMat reverse_gpu_status;
+        cv::cuda::GpuMat reverse_gpu_pts = prev_gpu_pts;
+        d_pyrLK_sparse->calc(
+            cur_gpu_img, prev_gpu_img, cur_gpu_pts, reverse_gpu_pts, reverse_gpu_status);
 
-    vector<cv::Point2f> reverse_pts(reverse_gpu_pts.cols);
-    reverse_gpu_pts.download(reverse_pts);
+        vector<cv::Point2f> reverse_pts(reverse_gpu_pts.cols);
+        reverse_gpu_pts.download(reverse_pts);
 
-    vector<uchar> reverse_status(reverse_gpu_status.cols);
-    reverse_gpu_status.download(reverse_status);
+        vector<uchar> reverse_status(reverse_gpu_status.cols);
+        reverse_gpu_status.download(reverse_status);
 
-    int tracked_counts = 0;
-    for (size_t i = 0; i < status.size(); i++) {
-      if (status[i] && reverse_status[i] &&
-          distance(prev_pts[i], reverse_pts[i]) <= 0.5) {
-        status[i] = 1;
-        tracked_counts++;
-      } else
-        status[i] = 0;
+        int tracked_counts = 0;
+        for (size_t i = 0; i < status.size(); i++) {
+            if (status[i] && reverse_status[i] && distance(prev_pts[i], reverse_pts[i]) <= 0.5) {
+                status[i] = 1;
+                tracked_counts++;
+            } else
+                status[i] = 0;
+        }
+        ROS_DEBUG(
+            "opticalflow for left image  tracked %d features, cost %f ms", tracked_counts,
+            t_og.toc());
+        // ROS_INFO("[track_cnt]:[%d]", tracked_counts);
+
+        // update feature predictor
+        feature_predictor.update(cur_pts, status);
+        double ori_flow_avg  = getFlowErr(prev_pts, cur_pts, status);
+        double pred_flow_avg = getFlowErr(cur_pred_pts, cur_pts, status);
+        // ROS_INFO("[ori_flow_avg]:[%lf] [pred_flow_avg]:[%lf].", ori_flow_avg,
+        //          pred_flow_avg);
+        // check by desc match
+        checkAndExtractCurFlow(prev_pts, prev_xdesc, cur_pts, cur_xdesc, status);
+        // retrack
+        if (feature_tracker_config.use_retrack) {
+            TicToc tic_rt;
+            retrackThroughDescMatch(prev_pts, prev_xdesc, cur_pts, cur_xdesc, status, cur_pred_pts);
+            ROS_DEBUG("retrack cost %lf ms.", tic_rt.toc());
+        }
+
+        for (int i = 0; i < int(cur_pts.size()); i++)
+            if (status[i] && !inBorder(cur_pts[i])) status[i] = 0;
+        reduceVector(prev_pts, status);
+        reduceVector(cur_pts, status);
+        reduceEigenVector(cur_xdesc, status);
+        reduceVector(cur_ids, status);
+        reduceVector(track_cnt, status);
     }
-    ROS_DEBUG("opticalflow for left image  tracked %d features, cost %f ms",
-              tracked_counts, t_og.toc());
-    // ROS_INFO("[track_cnt]:[%d]", tracked_counts);
+    for (auto &n : track_cnt) n++;
+    rejectWithF();
+    setMask();
+    // add new points
+    int n_max_cnt = feature_tracker_config.of_max_cnt - static_cast<int>(cur_pts.size());
+    if (n_max_cnt > 0) {  // extract features
+        vector<cv::Point2f> new_pts_v;
+        int new_pts_num = 0;
+        if (feature_tracker_config.use_retrack) {  // retrack模式下，已经提取过heatmap
+            extractKeyPoints(new_pts_v);
+            new_pts_num = new_pts_v.size();
+        } else {
+            Eigen::Matrix<float, 2, Eigen::Dynamic> new_pts;
+            if (feature_detector->getDetectNetworkType() == 2) {  // xfeat
+                feature_detector->DetectUseXfeat(cur_img, cur_xfeatures);
+                new_pts_num = cur_xfeatures.cols();
+                new_pts.resize(2, new_pts_num);
+                new_pts = cur_xfeatures.block(1, 0, 2, new_pts_num);
+            } else {  // superpoint
+                feature_detector->Detect(cur_img, cur_features);
+                new_pts_num = cur_features.cols();
+                new_pts.resize(2, new_pts_num);
+                new_pts = cur_features.block(1, 0, 2, new_pts_num);
+            }
+            for (int i = 0; i < new_pts_num; i++)
+                new_pts_v.emplace_back(new_pts(0, i), new_pts(1, i));
+        }
+        // add features
+        int add_pts_nums = 0;
+        n_pts.clear();
+        for (int i = 0; i < new_pts_num && add_pts_nums < n_max_cnt; i++) {
+            if (mask.at<uchar>(new_pts_v[i]) == 255) {
+                n_pts.push_back(new_pts_v[i]);
+                add_pts_nums++;
+            }
+        }
+        ROS_DEBUG("xfeat add %d new points.", add_pts_nums);
+    } else
+        n_pts.clear();
 
-    // update feature predictor
-    feature_predictor.update(cur_pts, status);
-    double ori_flow_avg = getFlowErr(prev_pts, cur_pts, status);
-    double pred_flow_avg = getFlowErr(cur_pred_pts, cur_pts, status);
-    // ROS_INFO("[ori_flow_avg]:[%lf] [pred_flow_avg]:[%lf].", ori_flow_avg,
-    //          pred_flow_avg);
-    // check by desc match
-    checkAndExtractCurFlow(prev_pts, prev_xdesc, cur_pts, cur_xdesc, status);
-    // retrack
-    if (feature_tracker_config.use_retrack) {
-      TicToc tic_rt;
-      retrackThroughDescMatch(prev_pts, prev_xdesc, cur_pts, cur_xdesc, status,
-                              cur_pred_pts);
-      ROS_DEBUG("retrack cost %lf ms.", tic_rt.toc());
+    addPoints();
+    // retrack模式下，给新点提取描述子
+    if (!n_pts.empty() && feature_tracker_config.use_retrack) {
+        aligned_vector<DescV> new_pts_desc;
+        extractDescriptors(n_pts, new_pts_desc);
+        for (auto &new_desc : new_pts_desc) {
+            cur_xdesc.push_back(new_desc);
+        }
     }
+    ROS_DEBUG("total %d points after add new points.", cur_pts.size());
+    cur_un_pts   = undistortedPts(cur_pts, m_camera[0]);
+    pts_velocity = ptsVelocity(cur_ids, cur_un_pts, cur_un_pts_map, prev_un_pts_map);
 
-    for (int i = 0; i < int(cur_pts.size()); i++)
-      if (status[i] && !inBorder(cur_pts[i])) status[i] = 0;
-    reduceVector(prev_pts, status);
-    reduceVector(cur_pts, status);
-    reduceEigenVector(cur_xdesc, status);
-    reduceVector(cur_ids, status);
-    reduceVector(track_cnt, status);
-  }
-  for (auto &n : track_cnt) n++;
-  rejectWithF();
-  setMask();
-  // add new points
-  int n_max_cnt =
-      feature_tracker_config.of_max_cnt - static_cast<int>(cur_pts.size());
-  if (n_max_cnt > 0) {  // extract features
-    vector<cv::Point2f> new_pts_v;
-    int new_pts_num = 0;
-    if (feature_tracker_config
-            .use_retrack) {  // retrack模式下，已经提取过heatmap
-      extractKeyPoints(new_pts_v);
-      new_pts_num = new_pts_v.size();
-    } else {
-      Eigen::Matrix<float, 2, Eigen::Dynamic> new_pts;
-      if (feature_detector->getDetectNetworkType() == 2) {  // xfeat
-        feature_detector->DetectUseXfeat(cur_img, cur_xfeatures);
-        new_pts_num = cur_xfeatures.cols();
-        new_pts.resize(2, new_pts_num);
-        new_pts = cur_xfeatures.block(1, 0, 2, new_pts_num);
-      } else {  // superpoint
-        feature_detector->Detect(cur_img, cur_features);
-        new_pts_num = cur_features.cols();
-        new_pts.resize(2, new_pts_num);
-        new_pts = cur_features.block(1, 0, 2, new_pts_num);
-      }
-      for (int i = 0; i < new_pts_num; i++)
-        new_pts_v.emplace_back(new_pts(0, i), new_pts(1, i));
+    if (!_img1.empty() && stereo_cam) {
+        right_img = _img1;
+        right_ids.clear();
+        cur_right_pts.clear();
+        cur_un_right_pts.clear();
+        right_pts_velocity.clear();
+        cur_un_right_pts_map.clear();
+        if (!cur_pts.empty()) {
+            vector<cv::Point2f> reverseLeftPts;
+            vector<uchar> status, statusRightLeft;
+            TicToc t_og1;
+            cv::cuda::GpuMat cur_gpu_img(cur_img);
+            cv::cuda::GpuMat right_gpu_Img(right_img);
+            cv::cuda::GpuMat cur_gpu_pts(cur_pts);
+            cv::cuda::GpuMat cur_right_gpu_pts;
+            cv::cuda::GpuMat gpu_status;
+            cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse =
+                cv::cuda::SparsePyrLKOpticalFlow::create(cv::Size(21, 21), 3, 30, false);
+            d_pyrLK_sparse->calc(
+                cur_gpu_img, right_gpu_Img, cur_gpu_pts, cur_right_gpu_pts, gpu_status);
+
+            vector<cv::Point2f> tmp_cur_right_pts(cur_right_gpu_pts.cols);
+            cur_right_gpu_pts.download(tmp_cur_right_pts);
+            cur_right_pts = tmp_cur_right_pts;
+
+            vector<uchar> tmp_status(gpu_status.cols);
+            gpu_status.download(tmp_status);
+            status = tmp_status;
+            // flow back
+            cv::cuda::GpuMat reverseLeft_gpu_Pts;
+            cv::cuda::GpuMat status_gpu_RightLeft;
+            d_pyrLK_sparse->calc(
+                right_gpu_Img, cur_gpu_img, cur_right_gpu_pts, reverseLeft_gpu_Pts,
+                status_gpu_RightLeft);
+
+            vector<cv::Point2f> tmp_reverseLeft_Pts(reverseLeft_gpu_Pts.cols);
+            reverseLeft_gpu_Pts.download(tmp_reverseLeft_Pts);
+            reverseLeftPts = tmp_reverseLeft_Pts;
+
+            vector<uchar> tmp1_status(status_gpu_RightLeft.cols);
+            status_gpu_RightLeft.download(tmp1_status);
+            statusRightLeft = tmp1_status;
+            for (size_t i = 0, j = 0; i < status.size(); i++) {
+                if (status[i] && statusRightLeft[i] && inBorder(cur_right_pts[i]) &&
+                    distance(cur_pts[i], reverseLeftPts[i]) <= 0.5) {
+                    status[i] = 1;
+                } else
+                    status[i] = 0;
+            }
+            right_ids = cur_ids;
+            reduceVector(cur_right_pts, status);
+            reduceVector(right_ids, status);
+            ROS_DEBUG(
+                "opticalflow for right image  tracked %d features, cost %f ms", right_ids.size(),
+                t_og1.toc());
+            // undistorted right points
+            cur_un_right_pts = undistortedPts(cur_right_pts, m_camera[1]);
+            // calculate the right points' velocity
+            right_pts_velocity = ptsVelocity(
+                right_ids, cur_un_right_pts, cur_un_right_pts_map, prev_un_right_pts_map);
+        }
+        prev_un_right_pts_map = cur_un_right_pts_map;
     }
-    // add features
-    int add_pts_nums = 0;
-    n_pts.clear();
-    for (int i = 0; i < new_pts_num && add_pts_nums < n_max_cnt; i++) {
-      if (mask.at<uchar>(new_pts_v[i]) == 255) {
-        n_pts.push_back(new_pts_v[i]);
-        add_pts_nums++;
-      }
-    }
-    ROS_DEBUG("xfeat add %d new points.", add_pts_nums);
-  } else
-    n_pts.clear();
+    // draw
+    if (feature_tracker_config.show_track)
+        DrawOpticalFlow(
+            cur_img, right_img, cur_ids, cur_pts, cur_right_pts, prevLeftPtsMap, retrack_ids);
+    printTrackCnt();
+    prev_img        = cur_img;
+    prev_pts        = cur_pts;
+    prev_xdesc      = cur_xdesc;
+    prev_un_pts     = cur_un_pts;
+    prev_un_pts_map = cur_un_pts_map;
+    prev_time       = cur_time;
 
-  addPoints();
-  // retrack模式下，给新点提取描述子
-  if (!n_pts.empty() && feature_tracker_config.use_retrack) {
-    aligned_vector<DescV> new_pts_desc;
-    extractDescriptors(n_pts, new_pts_desc);
-    for (auto &new_desc : new_pts_desc) {
-      cur_xdesc.push_back(new_desc);
-    }
-  }
-  ROS_DEBUG("total %d points after add new points.", cur_pts.size());
-  cur_un_pts = undistortedPts(cur_pts, m_camera[0]);
-  pts_velocity =
-      ptsVelocity(cur_ids, cur_un_pts, cur_un_pts_map, prev_un_pts_map);
+    prevLeftPtsMap.clear();
+    for (size_t i = 0; i < cur_pts.size(); i++) prevLeftPtsMap[cur_ids[i]] = cur_pts[i];
 
-  if (!_img1.empty() && stereo_cam) {
-    right_img = _img1;
-    right_ids.clear();
-    cur_right_pts.clear();
-    cur_un_right_pts.clear();
-    right_pts_velocity.clear();
-    cur_un_right_pts_map.clear();
-    if (!cur_pts.empty()) {
-      vector<cv::Point2f> reverseLeftPts;
-      vector<uchar> status, statusRightLeft;
-      TicToc t_og1;
-      cv::cuda::GpuMat cur_gpu_img(cur_img);
-      cv::cuda::GpuMat right_gpu_Img(right_img);
-      cv::cuda::GpuMat cur_gpu_pts(cur_pts);
-      cv::cuda::GpuMat cur_right_gpu_pts;
-      cv::cuda::GpuMat gpu_status;
-      cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse =
-          cv::cuda::SparsePyrLKOpticalFlow::create(cv::Size(21, 21), 3, 30,
-                                                   false);
-      d_pyrLK_sparse->calc(cur_gpu_img, right_gpu_Img, cur_gpu_pts,
-                           cur_right_gpu_pts, gpu_status);
+    // reset feature predictor
+    feature_predictor.resetReferenceFeature(cur_time, cur_pts, cur_un_pts);
 
-      vector<cv::Point2f> tmp_cur_right_pts(cur_right_gpu_pts.cols);
-      cur_right_gpu_pts.download(tmp_cur_right_pts);
-      cur_right_pts = tmp_cur_right_pts;
-
-      vector<uchar> tmp_status(gpu_status.cols);
-      gpu_status.download(tmp_status);
-      status = tmp_status;
-      // flow back
-      cv::cuda::GpuMat reverseLeft_gpu_Pts;
-      cv::cuda::GpuMat status_gpu_RightLeft;
-      d_pyrLK_sparse->calc(right_gpu_Img, cur_gpu_img, cur_right_gpu_pts,
-                           reverseLeft_gpu_Pts, status_gpu_RightLeft);
-
-      vector<cv::Point2f> tmp_reverseLeft_Pts(reverseLeft_gpu_Pts.cols);
-      reverseLeft_gpu_Pts.download(tmp_reverseLeft_Pts);
-      reverseLeftPts = tmp_reverseLeft_Pts;
-
-      vector<uchar> tmp1_status(status_gpu_RightLeft.cols);
-      status_gpu_RightLeft.download(tmp1_status);
-      statusRightLeft = tmp1_status;
-      for (size_t i = 0, j = 0; i < status.size(); i++) {
-        if (status[i] && statusRightLeft[i] && inBorder(cur_right_pts[i]) &&
-            distance(cur_pts[i], reverseLeftPts[i]) <= 0.5) {
-          status[i] = 1;
-        } else
-          status[i] = 0;
-      }
-      right_ids = cur_ids;
-      reduceVector(cur_right_pts, status);
-      reduceVector(right_ids, status);
-      ROS_DEBUG("opticalflow for right image  tracked %d features, cost %f ms",
-                right_ids.size(), t_og1.toc());
-      // undistorted right points
-      cur_un_right_pts = undistortedPts(cur_right_pts, m_camera[1]);
-      // calculate the right points' velocity
-      right_pts_velocity =
-          ptsVelocity(right_ids, cur_un_right_pts, cur_un_right_pts_map,
-                      prev_un_right_pts_map);
-    }
-    prev_un_right_pts_map = cur_un_right_pts_map;
-  }
-  // draw
-  if (feature_tracker_config.show_track)
-    DrawOpticalFlow(cur_img, right_img, cur_ids, cur_pts, cur_right_pts,
-                    prevLeftPtsMap, retrack_ids);
-  printTrackCnt();
-  prev_img = cur_img;
-  prev_pts = cur_pts;
-  prev_xdesc = cur_xdesc;
-  prev_un_pts = cur_un_pts;
-  prev_un_pts_map = cur_un_pts_map;
-  prev_time = cur_time;
-
-  prevLeftPtsMap.clear();
-  for (size_t i = 0; i < cur_pts.size(); i++)
-    prevLeftPtsMap[cur_ids[i]] = cur_pts[i];
-
-  // reset feature predictor
-  feature_predictor.resetReferenceFeature(cur_time, cur_pts, cur_un_pts);
-
-  // // update descriptors
-  // if (feature_tracker_config.use_retrack) {
-  //   extractDescriptors(prev_pts, prev_xdesc);
-  // }
+    // // update descriptors
+    // if (feature_tracker_config.use_retrack) {
+    //   extractDescriptors(prev_pts, prev_xdesc);
+    // }
 }
 
 // deprecated
-void FeatureTracker::track_img(double _cur_time, const cv::Mat &_img,
-                               const cv::Mat &_img1) {
-  cur_time = _cur_time;
-  cur_img = _img;
-  // clear current pts
-  cur_pts.clear();
-  cur_ids.clear();
-  cur_un_pts.clear();
-  cur_features.setZero();
+void FeatureTracker::track_img(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1) {
+    cur_time = _cur_time;
+    cur_img  = _img;
+    // clear current pts
+    cur_pts.clear();
+    cur_ids.clear();
+    cur_un_pts.clear();
+    cur_features.setZero();
 
-  cout << "*********** current frame ***********" << endl;
-  TicToc tic_d;
-  /// detect points and extract desc
-  if (!feature_detector->Detect(cur_img, cur_features)) {
-    ROS_ERROR("error occured when extract features!");
-    prev_img = cur_img;
-    prev_pts = cur_pts;
-    prev_ids = cur_ids;
-    prev_un_pts = cur_un_pts;
-    prev_time = cur_time;
-    return;
-  }
-  int cur_detected_size = cur_features.cols();
-  ROS_DEBUG("detect %d features in left image, cost %f ms.", cur_detected_size,
-            tic_d.toc());
-
-  for (int i = 0; i < cur_detected_size; i++) {
-    cur_pts.emplace_back(cur_features(1, i), cur_features(2, i));
-    if (first_image_flag) {
-      cur_ids.push_back(n_id);
-      n_id++;
-    } else
-      cur_ids.push_back(-1);
-  }
-  if (first_image_flag) first_image_flag = false;
-
-  if (prev_pts.size() > 0) {
-    TicToc tic_m;
-    // match to prev
-    vector<cv::DMatch> matches;
-    point_matcher->MatchingPoints(cur_features, prev_features, matches, true);
-    ROS_DEBUG("match size %d, cost %f ms.", matches.size(), tic_m.toc());
-    // process ids
-    for (auto &match : matches) {
-      ROS_ASSERT(match.queryIdx < cur_ids.size() &&
-                 match.trainIdx < prev_ids.size());
-      cur_ids[match.queryIdx] = prev_ids[match.trainIdx];
+    cout << "*********** current frame ***********" << endl;
+    TicToc tic_d;
+    /// detect points and extract desc
+    if (!feature_detector->Detect(cur_img, cur_features)) {
+        ROS_ERROR("error occured when extract features!");
+        prev_img    = cur_img;
+        prev_pts    = cur_pts;
+        prev_ids    = cur_ids;
+        prev_un_pts = cur_un_pts;
+        prev_time   = cur_time;
+        return;
     }
-    // separate unmatched points
-    TicToc tic_s;
-    int matched_counts = 0, unmatched_counts = 0;
-    vector<cv::Point2f> unmatched_pts;
-    Eigen::Matrix<float, 259, Eigen::Dynamic> unmatched_features;
-    unmatched_features.resize(259, cur_detected_size);
+    int cur_detected_size = cur_features.cols();
+    ROS_DEBUG("detect %d features in left image, cost %f ms.", cur_detected_size, tic_d.toc());
+
     for (int i = 0; i < cur_detected_size; i++) {
-      if (cur_ids[i] == -1) {  // unmatched points
-        unmatched_pts.emplace_back(cur_pts[i].x, cur_pts[i].y);
-        unmatched_features.col(unmatched_counts) = cur_features.col(i);
-        unmatched_counts++;
-      } else {
-        cur_pts[matched_counts] = cur_pts[i];
-        cur_ids[matched_counts] = cur_ids[i];
-        cur_features.col(matched_counts) = cur_features.col(i);
-        matched_counts++;
-      }
-    }
-    cur_pts.resize(matched_counts);
-    cur_ids.resize(matched_counts);
-    ROS_DEBUG(
-        "separate unmatched points cost %f ms, matched_counts is %d, "
-        "unmatched_counts is %d.",
-        tic_s.toc(), matched_counts, unmatched_counts);
-    // add new points if matched points size below threshold
-    int diff_n = feature_tracker_config.max_cnt - matched_counts;
-    int final_counts = matched_counts;
-    if (diff_n > 0) {  // need to add new pts
-      for (int i = 0; i < diff_n && final_counts < cur_detected_size; i++) {
-        cur_pts.emplace_back(unmatched_pts[i].x, unmatched_pts[i].y);
-        cur_ids.push_back(n_id++);
-        cur_features.col(final_counts++) = unmatched_features.col(i);
-      }
-    }
-    ROS_DEBUG("final cur pts size is %d.", final_counts);
-    cur_features.resize(259, final_counts);
-  }
-  // undistorted
-  cur_un_pts = undistortedPts(cur_pts, m_camera[0]);
-  // calculate the velocity of cur_un_pts
-  pts_velocity =
-      ptsVelocity(cur_ids, cur_un_pts, cur_un_pts_map, prev_un_pts_map);
-
-  /***process the right image***/
-  if (!_img1.empty() && stereo_cam) {
-    right_img = _img1;
-    right_ids.clear();
-    cur_right_pts.clear();
-    cur_un_right_pts.clear();
-    right_pts_velocity.clear();
-    cur_un_right_pts_map.clear();
-    if (!cur_pts.empty()) {
-      if (feature_tracker_config.use_opticalflow_stereo) {  // use opeicalflow
-        vector<cv::Point2f> reverseLeftPts;
-        vector<uchar> status, statusRightLeft;
-        TicToc t_og1;
-        cv::cuda::GpuMat cur_gpu_img(cur_img);
-        cv::cuda::GpuMat right_gpu_Img(right_img);
-        cv::cuda::GpuMat cur_gpu_pts(cur_pts);
-        cv::cuda::GpuMat cur_right_gpu_pts;
-        cv::cuda::GpuMat gpu_status;
-        cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse =
-            cv::cuda::SparsePyrLKOpticalFlow::create(cv::Size(21, 21), 3, 30,
-                                                     false);
-        d_pyrLK_sparse->calc(cur_gpu_img, right_gpu_Img, cur_gpu_pts,
-                             cur_right_gpu_pts, gpu_status);
-
-        vector<cv::Point2f> tmp_cur_right_pts(cur_right_gpu_pts.cols);
-        cur_right_gpu_pts.download(tmp_cur_right_pts);
-        cur_right_pts = tmp_cur_right_pts;
-
-        vector<uchar> tmp_status(gpu_status.cols);
-        gpu_status.download(tmp_status);
-        status = tmp_status;
-        // flow back
-        cv::cuda::GpuMat reverseLeft_gpu_Pts;
-        cv::cuda::GpuMat status_gpu_RightLeft;
-        d_pyrLK_sparse->calc(right_gpu_Img, cur_gpu_img, cur_right_gpu_pts,
-                             reverseLeft_gpu_Pts, status_gpu_RightLeft);
-
-        vector<cv::Point2f> tmp_reverseLeft_Pts(reverseLeft_gpu_Pts.cols);
-        reverseLeft_gpu_Pts.download(tmp_reverseLeft_Pts);
-        reverseLeftPts = tmp_reverseLeft_Pts;
-
-        vector<uchar> tmp1_status(status_gpu_RightLeft.cols);
-        status_gpu_RightLeft.download(tmp1_status);
-        statusRightLeft = tmp1_status;
-        for (size_t i = 0, j = 0; i < status.size(); i++) {
-          if (status[i] && statusRightLeft[i] && inBorder(cur_right_pts[i]) &&
-              distance(cur_pts[i], reverseLeftPts[i]) <= 0.5) {
-            status[i] = 1;
-          } else
-            status[i] = 0;
-        }
-        right_ids = cur_ids;
-        reduceVector(cur_right_pts, status);
-        reduceVector(right_ids, status);
-        ROS_DEBUG(
-            "opticalflow for right image  tracked %d features, cost %f ms",
-            right_ids.size(), t_og1.toc());
-      } else {  // use superpoint & lightglue
-        TicToc tic_dr;
-        cur_right_features.setZero();
-        if (feature_detector->Detect(right_img, cur_right_features)) {
-          int right_pts_size = cur_right_features.cols();
-          ROS_DEBUG("detect %d features in right image, cost %f ms.",
-                    right_pts_size, tic_dr.toc());
-          for (int i = 0; i < right_pts_size; i++) {
-            cur_right_pts.emplace_back(cur_right_features(1, i),
-                                       cur_right_features(2, i));
-            right_ids.push_back(-1);
-          }
-          // match to left
-          TicToc tic_mr;
-          vector<cv::DMatch> matches;
-          point_matcher->MatchingPoints(cur_right_features, cur_features,
-                                        matches, true);
-          ROS_DEBUG("right match size %d, cost %f ms.", matches.size(),
-                    tic_mr.toc());
-          // process id
-          for (auto &match : matches) {
-            ROS_ASSERT(match.queryIdx < right_ids.size() &&
-                       match.trainIdx < cur_ids.size());
-            right_ids[match.queryIdx] = cur_ids[match.trainIdx];
-          }
-          // reduce the unmatched points
-          int right_matched_counts = 0;
-          for (int i = 0; i < right_pts_size; i++) {
-            if (right_ids[i] != -1) {
-              cur_right_pts[right_matched_counts] = cur_right_pts[i];
-              right_ids[right_matched_counts] = right_ids[i];
-              right_matched_counts++;
-            }
-          }
-          cur_right_pts.resize(right_matched_counts);
-          right_ids.resize(right_matched_counts);
+        cur_pts.emplace_back(cur_features(1, i), cur_features(2, i));
+        if (first_image_flag) {
+            cur_ids.push_back(n_id);
+            n_id++;
         } else
-          ROS_ERROR("error occured when extract right image features!");
-      }
-      // undistorted right points
-      cur_un_right_pts = undistortedPts(cur_right_pts, m_camera[1]);
-      // calculate the right points' velocity
-      right_pts_velocity =
-          ptsVelocity(right_ids, cur_un_right_pts, cur_un_right_pts_map,
-                      prev_un_right_pts_map);
+            cur_ids.push_back(-1);
     }
-    prev_un_right_pts_map = cur_un_right_pts_map;
-  }
-  calTrackCnt();
-  // draw
-  switch (feature_tracker_config.show_track) {
-    case 1:
-      if (!prev_img.empty() && !cur_img.empty())
-        DrawMatches(prev_img, cur_img, prev_pts, cur_pts, prev_ids, cur_ids);
-      break;
-    case 2:
-      if (!cur_img.empty() && !right_img.empty())
-        DrawMatches(cur_img, right_img, cur_pts, cur_right_pts, cur_ids,
-                    right_ids);
-    case 3:
-      if (!prev_img.empty() && !cur_img.empty())
-        DrawTrackCnt(cur_img, cur_pts, cur_ids, cur_trackcnt_umap);
-    default:
-      break;
-  }
+    if (first_image_flag) first_image_flag = false;
 
-  int good_track_cnt = 0;
-  for (auto ele : cur_trackcnt_umap) {
-    if (ele.second >= 4) good_track_cnt++;
-  }
-  ROS_DEBUG("good track cnt is %d.\n", good_track_cnt);
+    if (prev_pts.size() > 0) {
+        TicToc tic_m;
+        // match to prev
+        vector<cv::DMatch> matches;
+        point_matcher->MatchingPoints(cur_features, prev_features, matches, true);
+        ROS_DEBUG("match size %d, cost %f ms.", matches.size(), tic_m.toc());
+        // process ids
+        for (auto &match : matches) {
+            ROS_ASSERT(match.queryIdx < cur_ids.size() && match.trainIdx < prev_ids.size());
+            cur_ids[match.queryIdx] = prev_ids[match.trainIdx];
+        }
+        // separate unmatched points
+        TicToc tic_s;
+        int matched_counts = 0, unmatched_counts = 0;
+        vector<cv::Point2f> unmatched_pts;
+        Eigen::Matrix<float, 259, Eigen::Dynamic> unmatched_features;
+        unmatched_features.resize(259, cur_detected_size);
+        for (int i = 0; i < cur_detected_size; i++) {
+            if (cur_ids[i] == -1) {  // unmatched points
+                unmatched_pts.emplace_back(cur_pts[i].x, cur_pts[i].y);
+                unmatched_features.col(unmatched_counts) = cur_features.col(i);
+                unmatched_counts++;
+            } else {
+                cur_pts[matched_counts]          = cur_pts[i];
+                cur_ids[matched_counts]          = cur_ids[i];
+                cur_features.col(matched_counts) = cur_features.col(i);
+                matched_counts++;
+            }
+        }
+        cur_pts.resize(matched_counts);
+        cur_ids.resize(matched_counts);
+        ROS_DEBUG(
+            "separate unmatched points cost %f ms, matched_counts is %d, "
+            "unmatched_counts is %d.",
+            tic_s.toc(), matched_counts, unmatched_counts);
+        // add new points if matched points size below threshold
+        int diff_n       = feature_tracker_config.max_cnt - matched_counts;
+        int final_counts = matched_counts;
+        if (diff_n > 0) {  // need to add new pts
+            for (int i = 0; i < diff_n && final_counts < cur_detected_size; i++) {
+                cur_pts.emplace_back(unmatched_pts[i].x, unmatched_pts[i].y);
+                cur_ids.push_back(n_id++);
+                cur_features.col(final_counts++) = unmatched_features.col(i);
+            }
+        }
+        ROS_DEBUG("final cur pts size is %d.", final_counts);
+        cur_features.resize(259, final_counts);
+    }
+    // undistorted
+    cur_un_pts = undistortedPts(cur_pts, m_camera[0]);
+    // calculate the velocity of cur_un_pts
+    pts_velocity = ptsVelocity(cur_ids, cur_un_pts, cur_un_pts_map, prev_un_pts_map);
 
-  prev_img = cur_img;
-  prev_pts = cur_pts;
-  prev_ids = cur_ids;
-  prev_features = cur_features;
-  prev_un_pts = cur_un_pts;
-  prev_un_pts_map = cur_un_pts_map;
-  prev_time = cur_time;
+    /***process the right image***/
+    if (!_img1.empty() && stereo_cam) {
+        right_img = _img1;
+        right_ids.clear();
+        cur_right_pts.clear();
+        cur_un_right_pts.clear();
+        right_pts_velocity.clear();
+        cur_un_right_pts_map.clear();
+        if (!cur_pts.empty()) {
+            if (feature_tracker_config.use_opticalflow_stereo) {  // use opeicalflow
+                vector<cv::Point2f> reverseLeftPts;
+                vector<uchar> status, statusRightLeft;
+                TicToc t_og1;
+                cv::cuda::GpuMat cur_gpu_img(cur_img);
+                cv::cuda::GpuMat right_gpu_Img(right_img);
+                cv::cuda::GpuMat cur_gpu_pts(cur_pts);
+                cv::cuda::GpuMat cur_right_gpu_pts;
+                cv::cuda::GpuMat gpu_status;
+                cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse =
+                    cv::cuda::SparsePyrLKOpticalFlow::create(cv::Size(21, 21), 3, 30, false);
+                d_pyrLK_sparse->calc(
+                    cur_gpu_img, right_gpu_Img, cur_gpu_pts, cur_right_gpu_pts, gpu_status);
+
+                vector<cv::Point2f> tmp_cur_right_pts(cur_right_gpu_pts.cols);
+                cur_right_gpu_pts.download(tmp_cur_right_pts);
+                cur_right_pts = tmp_cur_right_pts;
+
+                vector<uchar> tmp_status(gpu_status.cols);
+                gpu_status.download(tmp_status);
+                status = tmp_status;
+                // flow back
+                cv::cuda::GpuMat reverseLeft_gpu_Pts;
+                cv::cuda::GpuMat status_gpu_RightLeft;
+                d_pyrLK_sparse->calc(
+                    right_gpu_Img, cur_gpu_img, cur_right_gpu_pts, reverseLeft_gpu_Pts,
+                    status_gpu_RightLeft);
+
+                vector<cv::Point2f> tmp_reverseLeft_Pts(reverseLeft_gpu_Pts.cols);
+                reverseLeft_gpu_Pts.download(tmp_reverseLeft_Pts);
+                reverseLeftPts = tmp_reverseLeft_Pts;
+
+                vector<uchar> tmp1_status(status_gpu_RightLeft.cols);
+                status_gpu_RightLeft.download(tmp1_status);
+                statusRightLeft = tmp1_status;
+                for (size_t i = 0, j = 0; i < status.size(); i++) {
+                    if (status[i] && statusRightLeft[i] && inBorder(cur_right_pts[i]) &&
+                        distance(cur_pts[i], reverseLeftPts[i]) <= 0.5) {
+                        status[i] = 1;
+                    } else
+                        status[i] = 0;
+                }
+                right_ids = cur_ids;
+                reduceVector(cur_right_pts, status);
+                reduceVector(right_ids, status);
+                ROS_DEBUG(
+                    "opticalflow for right image  tracked %d features, cost %f ms",
+                    right_ids.size(), t_og1.toc());
+            } else {  // use superpoint & lightglue
+                TicToc tic_dr;
+                cur_right_features.setZero();
+                if (feature_detector->Detect(right_img, cur_right_features)) {
+                    int right_pts_size = cur_right_features.cols();
+                    ROS_DEBUG(
+                        "detect %d features in right image, cost %f ms.", right_pts_size,
+                        tic_dr.toc());
+                    for (int i = 0; i < right_pts_size; i++) {
+                        cur_right_pts.emplace_back(
+                            cur_right_features(1, i), cur_right_features(2, i));
+                        right_ids.push_back(-1);
+                    }
+                    // match to left
+                    TicToc tic_mr;
+                    vector<cv::DMatch> matches;
+                    point_matcher->MatchingPoints(cur_right_features, cur_features, matches, true);
+                    ROS_DEBUG("right match size %d, cost %f ms.", matches.size(), tic_mr.toc());
+                    // process id
+                    for (auto &match : matches) {
+                        ROS_ASSERT(
+                            match.queryIdx < right_ids.size() && match.trainIdx < cur_ids.size());
+                        right_ids[match.queryIdx] = cur_ids[match.trainIdx];
+                    }
+                    // reduce the unmatched points
+                    int right_matched_counts = 0;
+                    for (int i = 0; i < right_pts_size; i++) {
+                        if (right_ids[i] != -1) {
+                            cur_right_pts[right_matched_counts] = cur_right_pts[i];
+                            right_ids[right_matched_counts]     = right_ids[i];
+                            right_matched_counts++;
+                        }
+                    }
+                    cur_right_pts.resize(right_matched_counts);
+                    right_ids.resize(right_matched_counts);
+                } else
+                    ROS_ERROR("error occured when extract right image features!");
+            }
+            // undistorted right points
+            cur_un_right_pts = undistortedPts(cur_right_pts, m_camera[1]);
+            // calculate the right points' velocity
+            right_pts_velocity = ptsVelocity(
+                right_ids, cur_un_right_pts, cur_un_right_pts_map, prev_un_right_pts_map);
+        }
+        prev_un_right_pts_map = cur_un_right_pts_map;
+    }
+    calTrackCnt();
+    // draw
+    switch (feature_tracker_config.show_track) {
+        case 1:
+            if (!prev_img.empty() && !cur_img.empty())
+                DrawMatches(prev_img, cur_img, prev_pts, cur_pts, prev_ids, cur_ids);
+            break;
+        case 2:
+            if (!cur_img.empty() && !right_img.empty())
+                DrawMatches(cur_img, right_img, cur_pts, cur_right_pts, cur_ids, right_ids);
+        case 3:
+            if (!prev_img.empty() && !cur_img.empty())
+                DrawTrackCnt(cur_img, cur_pts, cur_ids, cur_trackcnt_umap);
+        default:
+            break;
+    }
+
+    int good_track_cnt = 0;
+    for (auto ele : cur_trackcnt_umap) {
+        if (ele.second >= 4) good_track_cnt++;
+    }
+    ROS_DEBUG("good track cnt is %d.\n", good_track_cnt);
+
+    prev_img        = cur_img;
+    prev_pts        = cur_pts;
+    prev_ids        = cur_ids;
+    prev_features   = cur_features;
+    prev_un_pts     = cur_un_pts;
+    prev_un_pts_map = cur_un_pts_map;
+    prev_time       = cur_time;
 }
 
-void FeatureTracker::DrawTrackCnt(const cv::Mat &image,
-                                  const vector<cv::Point2f> &pts,
-                                  const vector<int> &ids,
-                                  const unordered_map<int, int> &id_cnt_umap) {
-  cv::Mat rgba_image;
-  cv::cvtColor(image, rgba_image, cv::COLOR_BGR2BGRA);
-  for (int i = 0; i < pts.size(); i++) {
-    int track_cnts;
-    auto it = id_cnt_umap.find(ids[i]);
-    if (it == id_cnt_umap.end())
-      track_cnts = 0;
-    else
-      track_cnts = it->second;
-    double len = std::min(1.0, 1.0 * track_cnts / 20);
-    cv::circle(rgba_image, pts[i], 2, cv::Scalar(255 * (1 - len), 0, 255 * len),
-               2);
-  }
-  cv::cvtColor(rgba_image, imTrack, cv::COLOR_BGRA2BGR);
+void FeatureTracker::DrawTrackCnt(
+    const cv::Mat &image, const vector<cv::Point2f> &pts, const vector<int> &ids,
+    const unordered_map<int, int> &id_cnt_umap) {
+    cv::Mat rgba_image;
+    cv::cvtColor(image, rgba_image, cv::COLOR_BGR2BGRA);
+    for (int i = 0; i < pts.size(); i++) {
+        int track_cnts;
+        auto it = id_cnt_umap.find(ids[i]);
+        if (it == id_cnt_umap.end())
+            track_cnts = 0;
+        else
+            track_cnts = it->second;
+        double len = std::min(1.0, 1.0 * track_cnts / 20);
+        cv::circle(rgba_image, pts[i], 2, cv::Scalar(255 * (1 - len), 0, 255 * len), 2);
+    }
+    cv::cvtColor(rgba_image, imTrack, cv::COLOR_BGRA2BGR);
 }
 
-void FeatureTracker::DrawMatches(const cv::Mat &ref_image, const cv::Mat &image,
-                                 const vector<cv::Point2f> &ref_pts,
-                                 const vector<cv::Point2f> &pts,
-                                 const vector<int> &ref_ids,
-                                 const vector<int> &ids) {
-  unordered_map<int, cv::Point2f> ref_ids_pts;
-  for (int i = 0; i < ref_pts.size(); i++) {
-    ref_ids_pts[ref_ids[i]] = ref_pts[i];
-  }
-  cv::Mat merged_image;
-  cv::hconcat(ref_image, image, merged_image);
-  cv::Mat rgba_image;
-  cv::cvtColor(merged_image, rgba_image, cv::COLOR_BGR2BGRA);
-  for (int i = 0; i < pts.size(); i++) {
-    auto it = ref_ids_pts.find(ids[i]);
-    if (it != ref_ids_pts.end()) {
-      cv::Point2f ref_kpts(it->second.x, it->second.y);
-      cv::Point2f kpts(pts[i].x + ref_image.cols, pts[i].y);
-      cv::circle(rgba_image, ref_kpts, 2, cv::Scalar(255, 0, 0), 2);
-      cv::circle(rgba_image, kpts, 2, cv::Scalar(255, 0, 0), 2);
-      // cv::line(rgba_image, ref_kpts, kpts, cv::Scalar(0,255,0, 10), 2);
+void FeatureTracker::DrawMatches(
+    const cv::Mat &ref_image, const cv::Mat &image, const vector<cv::Point2f> &ref_pts,
+    const vector<cv::Point2f> &pts, const vector<int> &ref_ids, const vector<int> &ids) {
+    unordered_map<int, cv::Point2f> ref_ids_pts;
+    for (int i = 0; i < ref_pts.size(); i++) {
+        ref_ids_pts[ref_ids[i]] = ref_pts[i];
     }
-  }
-  cv::cvtColor(rgba_image, imTrack, cv::COLOR_BGRA2BGR);
+    cv::Mat merged_image;
+    cv::hconcat(ref_image, image, merged_image);
+    cv::Mat rgba_image;
+    cv::cvtColor(merged_image, rgba_image, cv::COLOR_BGR2BGRA);
+    for (int i = 0; i < pts.size(); i++) {
+        auto it = ref_ids_pts.find(ids[i]);
+        if (it != ref_ids_pts.end()) {
+            cv::Point2f ref_kpts(it->second.x, it->second.y);
+            cv::Point2f kpts(pts[i].x + ref_image.cols, pts[i].y);
+            cv::circle(rgba_image, ref_kpts, 2, cv::Scalar(255, 0, 0), 2);
+            cv::circle(rgba_image, kpts, 2, cv::Scalar(255, 0, 0), 2);
+            // cv::line(rgba_image, ref_kpts, kpts, cv::Scalar(0,255,0, 10), 2);
+        }
+    }
+    cv::cvtColor(rgba_image, imTrack, cv::COLOR_BGRA2BGR);
 }
 void FeatureTracker::DrawOpticalFlow(
     const cv::Mat &imLeft, const cv::Mat &imRight, vector<int> &curLeftIds,
     vector<cv::Point2f> &curLeftPts, vector<cv::Point2f> &curRightPts,
     map<int, cv::Point2f> &prevLeftPtsMap, set<int> &cur_retrack_id) {
-  int rows = imLeft.rows;
-  int cols = imLeft.cols;
-  if (!imRight.empty() && stereo_cam)
-    cv::hconcat(imLeft, imRight, imTrack);
-  else
-    imTrack = imLeft.clone();
-  cv::cvtColor(imTrack, imTrack, cv::COLOR_GRAY2RGB);
+    int rows = imLeft.rows;
+    int cols = imLeft.cols;
+    if (!imRight.empty() && stereo_cam)
+        cv::hconcat(imLeft, imRight, imTrack);
+    else
+        imTrack = imLeft.clone();
+    cv::cvtColor(imTrack, imTrack, cv::COLOR_GRAY2RGB);
 
-  for (size_t j = 0; j < curLeftPts.size(); j++) {
-    double len = std::min(1.0, 1.0 * track_cnt[j] / 20);
-    cv::circle(imTrack, curLeftPts[j], 2,
-               cv::Scalar(255 * (1 - len), 0, 255 * len), 2);
-  }
-  if (!imRight.empty() && stereo_cam) {
-    for (size_t i = 0; i < curRightPts.size(); i++) {
-      cv::Point2f rightPt = curRightPts[i];
-      rightPt.x += cols;
-      cv::circle(imTrack, rightPt, 2, cv::Scalar(0, 255, 0), 2);
-      // cv::Point2f leftPt = curLeftPtsTrackRight[i];
-      // cv::line(imTrack, leftPt, rightPt, cv::Scalar(0, 255, 0), 1, 8, 0);
+    for (size_t j = 0; j < curLeftPts.size(); j++) {
+        double len = std::min(1.0, 1.0 * track_cnt[j] / 20);
+        cv::circle(imTrack, curLeftPts[j], 2, cv::Scalar(255 * (1 - len), 0, 255 * len), 2);
     }
-  }
+    if (!imRight.empty() && stereo_cam) {
+        for (size_t i = 0; i < curRightPts.size(); i++) {
+            cv::Point2f rightPt = curRightPts[i];
+            rightPt.x += cols;
+            cv::circle(imTrack, rightPt, 2, cv::Scalar(0, 255, 0), 2);
+            // cv::Point2f leftPt = curLeftPtsTrackRight[i];
+            // cv::line(imTrack, leftPt, rightPt, cv::Scalar(0, 255, 0), 1, 8, 0);
+        }
+    }
 
-  map<int, cv::Point2f>::iterator mapIt;
-  for (size_t i = 0; i < curLeftIds.size(); i++) {
-    int id = curLeftIds[i];
-    mapIt = prevLeftPtsMap.find(id);
-    if (mapIt != prevLeftPtsMap.end()) {
-      if (retrack_ids.find(id) != retrack_ids.end())
-        cv::arrowedLine(imTrack, curLeftPts[i], mapIt->second,
-                        cv::Scalar(0, 0, 255), 1, 8, 0, 0.2);
-      else
-        cv::arrowedLine(imTrack, curLeftPts[i], mapIt->second,
-                        cv::Scalar(0, 255, 0), 1, 8, 0, 0.2);
+    map<int, cv::Point2f>::iterator mapIt;
+    for (size_t i = 0; i < curLeftIds.size(); i++) {
+        int id = curLeftIds[i];
+        mapIt  = prevLeftPtsMap.find(id);
+        if (mapIt != prevLeftPtsMap.end()) {
+            if (retrack_ids.find(id) != retrack_ids.end())
+                cv::arrowedLine(
+                    imTrack, curLeftPts[i], mapIt->second, cv::Scalar(0, 0, 255), 1, 8, 0, 0.2);
+            else
+                cv::arrowedLine(
+                    imTrack, curLeftPts[i], mapIt->second, cv::Scalar(0, 255, 0), 1, 8, 0, 0.2);
+        }
     }
-  }
-  cv::resize(imTrack, imTrack, cv::Size(cols, rows / 2));
+    cv::resize(imTrack, imTrack, cv::Size(cols, rows / 2));
 }
 void FeatureTracker::readIntrinsicParameter() {
-  auto calib_file = feature_tracker_config.camera_config_file;
-  for (size_t i = 0; i < calib_file.size(); i++) {
-    ROS_INFO("reading paramerter of camera %s", calib_file[i].c_str());
-    camodocal::CameraPtr camera =
-        camodocal::CameraFactory::instance()->generateCameraFromYamlFile(
-            calib_file[i]);
-    m_camera.push_back(camera);
-  }
-  if (calib_file.size() == 2) stereo_cam = true;
+    auto calib_file = feature_tracker_config.camera_config_file;
+    for (size_t i = 0; i < calib_file.size(); i++) {
+        ROS_INFO("reading paramerter of camera %s", calib_file[i].c_str());
+        camodocal::CameraPtr camera =
+            camodocal::CameraFactory::instance()->generateCameraFromYamlFile(calib_file[i]);
+        m_camera.push_back(camera);
+    }
+    if (calib_file.size() == 2) stereo_cam = true;
 }
 
-void FeatureTracker::readConfigParameter(const string &config_file,
-                                         const string &model_prefix_path,
-                                         const string &plugin_path) {
-  // feature_tracker config
-  feature_tracker_config.load(config_file);
-  readIntrinsicParameter();
-  // plnet config
-  PLNetConfig plnet_config;
-  plnet_config.load(config_file);
-  plnet_config.setModelPrefixPath(model_prefix_path);
-  feature_detector = make_shared<FeatureDetector>(plnet_config);
-  // point_match config
-  PointMatcherConfig point_matcher_config;
-  point_matcher_config.load(config_file);
-  point_matcher_config.setModelPrefixPath(model_prefix_path);
-  if (!plugin_path.empty()) point_matcher_config.setPluginPath(plugin_path);
-  point_matcher = make_shared<PointMatcher>(point_matcher_config);
-  // tracker assist config
-  track_assist_args.load(config_file);
-  // feature_predictor config
-  feature_predictor.loadExtrinsic(config_file);
-  feature_predictor.setCameraParam(m_camera[0], feature_tracker_config.col,
-                                   feature_tracker_config.row);
+void FeatureTracker::readConfigParameter(
+    const string &config_file, const string &model_prefix_path, const string &plugin_path) {
+    // feature_tracker config
+    feature_tracker_config.load(config_file);
+    readIntrinsicParameter();
+    // plnet config
+    PLNetConfig plnet_config;
+    plnet_config.load(config_file);
+    plnet_config.setModelPrefixPath(model_prefix_path);
+    feature_detector = make_shared<FeatureDetector>(plnet_config);
+    // point_match config
+    PointMatcherConfig point_matcher_config;
+    point_matcher_config.load(config_file);
+    point_matcher_config.setModelPrefixPath(model_prefix_path);
+    if (!plugin_path.empty()) point_matcher_config.setPluginPath(plugin_path);
+    point_matcher = make_shared<PointMatcher>(point_matcher_config);
+    // tracker assist config
+    track_assist_args.load(config_file);
+    // feature_predictor config
+    feature_predictor.loadExtrinsic(config_file);
+    feature_predictor.setCameraParam(
+        m_camera[0], feature_tracker_config.col, feature_tracker_config.row);
 }
 
 void FeatureTracker::prewarmForTracker() {
-  int imgWidth = 640;
-  int imgHeight = 480;
-  int boardSize = 20;
-  int cellWidth = imgWidth / boardSize;
-  int cellHeight = imgHeight / boardSize;
-  cv::Mat dummyImage0(imgHeight, imgWidth, CV_8UC1, cv::Scalar(0));
-  for (int i = 0; i < boardSize; ++i) {
-    for (int j = 0; j < boardSize; ++j) {
-      int startX = i * cellWidth;
-      int startY = j * cellHeight;
-      if ((i + j) % 2 == 0) {
-        dummyImage0(cv::Rect(startX, startY, cellWidth, cellHeight))
-            .setTo(cv::Scalar(255));
-      }
+    int imgWidth   = 640;
+    int imgHeight  = 480;
+    int boardSize  = 20;
+    int cellWidth  = imgWidth / boardSize;
+    int cellHeight = imgHeight / boardSize;
+    cv::Mat dummyImage0(imgHeight, imgWidth, CV_8UC1, cv::Scalar(0));
+    for (int i = 0; i < boardSize; ++i) {
+        for (int j = 0; j < boardSize; ++j) {
+            int startX = i * cellWidth;
+            int startY = j * cellHeight;
+            if ((i + j) % 2 == 0) {
+                dummyImage0(cv::Rect(startX, startY, cellWidth, cellHeight)).setTo(cv::Scalar(255));
+            }
+        }
     }
-  }
-  cv::Mat dummyImage1 = dummyImage0;
-  vector<cv::Point2f> dummy_pts0;
-  // prewarm for superpoint/xfeat
-  if (feature_detector->getDetectNetworkType() == 1) {  // superpoint
-    TicToc tic_1;
-    Eigen::Matrix<float, 259, Eigen::Dynamic> features0, features1;
-    feature_detector->Detect(dummyImage0, features0);
-    feature_detector->Detect(dummyImage1, features1);
-    int dummy0PtsSize = features0.cols();
-    for (int i = 0; i < dummy0PtsSize; i++) {
-      dummy_pts0.emplace_back(features0(1, i), features0(2, i));
+    cv::Mat dummyImage1 = dummyImage0;
+    vector<cv::Point2f> dummy_pts0;
+    // prewarm for superpoint/xfeat
+    if (feature_detector->getDetectNetworkType() == 1) {  // superpoint
+        TicToc tic_1;
+        Eigen::Matrix<float, 259, Eigen::Dynamic> features0, features1;
+        feature_detector->Detect(dummyImage0, features0);
+        feature_detector->Detect(dummyImage1, features1);
+        int dummy0PtsSize = features0.cols();
+        for (int i = 0; i < dummy0PtsSize; i++) {
+            dummy_pts0.emplace_back(features0(1, i), features0(2, i));
+        }
+        ROS_DEBUG("prewarm superpoint cost %f ms, detect %d features.", tic_1.toc(), dummy0PtsSize);
+        // prewarm for lightglue
+        TicToc tic_2;
+        vector<cv::DMatch> matches;
+        point_matcher->MatchingPoints(features0, features1, matches, true);
+        ROS_DEBUG("prewarm lightglue cost %f ms, matches size %d.", tic_2.toc(), matches.size());
+    } else if (feature_detector->getDetectNetworkType() == 2) {  // xfeat
+        double origin_thresh = feature_detector->getDetectPointThreshold();
+        feature_detector->setDetectPointThreshold(0.001);  //临时降低阈值
+        TicToc tic_1;
+        Eigen::Matrix<float, 67, Eigen::Dynamic> features0, features1;
+        feature_detector->DetectUseXfeat(dummyImage0, features0);
+        feature_detector->DetectUseXfeat(dummyImage1, features1);
+        int dummy0PtsSize = features0.cols();
+        for (int i = 0; i < dummy0PtsSize; i++) {
+            dummy_pts0.emplace_back(features0(1, i), features0(2, i));
+        }
+        ROS_DEBUG("prewarm xfeat cost %f ms, detect %d features.", tic_1.toc(), dummy0PtsSize);
+        feature_detector->setDetectPointThreshold(origin_thresh);
     }
-    ROS_DEBUG("prewarm superpoint cost %f ms, detect %d features.", tic_1.toc(),
-              dummy0PtsSize);
-    // prewarm for lightglue
-    TicToc tic_2;
-    vector<cv::DMatch> matches;
-    point_matcher->MatchingPoints(features0, features1, matches, true);
-    ROS_DEBUG("prewarm lightglue cost %f ms, matches size %d.", tic_2.toc(),
-              matches.size());
-  } else if (feature_detector->getDetectNetworkType() == 2) {  // xfeat
-    double origin_thresh = feature_detector->getDetectPointThreshold();
-    feature_detector->setDetectPointThreshold(0.001);  //临时降低阈值
-    TicToc tic_1;
-    Eigen::Matrix<float, 67, Eigen::Dynamic> features0, features1;
-    feature_detector->DetectUseXfeat(dummyImage0, features0);
-    feature_detector->DetectUseXfeat(dummyImage1, features1);
-    int dummy0PtsSize = features0.cols();
-    for (int i = 0; i < dummy0PtsSize; i++) {
-      dummy_pts0.emplace_back(features0(1, i), features0(2, i));
-    }
-    ROS_DEBUG("prewarm xfeat cost %f ms, detect %d features.", tic_1.toc(),
-              dummy0PtsSize);
-    feature_detector->setDetectPointThreshold(origin_thresh);
-  }
 
-  // prewarm for opticalflow
-  TicToc tic_3;
-  cv::cuda::GpuMat cur_gpu_img(dummyImage0);
-  cv::cuda::GpuMat right_gpu_Img(dummyImage1);
-  cv::cuda::GpuMat cur_gpu_pts(dummy_pts0);
-  cv::cuda::GpuMat cur_right_gpu_pts;
-  cv::cuda::GpuMat gpu_status;
-  cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse =
-      cv::cuda::SparsePyrLKOpticalFlow::create(cv::Size(21, 21), 3, 30, false);
-  d_pyrLK_sparse->calc(cur_gpu_img, right_gpu_Img, cur_gpu_pts,
-                       cur_right_gpu_pts, gpu_status);
-  ROS_DEBUG("prewarm opticalflow cost %f ms.", tic_3.toc());
-  ROS_WARN("Prewarm for feature tracker completed!");
-  // cv::cvtColor(dummyImage0, dummyImage0, cv::COLOR_GRAY2RGB);
-  // cv::imshow("dummy", dummyImage0);
-  // cv::waitKey(0);
+    // prewarm for opticalflow
+    TicToc tic_3;
+    cv::cuda::GpuMat cur_gpu_img(dummyImage0);
+    cv::cuda::GpuMat right_gpu_Img(dummyImage1);
+    cv::cuda::GpuMat cur_gpu_pts(dummy_pts0);
+    cv::cuda::GpuMat cur_right_gpu_pts;
+    cv::cuda::GpuMat gpu_status;
+    cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse =
+        cv::cuda::SparsePyrLKOpticalFlow::create(cv::Size(21, 21), 3, 30, false);
+    d_pyrLK_sparse->calc(cur_gpu_img, right_gpu_Img, cur_gpu_pts, cur_right_gpu_pts, gpu_status);
+    ROS_DEBUG("prewarm opticalflow cost %f ms.", tic_3.toc());
+    ROS_WARN("Prewarm for feature tracker completed!");
+    // cv::cvtColor(dummyImage0, dummyImage0, cv::COLOR_GRAY2RGB);
+    // cv::imshow("dummy", dummyImage0);
+    // cv::waitKey(0);
 }
 
 cv::Mat FeatureTracker::getTrackImage() { return imTrack; }
 
 void FeatureTracker::calTrackCnt() {
-  cur_trackcnt_umap.clear();
-  if (prev_trackcnt_umap.empty() && !cur_ids.empty()) {
-    for (auto id : cur_ids) cur_trackcnt_umap[id] = 1;
-  } else {
-    for (auto id : cur_ids) {
-      auto prev_it = prev_trackcnt_umap.find(id);
-      if (prev_it != prev_trackcnt_umap.end())
-        cur_trackcnt_umap[id] = prev_it->second + 1;
-      else
-        cur_trackcnt_umap[id] = 1;
+    cur_trackcnt_umap.clear();
+    if (prev_trackcnt_umap.empty() && !cur_ids.empty()) {
+        for (auto id : cur_ids) cur_trackcnt_umap[id] = 1;
+    } else {
+        for (auto id : cur_ids) {
+            auto prev_it = prev_trackcnt_umap.find(id);
+            if (prev_it != prev_trackcnt_umap.end())
+                cur_trackcnt_umap[id] = prev_it->second + 1;
+            else
+                cur_trackcnt_umap[id] = 1;
+        }
     }
-  }
-  prev_trackcnt_umap = cur_trackcnt_umap;
+    prev_trackcnt_umap = cur_trackcnt_umap;
 }
 
 void FeatureTracker::printTrackCnt() {
 std:
-  string cnt_str;
-  int good_track_cnt = 0;
-  for (int i = 0; i < track_cnt.size(); i++) {
-    std::string single_cnt = std::to_string(track_cnt[i]);
-    single_cnt += " ";
-    cnt_str.append(single_cnt);
-    if (track_cnt[i] >= 4) good_track_cnt++;
-    // if(i >= 19)
-    //     break;
-  }
-  // std::cout << "good track cnt is " << good_track_cnt << std::endl;
-  // std::cout << "current track cnt: " << cnt_str << ", good track cnt is "<<
-  // good_track_cnt << std::endl; record cur_pts.size() to csv
-  if (feature_tracker_config.record_csv) {
-    if (!feature_tracker_config.csv_file_path.empty()) {
-      std::ofstream ofs;
-      ofs.open(feature_tracker_config.csv_file_path, std::ios_base::app);
-      if (ofs.is_open()) {
-        ofs << cur_time << " ";
-        ofs << cur_pts.size() << " ";
-        ofs << good_track_cnt << "\n";
-        ofs.close();
-      }
+    string cnt_str;
+    int good_track_cnt = 0;
+    for (int i = 0; i < track_cnt.size(); i++) {
+        std::string single_cnt = std::to_string(track_cnt[i]);
+        single_cnt += " ";
+        cnt_str.append(single_cnt);
+        if (track_cnt[i] >= 4) good_track_cnt++;
+        // if(i >= 19)
+        //     break;
     }
-  }
+    // std::cout << "good track cnt is " << good_track_cnt << std::endl;
+    // std::cout << "current track cnt: " << cnt_str << ", good track cnt is "<<
+    // good_track_cnt << std::endl; record cur_pts.size() to csv
+    if (feature_tracker_config.record_csv) {
+        if (!feature_tracker_config.csv_file_path.empty()) {
+            std::ofstream ofs;
+            ofs.open(feature_tracker_config.csv_file_path, std::ios_base::app);
+            if (ofs.is_open()) {
+                ofs << cur_time << " ";
+                ofs << cur_pts.size() << " ";
+                ofs << good_track_cnt << "\n";
+                ofs.close();
+            }
+        }
+    }
 }
