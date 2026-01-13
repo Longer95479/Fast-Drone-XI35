@@ -112,7 +112,8 @@ def process_log_dir(log_dir):
         for i, (ts, line) in enumerate(entries):
             delta = ts - start_time
             entries[i] = (delta, line)
-            out.write(f"[{delta:11.6f}s] {line}\n") # timestamp output format: [   0.000000s]
+            if not KEYVALUE_PATTERN.search(line):
+                out.write(f"[{delta:11.6f}s] {line}\n") # timestamp output format: [   0.000000s]
 
     # Extract key-value pairs
     key_map = extract_keyvalues(entries)

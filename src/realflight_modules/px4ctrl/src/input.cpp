@@ -21,14 +21,26 @@ void RC_Data_t::feed(mavros_msgs::RCInConstPtr pMsg) {
     msg       = *pMsg;
     rcv_stamp = ros::Time::now();
 
+    // ch[i]: 0-roll,1-pitch,2-throttle,3-yaw
+    // 4-SA-mode,5-SB-gear,6-SC-aux1,7-SD-reboot
+    // arange: 1000-2000
     for (int i = 0; i < 4; i++) {
+        // normalize to [-1,1] with dead zone
         ch[i] = ((double)msg.channels[i] - 1500.0) / 500.0;
-        if (ch[i] > DEAD_ZONE)
+        if (ch[i] > DEAD_ZONE) {
             ch[i] = (ch[i] - DEAD_ZONE) / (1 - DEAD_ZONE);
-        else if (ch[i] < -DEAD_ZONE)
+        } else if (ch[i] < -DEAD_ZONE) {
             ch[i] = (ch[i] + DEAD_ZONE) / (1 - DEAD_ZONE);
-        else
+        } else {
             ch[i] = 0.0;
+        }
+
+        // limit to [-1,1]
+        if (ch[i] > 1.0) {
+            ch[i] = 1.0;
+        } else if (ch[i] < -1.0) {
+            ch[i] = -1.0;
+        }
     }
 
     mode       = ((double)msg.channels[4] - 1000.0) / 1000.0;
@@ -36,6 +48,11 @@ void RC_Data_t::feed(mavros_msgs::RCInConstPtr pMsg) {
     reboot_cmd = ((double)msg.channels[7] - 1000.0) / 1000.0;
 
     check_validity();
+
+    // ROS_INFO(
+    //     "[rc_roll]:[%f] [rc_pitch]:[%f] [rc_throttle]:[%f] [rc_yaw]:[%f] [rc_mode]:[%f] "
+    //     "[rc_gear]:[%f] [rc_reboot_cmd]:[%f]",
+    //     ch[0], ch[1], ch[2], ch[3], mode, gear, reboot_cmd);
 
     if (!have_init_last_mode) {
         have_init_last_mode = true;
@@ -51,37 +68,43 @@ void RC_Data_t::feed(mavros_msgs::RCInConstPtr pMsg) {
     }
 
     // 1
-    if (last_mode < API_MODE_THRESHOLD_VALUE && mode > API_MODE_THRESHOLD_VALUE)
+    if (last_mode < API_MODE_THRESHOLD_VALUE && mode > API_MODE_THRESHOLD_VALUE) {
         enter_hover_mode = true;
-    else
+    } else {
         enter_hover_mode = false;
+    }
 
-    if (mode > API_MODE_THRESHOLD_VALUE)
+    if (mode > API_MODE_THRESHOLD_VALUE) {
         is_hover_mode = true;
-    else
+    } else {
         is_hover_mode = false;
+    }
 
     // 2
     if (is_hover_mode) {
-        if (last_gear < GEAR_SHIFT_VALUE && gear > GEAR_SHIFT_VALUE)
+        if (last_gear < GEAR_SHIFT_VALUE && gear > GEAR_SHIFT_VALUE) {
             enter_command_mode = true;
-        else if (gear < GEAR_SHIFT_VALUE)
+        } else if (gear < GEAR_SHIFT_VALUE) {
             enter_command_mode = false;
+        }
 
-        if (gear > GEAR_SHIFT_VALUE)
+        if (gear > GEAR_SHIFT_VALUE) {
             is_command_mode = true;
-        else
+        } else {
             is_command_mode = false;
+        }
     }
 
     // 3
     if (!is_hover_mode && !is_command_mode) {
-        if (last_reboot_cmd < REBOOT_THRESHOLD_VALUE && reboot_cmd > REBOOT_THRESHOLD_VALUE)
+        if (last_reboot_cmd < REBOOT_THRESHOLD_VALUE && reboot_cmd > REBOOT_THRESHOLD_VALUE) {
             toggle_reboot = true;
-        else
+        } else {
             toggle_reboot = false;
-    } else
+        }
+    } else {
         toggle_reboot = false;
+    }
 
     last_mode       = mode;
     last_gear       = gear;
@@ -89,7 +112,7 @@ void RC_Data_t::feed(mavros_msgs::RCInConstPtr pMsg) {
 }
 
 void RC_Data_t::check_validity() {
-    if (mode >= -1.1 && mode <= 1.1 && gear >= -1.1 && gear <= 1.1 && reboot_cmd >= -1.1 &&
+    if (mode >= -0.1 && mode <= 1.1 && gear >= -0.1 && gear <= 1.1 && reboot_cmd >= -0.1 &&
         reboot_cmd <= 1.1) {
         // pass
     } else {
@@ -100,7 +123,7 @@ void RC_Data_t::check_validity() {
 
 bool RC_Data_t::check_centered() {
     bool centered =
-        abs(ch[0]) < 1e-5 && abs(ch[0]) < 1e-5 && abs(ch[0]) < 1e-5 && abs(ch[0]) < 1e-5;
+        abs(ch[0]) < 1e-5 && abs(ch[1]) < 1e-5 && abs(ch[2]) < 1e-5 && abs(ch[3]) < 1e-5;
     return centered;
 }
 
@@ -137,7 +160,7 @@ void Odom_Data_t::feed(nav_msgs::OdometryConstPtr pMsg) {
     static ros::Time last_clear_count_time = ros::Time(0.0);
     if ((now - last_clear_count_time).toSec() > 1.0) {
         if (one_min_count < 100) {
-            ROS_WARN("ODOM frequency seems lower than 100Hz, which is too low!");
+            // ROS_WARN("ODOM frequency seems lower than 100Hz, which is too low!");
         }
         one_min_count         = 0;
         last_clear_count_time = now;

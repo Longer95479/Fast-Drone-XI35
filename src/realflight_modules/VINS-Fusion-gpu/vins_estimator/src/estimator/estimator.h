@@ -1,6 +1,5 @@
 /*******************************************************
- * Copyright (C) 2019, Aerial Robotics Group, Hong Kong University of Science
- *and Technology
+ * Copyright (C) 2019, Aerial Robotics Group, Hong Kong University of Science and Technology
  *
  * This file is part of VINS.
  *
@@ -17,6 +16,7 @@
 #include "../factor/projectionOneFrameTwoCamFactor.h"
 #include "../factor/projectionTwoFrameOneCamFactor.h"
 #include "../factor/projectionTwoFrameTwoCamFactor.h"
+#include "../factor/zupt_factor.h"
 #include "../featureTracker/feature_tracker.h"
 #include "../initial/initial_alignment.h"
 #include "../initial/initial_ex_rotation.h"
@@ -25,6 +25,7 @@
 #include "../utility/healthMonitor.h"
 #include "../utility/tic_toc.h"
 #include "../utility/utility.h"
+#include "../zupt/zupt.h"
 #include "feature_manager.h"
 #include "parameters.h"
 #include <ceres/ceres.h>
@@ -133,6 +134,8 @@ class Estimator {
     vector<Vector3d> linear_acceleration_buf[(WINDOW_SIZE + 1)];
     vector<Vector3d> angular_velocity_buf[(WINDOW_SIZE + 1)];
 
+    ZuptResultInfo Zps[(WINDOW_SIZE + 1)];
+
     int frame_count;
     int sum_of_outlier, sum_of_back, sum_of_front, sum_of_invalid;
     int inputImageCnt;
@@ -147,6 +150,7 @@ class Estimator {
     MotionEstimator m_estimator;
     InitialEXRotation initial_ex_rotation;
     HealthMonitor health_monitor;
+    Zupt zuptor;
 
     bool first_imu;
     bool is_valid, is_key;

@@ -2,20 +2,26 @@
 # ⭐⭐⭐  Set parameters carefully for satisfied performance!   ⭐⭐⭐ #
 #########################################################################
 
-mass        : 0.89 # kg
+mass        : 0.645 # kg
 gra         : 9.81
 pose_solver : 1     # 0:From ZhepeiWang (drag & less singular) 1:From ZhepeiWang, 2:From rotor-drag
 ctrl_freq_max   : 200.0
 use_bodyrate_ctrl: false
-max_manual_vel: 1.0
+max_manual_vel: 2.0
 max_angle: 30  # Attitude angle limit in degree. A negative value means no limit.
 low_voltage: 18.0 # 6S battery
+use_motion_capture_odom: true
 
-rc_reverse: # *
-    roll: false
-    pitch: true
-    yaw: false
-    throttle: true
+rc_reverse:
+    roll: true
+    pitch: false
+    yaw: true
+    throttle: false
+rc_reverse:
+    roll: true
+    pitch: false
+    yaw: true
+    throttle: false
 
 auto_takeoff_land:
     enable: true
@@ -32,28 +38,21 @@ thrust_model: # The model that maps thrust signal u(0~1) to real thrust force F(
     K2: 1.6942 # Needs precise calibration!
     K3: 0.6786 # Needs precise calibration! K3 equals THR_MDL_FAC in https://docs.px4.io/master/en/config_mc/pid_tuning_guide_multicopter.html.
     # approximate thrust mapping parameters
-    hover_percentage: 0.56 # Thrust percentage in Stabilize/Arco mode
+    hover_percentage: 0.45 # Thrust percentage in Stabilize/Arco mode
     imu_acc_lpf_freq_cutoff: 40 # imu acc raw data low pass filter cutoff frequency [Hz]
 
 gain:
-    # Cascade PID controller. Recommend to read the code.
-    Kp0: 0.8
-    Kp1: 0.8
-    Kp2: 0.5
-    Kv0: 1.8
-    Kv1: 1.8
-    Kv2: 1.5
-    # ↓↓↓ No use now --
-    Kvi0: 0.0046
-    Kvi1: 0.0046
-    Kvi2: 0.002
-    Kvd0: 100.0
-    Kvd1: 100.0
-    Kvd2: 0.0
-    # ↓↓↓ Only used in rate control mode.
-    KAngR: 20.0
-    KAngP: 20.0
-    KAngY: 20.0
+    # position
+    Kp0: 4.8
+    Kp1: 4.8
+    Kp2: 4
+    Ki0: 0.1
+    Ki1: 0.1
+    Ki2: 0.0
+    # velocity
+    Kd0: 3.4
+    Kd1: 3.4
+    Kd2: 3
 
 rotor_drag:
     x: 0.0  # The reduced acceleration on each axis caused by rotor drag. Unit:(m*s^-2)/(m*s^-1).
@@ -67,3 +66,7 @@ msg_timeout:
     cmd:  0.5
     imu:  0.5
     bat:  0.5
+
+mavros:
+    battery_id: 147 # BATTERY_STATUS
+    bat_msg_freq: 10 # Hz

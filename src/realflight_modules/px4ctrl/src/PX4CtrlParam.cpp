@@ -6,15 +6,12 @@ void Parameter_t::config_from_ros_handle(const ros::NodeHandle &nh) {
     read_essential_param(nh, "gain/Kp0", gain.Kp0);
     read_essential_param(nh, "gain/Kp1", gain.Kp1);
     read_essential_param(nh, "gain/Kp2", gain.Kp2);
-    read_essential_param(nh, "gain/Kv0", gain.Kv0);
-    read_essential_param(nh, "gain/Kv1", gain.Kv1);
-    read_essential_param(nh, "gain/Kv2", gain.Kv2);
-    read_essential_param(nh, "gain/Kvi0", gain.Kvi0);
-    read_essential_param(nh, "gain/Kvi1", gain.Kvi1);
-    read_essential_param(nh, "gain/Kvi2", gain.Kvi2);
-    read_essential_param(nh, "gain/KAngR", gain.KAngR);
-    read_essential_param(nh, "gain/KAngP", gain.KAngP);
-    read_essential_param(nh, "gain/KAngY", gain.KAngY);
+    read_essential_param(nh, "gain/Ki0", gain.Ki0);
+    read_essential_param(nh, "gain/Ki1", gain.Ki1);
+    read_essential_param(nh, "gain/Ki2", gain.Ki2);
+    read_essential_param(nh, "gain/Kd0", gain.Kd0);
+    read_essential_param(nh, "gain/Kd1", gain.Kd1);
+    read_essential_param(nh, "gain/Kd2", gain.Kd2);
 
     read_essential_param(nh, "rotor_drag/x", rt_drag.x);
     read_essential_param(nh, "rotor_drag/y", rt_drag.y);
@@ -35,6 +32,7 @@ void Parameter_t::config_from_ros_handle(const ros::NodeHandle &nh) {
     read_essential_param(nh, "max_manual_vel", max_manual_vel);
     read_essential_param(nh, "max_angle", max_angle);
     read_essential_param(nh, "low_voltage", low_voltage);
+    read_essential_param(nh, "use_motion_capture_odom", use_motion_capture_odom);
 
     read_essential_param(nh, "rc_reverse/roll", rc_reverse.roll);
     read_essential_param(nh, "rc_reverse/pitch", rc_reverse.pitch);
@@ -55,6 +53,9 @@ void Parameter_t::config_from_ros_handle(const ros::NodeHandle &nh) {
     read_essential_param(nh, "thrust_model/hover_percentage", thr_map.hover_percentage);
     read_essential_param(
         nh, "thrust_model/imu_acc_lpf_freq_cutoff", thr_map.imu_acc_lpf_freq_cutoff);
+
+    read_essential_param(nh, "mavros/bat_msg_freq", mavros_bat_msg_freq);
+    read_essential_param(nh, "mavros/battery_id", mavros_battery_id);
 
     max_angle /= (180.0 / M_PI);
 

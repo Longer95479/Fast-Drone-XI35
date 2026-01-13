@@ -45,6 +45,19 @@ void Estimator::setParameter() {
     cout << "set g " << g.transpose() << endl;
     featureTracker.readIntrinsicParameter(CAM_NAMES);
 
+    ZuptFactor::sqrt_info = Eigen::Matrix<double, 9, 9>::Identity();
+    ZuptFactor::sqrt_info.block<3, 3>(0, 0) =
+        (0 == ZUPT_ACC_N) ? (1e8 * Eigen::Matrix3d::Identity())
+                          : (1.0 / ZUPT_ACC_N) * Eigen::Matrix3d::Identity();
+    ZuptFactor::sqrt_info.block<3, 3>(3, 3) =
+        (0 == ZUPT_GYR_N) ? (1e8 * Eigen::Matrix3d::Identity())
+                          : (1.0 / ZUPT_GYR_N) * Eigen::Matrix3d::Identity();
+    ZuptFactor::sqrt_info.block<3, 3>(6, 6) =
+        (0 == ZUPT_VEL_N) ? (1e8 * Eigen::Matrix3d::Identity())
+                          : (1.0 / ZUPT_VEL_N) * Eigen::Matrix3d::Identity();
+    std::cout << "ZuptFactor::sqrt_info is" << std::endl;
+    std::cout << ZuptFactor::sqrt_info << std::endl;
+
     std::cout << "MULTIPLE_THREAD is " << MULTIPLE_THREAD << '\n';
     if (MULTIPLE_THREAD) {
         processThread = std::thread(&Estimator::processMeasurements, this);
@@ -106,6 +119,7 @@ void Estimator::inputIMU(
         }
         pubLatestOdometry(latest_P, latest_Q, latest_V, t, health_monitor.getHealthPercent());
     }
+    if (USE_ZUPT) zuptor.inputIMU(t, linearAcceleration, angularVelocity, latest_Q);
 }
 
 void Estimator::inputFeature(
@@ -191,6 +205,73 @@ void Estimator::processMeasurements() {
                         dt = accVector[i].first - accVector[i - 1].first;
                     processIMU(accVector[i].first, dt, accVector[i].second, gyrVector[i].second);
                 }
+            }
+
+            // TODO_ZUPT
+            if (USE_IMU && USE_ZUPT) {
+                // processZUPT(feature.first);
+                bool is_static = zuptor.zuptDetection(curTime, nullptr, &feature.second);
+                bool is_sccess = zuptor.getResultInfo(curTime, &Zps[frame_count]);
+
+                if (ENABLE_ZUPT_DEBUG_LOG) {  // DEBUG_ZUPT
+
+                    ZuptResultInfo zupt_result_info = Zps[frame_count];
+                    static bool is_first            = true;
+                    if (is_first) {
+                        FILE *f =
+                            fopen("/root/Fast-Drone-XI35/vins_output/zupt_result_log.csv", "w");
+                        fprintf(
+                            f,
+                            "t,is_static,acc_raw_x,acc_raw_y,acc_raw_z,gyr_raw_x,gyr_raw_y,gyr_raw_"
+                            "z,Ba_x,Ba_y,Ba_z,Bg_x,Bg_y,Bg_z,Vx,Vy,Vz,qw,qx,qy,qz,frame_count\n");
+                        fclose(f);
+                        is_first = false;
+                    } else {
+                        FILE *f =
+                            fopen("/root/Fast-Drone-XI35/vins_output/zupt_result_log.csv", "a");
+                        fprintf(
+                            f,
+                            "%f,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d\n",
+                            zupt_result_info.t_, zupt_result_info.is_static_,
+                            zupt_result_info.acc_raw_(0), zupt_result_info.acc_raw_(1),
+                            zupt_result_info.acc_raw_(2), zupt_result_info.gyr_raw_(0),
+                            zupt_result_info.gyr_raw_(1), zupt_result_info.gyr_raw_(2),
+                            Bas[frame_count](0), Bas[frame_count](1), Bas[frame_count](2),
+                            Bgs[frame_count](0), Bgs[frame_count](1), Bgs[frame_count](2),
+                            Vs[frame_count](0), Vs[frame_count](1), Vs[frame_count](2),
+                            zupt_result_info.q_GI_t_.w(), zupt_result_info.q_GI_t_.x(),
+                            zupt_result_info.q_GI_t_.y(), zupt_result_info.q_GI_t_.z(),
+                            frame_count);
+                        fclose(f);
+                    }
+
+                    static bool is_first_2 = true;
+                    if (is_first_2) {
+                        FILE *f =
+                            fopen("/root/Fast-Drone-XI35/vins_output/zupt_result_windows.csv", "w");
+                        fprintf(
+                            f,
+                            "t,Zps[0],Zps[1],Zps[2],Zps[3],Zps[4],Zps[5],Zps[6],Zps[7],Zps[8],Zps["
+                            "9],Zps[10]\n");
+                        fclose(f);
+                        is_first_2 = false;
+                    } else {
+                        FILE *f =
+                            fopen("/root/Fast-Drone-XI35/vins_output/zupt_result_windows.csv", "a");
+                        if (frame_count == WINDOW_SIZE) {
+                            fprintf(f, "%f,", Zps[frame_count].t_);
+                            for (int i = 0; i < WINDOW_SIZE + 1; i++) {
+                                fprintf(f, "%f", Zps[i].t_);
+                                if (i != WINDOW_SIZE)
+                                    fprintf(f, ",");
+                                else
+                                    fprintf(f, "\n");
+                            }
+                        }
+                        fclose(f);
+                    }
+
+                }  // DEBUG_ZUPT
             }
 
             processImage(feature.second, feature.first);
@@ -451,6 +532,7 @@ void Estimator::processImage(
             Rs[frame_count]  = Rs[prev_frame];
             Bas[frame_count] = Bas[prev_frame];
             Bgs[frame_count] = Bgs[prev_frame];
+            if (USE_ZUPT) Zps[frame_count] = Zps[prev_frame];
         }
 
     } else {
@@ -928,6 +1010,14 @@ void Estimator::optimization() {
         }
     }
 
+    if (USE_IMU && USE_ZUPT) {
+        for (int i = 0; i < frame_count + 1; i++) {
+            if (!Zps[i].is_static_) continue;
+            ZuptFactor *zupt_factor = new ZuptFactor(Zps[i], -g);
+            problem.AddResidualBlock(zupt_factor, NULL, para_Pose[i], para_SpeedBias[i]);
+        }
+    }
+
     if (enable_ex_prior) {
         // ExParamPriorFactor* ex1_prior_factor = new ExParamPriorFactor(ric[0],
         // tic[0]); ExParamPriorFactor* ex2_prior_factor = new
@@ -1042,6 +1132,16 @@ void Estimator::optimization() {
                     imu_factor, NULL,
                     vector<double *>{
                         para_Pose[0], para_SpeedBias[0], para_Pose[1], para_SpeedBias[1]},
+                    vector<int>{0, 1});
+                marginalization_info->addResidualBlockInfo(residual_block_info);
+            }
+        }
+
+        if (USE_IMU && USE_ZUPT) {
+            if (Zps[0].is_static_) {
+                ZuptFactor *zupt_factor                = new ZuptFactor(Zps[0], -g);
+                ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
+                    zupt_factor, NULL, vector<double *>{para_Pose[0], para_SpeedBias[0]},
                     vector<int>{0, 1});
                 marginalization_info->addResidualBlockInfo(residual_block_info);
             }
@@ -1223,6 +1323,10 @@ void Estimator::slideWindow() {
                     Bas[i].swap(Bas[i + 1]);
                     Bgs[i].swap(Bgs[i + 1]);
                 }
+
+                if (USE_IMU && USE_ZUPT) {
+                    std::swap(Zps[i], Zps[i + 1]);
+                }
             }
             Headers[WINDOW_SIZE] = Headers[WINDOW_SIZE - 1];
             Ps[WINDOW_SIZE]      = Ps[WINDOW_SIZE - 1];
@@ -1240,6 +1344,10 @@ void Estimator::slideWindow() {
                 dt_buf[WINDOW_SIZE].clear();
                 linear_acceleration_buf[WINDOW_SIZE].clear();
                 angular_velocity_buf[WINDOW_SIZE].clear();
+            }
+
+            if (USE_IMU && USE_ZUPT) {
+                Zps[WINDOW_SIZE] = Zps[WINDOW_SIZE - 1];
             }
 
             if (true || solver_flag == INITIAL) {
@@ -1281,6 +1389,9 @@ void Estimator::slideWindow() {
                 dt_buf[WINDOW_SIZE].clear();
                 linear_acceleration_buf[WINDOW_SIZE].clear();
                 angular_velocity_buf[WINDOW_SIZE].clear();
+            }
+            if (USE_IMU && USE_ZUPT) {
+                Zps[frame_count - 1] = Zps[frame_count];
             }
             slideWindowNew();
         }
