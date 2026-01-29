@@ -113,9 +113,7 @@ void Estimator::inputIMU(
     if (solver_flag == NON_LINEAR) {
         if (health_monitor.isInit()) {
             health_monitor.updateFromImuProp(t);
-            if (!health_monitor.isVINSHealthy()) {
-                ROS_ERROR("VINS's is not healthy!");
-            }
+            health_monitor.CheckAndPublish(pub_vins_fail);
         }
         pubLatestOdometry(latest_P, latest_Q, latest_V, t, health_monitor.getHealthPercent());
     }

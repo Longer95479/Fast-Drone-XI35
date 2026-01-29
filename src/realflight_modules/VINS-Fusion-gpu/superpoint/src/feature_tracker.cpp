@@ -1116,11 +1116,13 @@ void FeatureTracker::readConfigParameter(
     plnet_config.setModelPrefixPath(model_prefix_path);
     feature_detector = make_shared<FeatureDetector>(plnet_config);
     // point_match config
-    PointMatcherConfig point_matcher_config;
-    point_matcher_config.load(config_file);
-    point_matcher_config.setModelPrefixPath(model_prefix_path);
-    if (!plugin_path.empty()) point_matcher_config.setPluginPath(plugin_path);
-    point_matcher = make_shared<PointMatcher>(point_matcher_config);
+    if (!feature_tracker_config.use_opticalflow) {
+        PointMatcherConfig point_matcher_config;
+        point_matcher_config.load(config_file);
+        point_matcher_config.setModelPrefixPath(model_prefix_path);
+        if (!plugin_path.empty()) point_matcher_config.setPluginPath(plugin_path);
+        point_matcher = make_shared<PointMatcher>(point_matcher_config);
+    }
     // tracker assist config
     track_assist_args.load(config_file);
     // feature_predictor config

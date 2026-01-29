@@ -1,0 +1,1 @@
+trtexec --onnx=./xfeat.onnx --saveEngine=xfeat.engine --fp16

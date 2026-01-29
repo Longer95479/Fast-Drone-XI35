@@ -92,8 +92,12 @@ int main(int argc, char *argv[]) {
     // add by bk
     ros::Subscriber emergency_sub = nh.subscribe<std_msgs::Bool>(
         "/planning/Emergency_hover", 1, boost::bind(&PX4CtrlFSM::emergency_callback, &fsm, _1));
+
     ros::Subscriber search_hover_sub = nh.subscribe<std_msgs::Bool>(
         "/Search_plan/search_hover", 1, boost::bind(&PX4CtrlFSM::search_hover_callback, &fsm, _1));
+
+    ros::Subscriber kf_fusion_fail = nh.subscribe<std_msgs::Bool>(
+        "/vins_fusion/vins_fail", 1, boost::bind(&PX4CtrlFSM::kf_fail_callback, &fsm, _1));
 
     ros::Duration(0.5).sleep();
 

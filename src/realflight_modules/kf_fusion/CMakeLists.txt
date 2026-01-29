@@ -29,6 +29,7 @@ add_library(${PROJECT_NAME}_lib
   src/kf_coordinator.cpp
   src/state_initializer.cpp
   src/kf_interface.cpp
+  src/health_monitor.cpp
 )
 target_link_libraries(${PROJECT_NAME}_lib 
 ${catkin_LIBRARIES}

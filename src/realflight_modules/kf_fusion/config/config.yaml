@@ -2,6 +2,7 @@
 imu_topic: "/imu_filter/data" #/imu_filter/data /mavros/imu/data_raw
 odom_topic: "/vins_fusion/odometry"
 motion_capture_topic: "/motion_capture/motion_capture_odom"
+vins_valid_topic: "/vins_fusion/vins_fail"
 
 #imu noise parameter
 accel_noise_std: 0.1

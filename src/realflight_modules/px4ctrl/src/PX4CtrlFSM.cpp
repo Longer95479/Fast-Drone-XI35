@@ -48,6 +48,10 @@ void PX4CtrlFSM::process() {
     // STEP1: state machine runs
     switch (state) {
         case MANUAL_CTRL: {
+            if (kf_fusion_fail) {
+                ROS_ERROR("[px4ctrl] kf fusion is failed, please take land manually!");
+                break;
+            }
             if (rc_data.enter_hover_mode)  // Try to jump to AUTO_HOVER
             {
                 if (!odom_is_received(now_time)) {
@@ -163,7 +167,7 @@ void PX4CtrlFSM::process() {
         }
 
         case AUTO_HOVER: {
-            if (!rc_data.is_hover_mode || !odom_is_received(now_time)) {
+            if (!rc_data.is_hover_mode || !odom_is_received(now_time) || kf_fusion_fail) {
                 state = MANUAL_CTRL;
                 toggle_offboard_mode(false);
 

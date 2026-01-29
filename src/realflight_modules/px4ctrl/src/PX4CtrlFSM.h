@@ -93,6 +93,11 @@ class PX4CtrlFSM {
     bool search_hover = false;
     void search_hover_callback(const std_msgs::BoolConstPtr &msg) { search_hover = msg->data; }
 
+    bool kf_fusion_fail = false;
+    void kf_fail_callback(const std_msgs::BoolConstPtr &msg) {
+        if (msg->data == true) kf_fusion_fail = true;
+    }
+
   private:
     State_t state;  // Should only be changed in PX4CtrlFSM::process() function!
     AutoTakeoffLand_t takeoff_land;

@@ -10,7 +10,12 @@
 
 #pragma once
 
+#include "../estimator/estimator.h"
+#include "../estimator/parameters.h"
+#include "CameraPoseVisualization.h"
 #include <cv_bridge/cv_bridge.h>
+#include <eigen3/Eigen/Dense>
+#include <fstream>
 #include <geometry_msgs/PointStamped.h>
 #include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
@@ -25,13 +30,6 @@
 #include <tf/transform_broadcaster.h>
 #include <visualization_msgs/Marker.h>
 
-#include <eigen3/Eigen/Dense>
-#include <fstream>
-
-#include "../estimator/estimator.h"
-#include "../estimator/parameters.h"
-#include "CameraPoseVisualization.h"
-
 extern ros::Publisher pub_odometry;
 extern ros::Publisher pub_path, pub_pose;
 extern ros::Publisher pub_cloud, pub_map;
@@ -40,12 +38,14 @@ extern ros::Publisher pub_ref_pose, pub_cur_pose;
 extern ros::Publisher pub_key;
 extern nav_msgs::Path path;
 extern ros::Publisher pub_pose_graph;
+extern ros::Publisher pub_vins_fail;
 extern int IMAGE_ROW, IMAGE_COL;
 
 void registerPub(ros::NodeHandle &n);
 
-void pubLatestOdometry(const Eigen::Vector3d &P, const Eigen::Quaterniond &Q,
-                       const Eigen::Vector3d &V, double t, double health_val);
+void pubLatestOdometry(
+    const Eigen::Vector3d &P, const Eigen::Quaterniond &Q, const Eigen::Vector3d &V, double t,
+    double health_val);
 
 void pubTrackImage(const cv::Mat &imgTrack, const double t);
 
@@ -53,8 +53,7 @@ void printStatistics(const Estimator &estimator, double t);
 
 void pubOdometry(const Estimator &estimator, const std_msgs::Header &header);
 
-void pubInitialGuess(const Estimator &estimator,
-                     const std_msgs::Header &header);
+void pubInitialGuess(const Estimator &estimator, const std_msgs::Header &header);
 
 void pubKeyPoses(const Estimator &estimator, const std_msgs::Header &header);
 
