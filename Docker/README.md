@@ -2,6 +2,28 @@
 
 ## nvidia jetson平台
 
+1. 构建基础镜像
+
+```bash
+make jetson_base
+```
+
+2. 构建工程镜像
+
+```bash
+make jetson
+```
+
+3. 容器启动
+
+```bash
+### 首次容器启动
+./container_run.sh
+### 后续容器启动
+docker start fd_runtime
+docker exec -it  fd_runtime bash
+```
+
 ## x86 平台
 
 ⚠️ 前置要求
