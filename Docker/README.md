@@ -4,9 +4,11 @@
 
 ## x86 平台
 
-⚠️ 前置要求，宿主机必须正确安装好Nvidia驱动，使用nvidia-smi测试输出，CUDA Version字段必须大于等于11.8
+⚠️ 前置要求
 
-⚠️ 前置要求，宿主机必须正确安装好Nvidia Docker Toolkit
+1. 宿主机必须正确安装好Nvidia驱动，使用nvidia-smi测试输出，CUDA Version字段必须大于等于11.8
+
+2. 宿主机必须正确安装好Nvidia Docker Toolkit
 ```bash
 curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
   && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
@@ -19,26 +21,40 @@ sudo nvidia-ctk runtime configure --runtime=docker
 sudo systemctl restart docker
 ```
 
-⚠️ 由于需要从docker Hub pull一个base镜像，需要提前解决docker的代理问题，否则会出错
+3. 确认电脑的CUDA_ARCH_BIN，对Dockerfile.pc的ARG CUDA_ARCH_BIN=7.5（默认）进行修改
+
+```bash
+git clone https://github.com/NVIDIA-AI-IOT/deepstream_tlt_apps.git
+cd deepstream_tlt_apps/TRT-OSS/x86
+nvcc deviceQuery.cpp -o deviceQuery
+./deviceQuery
+### 输出
+Detected 1 CUDA Capable device(s)
+
+Device 0: "NVIDIA GeForce GTX 1660 SUPER"
+  CUDA Driver Version / Runtime Version          12.2 / 11.8
+  CUDA Capability Major/Minor version number:    7.5
+
+CUDA Capability Major/Minor version number这个字段的数字就是CUDA_ARCH_BIN
+###
+```
+
+4. 由于需要从docker Hub pull一个base镜像，需要提前解决docker的代理问题，否则会出错
 
 参考：
 
 ```bash
 vim /etc/docker/daemon.json
-```
-
-添加下行
-
-```bash
+###
+# 添加以下内容
 {
  "registry-mirrors": ["https://docker.1ms.run", "https://docker.1panel.live/"]
 }
-```
-
-```bash
+###
 sudo systemctl daemon-reload
 sudo systemctl restart docker
 ```
+
 
 1. 下载TensorRT到Docker文件夹下
 

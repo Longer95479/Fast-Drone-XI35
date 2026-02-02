@@ -5,6 +5,8 @@ LABEL org.opencontainers.image.description="ROS Noetic + CUDA + CUDNN + TensorRT
 
 SHELL ["bash", "-c"]
 
+# modify CUDA_ARCH_BIN according to your GPU architecture
+ARG CUDA_ARCH_BIN=7.5
 
 USER root
 ARG USE_PROXY
@@ -61,13 +63,6 @@ fi
 ENV http_proxy=$HTTP_PROXY
 ENV https_proxy=$HTTPS_PROXY
 
-# Get GPU info CUDA_ARCH_BIN
-WORKDIR /root/tmp
-RUN git clone https://github.com/NVIDIA-AI-IOT/deepstream_tlt_apps.git
-WORKDIR /root/tmp/deepstream_tlt_apps/TRT-OSS/x86
-RUN nvcc deviceQuery.cpp -o deviceQuery
-RUN CUDA_ARCH_BIN=$(./deviceQuery | grep "CUDA Capability Major/Minor" | awk '{print $6}')
-
 # ROS
 RUN sh -c 'echo "deb http://mirrors.ustc.edu.cn/ros/ubuntu/ `lsb_release -cs` main" > /etc/apt/sources.list.d/ros-latest.list' && \
       apt-key adv --keyserver 'hkp://keyserver.ubuntu.com:80' --recv-key C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654 && \
@@ -95,13 +90,13 @@ RUN sh -c 'echo "deb http://mirrors.ustc.edu.cn/ros/ubuntu/ `lsb_release -cs` ma
       echo "source /opt/ros/${ROS_VERSION}/setup.bash" >> /root/.bashrc
 
 # Unzip the 3rd_party
-WORKDIR /root/tmp
-COPY  ./3rd_party.zip /root/tmp
-RUN   unzip /root/tmp/3rd_party.zip -d /root/tmp
+WORKDIR /tmp
+COPY  ./3rd_party.zip /tmp
+RUN   unzip /tmp/3rd_party.zip -d /tmp
 
 # Install OpenCV4 with CUDA
 RUN   git clone https://github.com/opencv/opencv_contrib.git -b ${OPENCV_VERSION} && \
-      cp /root/tmp/boostdesc_extfiles/*.i ./opencv_contrib/modules/xfeatures2d/src/
+      cp /tmp/boostdesc_extfiles/*.i ./opencv_contrib/modules/xfeatures2d/src/
 RUN   apt update && \
       apt install libgtk2.0-dev -y && \
       wget https://github.com/opencv/opencv/archive/${OPENCV_VERSION}.zip -O opencv.zip && \
@@ -125,7 +120,7 @@ RUN   apt update && \
             -D BUILD_opencv_python3=ON \
             -D OPENCV_DNN_CUDA=ON \
             -D OPENCV_ENABLE_NONFREE=ON \
-            -D OPENCV_EXTRA_MODULES_PATH=../../opencv_contrib/modules \
+            -D OPENCV_EXTRA_MODULES_PATH=/tmp/opencv_contrib/modules \
             -D BUILD_EXAMPLES=OFF \
             -D BUILD_opencv_java=OFF \
             -D BUILD_opencv_python=OFF \
@@ -144,13 +139,13 @@ RUN   apt update && \
       make install
 
 # Build cv_bridge for OpenCV4.5.4
-RUN   mkdir -p /root/lib/cv_bridge${OPENCV_VERSION}_ws/src && \
-      mv /root/tmp/cv_bridge${OPENCV_VERSION} /root/lib/cv_bridge${OPENCV_VERSION}_ws/src && \
+RUN   mkdir -p /root/cv_bridge${OPENCV_VERSION}_ws/src && \
+      mv /tmp/cv_bridge${OPENCV_VERSION} /root/cv_bridge${OPENCV_VERSION}_ws/src && \
       /bin/bash -c 'source /opt/ros/${ROS_VERSION}/setup.bash && \
-      cd /root/lib/cv_bridge${OPENCV_VERSION}_ws && catkin_make && echo "source /root/lib/cv_bridge${OPENCV_VERSION}_ws/devel/setup.bash" >> /root/.bashrc'
+      cd /root/cv_bridge${OPENCV_VERSION}_ws && catkin_make && echo "source /root/cv_bridge${OPENCV_VERSION}_ws/devel/setup.bash" >> /root/.bashrc'
 
 # Install Intel RealSense SDK
-WORKDIR /root/tmp
+WORKDIR /tmp
 RUN   apt-get install -y software-properties-common && \
       apt-key adv --keyserver keyserver.ubuntu.com --recv-key F6E65AC044F831AC80A06380C8B3A55A6F3EFCDE || \
       apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-key  F6E65AC044F831AC80A06380C8B3A55A6F3EFCDE && \
@@ -170,17 +165,17 @@ RUN   apt-get install -y ros-${ROS_VERSION}-mavros && \
 
 # Build Glog
 RUN   apt-get install -y liblapack-dev libsuitesparse-dev libcxsparse3 libgflags-dev libgoogle-glog-dev libgtest-dev && \
-      cd /root/tmp/glog && \
+      cd /tmp/glog && \
       chmod +x autogen.sh configure && ./autogen.sh && ./configure && \
       make -j${USE_PROC} && make install
 
 # Build Ceres
-RUN   cd /root/tmp/ceres-solver-2.0.0rc1 && mkdir build && cd build && \
+RUN   cd /tmp/ceres-solver-2.0.0rc1 && mkdir build && cd build && \
       cmake -DCMAKE_BUILD_TYPE=Release -DCUDA=OFF .. && make -j${USE_PROC} && make install && \
       rm -rf ../../ceres-solver-2.0.0rc1
 
 # Install LCM
-RUN   cd /root/tmp && git clone https://github.com/lcm-proj/lcm && \
+RUN   cd /tmp && git clone https://github.com/lcm-proj/lcm && \
       cd lcm && \
       git checkout tags/v1.4.0 && \
       mkdir build && cd build && \
@@ -197,13 +192,13 @@ RUN   apt update && apt install -y gstreamer1.0-tools libgstreamer1.0-dev libgst
       ros-${ROS_VERSION}-camera-info-manager
 
 # Build OpenCV3.4.16
-COPY  ./opencv-3.4.16.zip /root/tmp
-COPY  ./opencv_contrib-3.4.16.zip /root/tmp
-RUN   cd /root/tmp && unzip opencv-3.4.16.zip && unzip opencv_contrib-3.4.16.zip && \
-      cd /root/tmp/opencv-3.4.16 && mkdir build && cd build && \
+COPY  ./opencv-3.4.16.zip /tmp
+COPY  ./opencv_contrib-3.4.16.zip /tmp
+RUN   cd /tmp && unzip opencv-3.4.16.zip && unzip opencv_contrib-3.4.16.zip && \
+      cd /tmp/opencv-3.4.16 && mkdir build && cd build && \
       cmake -D CMAKE_BUILD_TYPE=RELEASE \
       -D CMAKE_INSTALL_PREFIX=/usr/local/opencv-3.4.16 \
-      -D OPENCV_EXTRA_MODULES_PATH=../../opencv_contrib-3.4.16/modules \
+      -D OPENCV_EXTRA_MODULES_PATH=/tmp/opencv_contrib-3.4.16/modules \
       -D WITH_CUDA=ON \
       -D CUDA_ARCH_BIN=${CUDA_ARCH_BIN} \
       -D CUDNN_VERSION='8.9.6' \
@@ -224,8 +219,8 @@ RUN   cd /root/tmp && unzip opencv-3.4.16.zip && unzip opencv_contrib-3.4.16.zip
       make install
 
 # TensorRT
-WORKDIR  /root/tmp
-COPY     ./TensorRT-8.6.1.6.Linux.x86_64-gnu.cuda-11.8.tar.gz /root/tmp
+WORKDIR  /tmp
+COPY     ./TensorRT-8.6.1.6.Linux.x86_64-gnu.cuda-11.8.tar.gz /tmp
 RUN      mkdir -p /usr/local/TensorRT-8.6.1.6
 RUN      tar -xzvf TensorRT-8.6.1.6.Linux.x86_64-gnu.cuda-11.8.tar.gz -C /usr/local/TensorRT-8.6.1.6 --strip-components=1
 RUN      cd /usr/local && ln -sf /usr/local/TensorRT-8.6.1.6 tensorrt
@@ -243,5 +238,5 @@ sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd
 EXPOSE 22
 
 # Clean up all temp files
-RUN apt clean && rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/* /var/cache/apt/* root/tmp/*
+RUN apt clean && rm -rf  /var/tmp/* /var/lib/apt/lists/* /var/cache/apt/* /tmp/*
 WORKDIR /root
