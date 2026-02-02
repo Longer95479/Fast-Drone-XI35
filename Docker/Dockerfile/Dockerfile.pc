@@ -1,0 +1,242 @@
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04
+
+LABEL org.opencontainers.image.authors="zhangrun <1139135655@qq.com>"
+LABEL org.opencontainers.image.description="ROS Noetic + CUDA + CUDNN + TensorRT environment"
+
+SHELL ["bash", "-c"]
+
+# modify CUDA_ARCH_BIN according to your GPU architecture
+ARG CUDA_ARCH_BIN=7.5
+
+USER root
+ARG USE_PROXY
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG ROS_VERSION=noetic
+ARG USE_PROC=8
+ARG ENABLE_NEON="OFF"
+ENV OPENCV_VERSION=4.5.4
+ENV FDRONE_WS=/root/Fast-Drone-XI35
+ARG NO_PROXY="localhost,127.0.0.1,mirrors.tuna.tsinghua.edu.cn,mirrors.ustc.edu.cn"
+ENV no_proxy=$NO_PROXY
+ENV NO_PROXY=$NO_PROXY
+
+# Use Tsinghua University source mirror
+RUN printf "%s\n" \
+"deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal main restricted universe multiverse" \
+"deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-updates main restricted universe multiverse" \
+"deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-backports main restricted universe multiverse" \
+"deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-security main restricted universe multiverse" \
+> /etc/apt/sources.list
+RUN apt-get -y update
+
+# Install some essential tools
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Asia/Shanghai
+RUN apt-get -y install \
+tzdata \
+wget \
+curl \
+lsb-release \
+git \
+vim \
+pkg-config \
+openssh-server \
+openssh-client \
+net-tools \
+build-essential \
+htop \
+gdb \
+zip \
+unzip \
+libdw-dev \
+libatlas-base-dev \
+libeigen3-dev \
+libglib2.0-dev \
+libyaml-cpp-dev
+
+# Set up proxy if needed
+RUN if [ "$USE_PROXY" = "true" ]; then \
+git config --global http.proxy "${HTTP_PROXY}"; \
+git config --global https.proxy "${HTTPS_PROXY}"; \
+fi
+ENV http_proxy=$HTTP_PROXY
+ENV https_proxy=$HTTPS_PROXY
+
+# ROS
+RUN sh -c 'echo "deb http://mirrors.ustc.edu.cn/ros/ubuntu/ `lsb_release -cs` main" > /etc/apt/sources.list.d/ros-latest.list' && \
+      apt-key adv --keyserver 'hkp://keyserver.ubuntu.com:80' --recv-key C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654 && \
+      apt-get update && \
+      apt-get install -y  --no-install-recommends \
+      ros-${ROS_VERSION}-ros-base \
+      ros-${ROS_VERSION}-nav-msgs \
+      ros-${ROS_VERSION}-sensor-msgs \
+      ros-${ROS_VERSION}-cv-bridge \
+      ros-${ROS_VERSION}-rviz \
+      ros-${ROS_VERSION}-image-transport-plugins \
+      ros-${ROS_VERSION}-pcl-ros \
+      ros-${ROS_VERSION}-message-filters \
+      ros-${ROS_VERSION}-tf \
+      ros-${ROS_VERSION}-catkin \
+      ros-${ROS_VERSION}-roslint \
+      ros-${ROS_VERSION}-ddynamic-reconfigure \
+      ros-${ROS_VERSION}-vrpn \
+      ros-${ROS_VERSION}-geometry-msgs \
+      ros-${ROS_VERSION}-tf2-ros \
+      ros-${ROS_VERSION}-roscpp \
+      ros-${ROS_VERSION}-roslaunch \
+      ros-${ROS_VERSION}-roslint \
+      ros-${ROS_VERSION}-vrpn-client-ros && \
+      echo "source /opt/ros/${ROS_VERSION}/setup.bash" >> /root/.bashrc
+
+# Unzip the 3rd_party
+WORKDIR /tmp
+COPY  ./3rd_party.zip /tmp
+RUN   unzip /tmp/3rd_party.zip -d /tmp
+
+# Install OpenCV4 with CUDA
+RUN   git clone https://github.com/opencv/opencv_contrib.git -b ${OPENCV_VERSION} && \
+      cp /tmp/boostdesc_extfiles/*.i ./opencv_contrib/modules/xfeatures2d/src/
+RUN   apt update && \
+      apt install libgtk2.0-dev -y && \
+      wget https://github.com/opencv/opencv/archive/${OPENCV_VERSION}.zip -O opencv.zip && \
+      unzip opencv.zip && \
+      rm opencv.zip && \
+      cd opencv-${OPENCV_VERSION} && \
+      mkdir build && cd build && \
+      cmake .. \
+            -D CMAKE_BUILD_TYPE=RELEASE \
+            -D CMAKE_INSTALL_PREFIX=/usr/local/opencv-${OPENCV_VERSION} \
+            -D WITH_CUDA=ON \
+            -D WITH_CUDNN=ON \
+            -D WITH_CUBLAS=ON \
+            -D CUDNN_VERSION='8.9.6' \
+            -D CUDNN_INCLUDE_DIR=/usr/include/ \
+            -D CUDA_ARCH_BIN=${CUDA_ARCH_BIN} \
+            -D CUDA_ARCH_PTX="" \
+            -D CUDA_FAST_MATH=ON \
+            -D WITH_TBB=ON \
+            -D BUILD_opencv_python2=OFF \
+            -D BUILD_opencv_python3=ON \
+            -D OPENCV_DNN_CUDA=ON \
+            -D OPENCV_ENABLE_NONFREE=ON \
+            -D OPENCV_EXTRA_MODULES_PATH=/tmp/opencv_contrib/modules \
+            -D BUILD_EXAMPLES=OFF \
+            -D BUILD_opencv_java=OFF \
+            -D BUILD_opencv_python=OFF \
+            -D BUILD_TESTS=OFF \
+            -D BUILD_PERF_TESTS=OFF \
+            -D BUILD_opencv_apps=OFF \
+            -D ENABLE_NEON=${ENABLE_NEON} \
+            -D EIGEN_INCLUDE_PATH=/usr/include/eigen3 \
+	      -D WITH_EIGEN=ON \
+            -D ENABLE_NEON=${ENABLE_NEON} \
+            -D WITH_IPP=OFF \
+      	-D WITH_OPENCL=OFF \
+            -D PYTHON3_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.8.so \
+            -D BUILD_LIST=calib3d,features2d,highgui,dnn,imgproc,imgcodecs,cudev,cudaoptflow,cudaimgproc,cudalegacy,cudaarithm,cudacodec,cudastereo,cudafeatures2d,xfeatures2d,tracking,stereo,aruco,videoio,ccalib && \
+      make -j${USE_PROC} && \
+      make install
+
+# Build cv_bridge for OpenCV4.5.4
+RUN   mkdir -p /root/cv_bridge${OPENCV_VERSION}_ws/src && \
+      mv /tmp/cv_bridge${OPENCV_VERSION} /root/cv_bridge${OPENCV_VERSION}_ws/src && \
+      /bin/bash -c 'source /opt/ros/${ROS_VERSION}/setup.bash && \
+      cd /root/cv_bridge${OPENCV_VERSION}_ws && catkin_make && echo "source /root/cv_bridge${OPENCV_VERSION}_ws/devel/setup.bash" >> /root/.bashrc'
+
+# Install Intel RealSense SDK
+WORKDIR /tmp
+RUN   apt-get install -y software-properties-common && \
+      apt-key adv --keyserver keyserver.ubuntu.com --recv-key F6E65AC044F831AC80A06380C8B3A55A6F3EFCDE || \
+      apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-key  F6E65AC044F831AC80A06380C8B3A55A6F3EFCDE && \
+      add-apt-repository "deb https://librealsense.intel.com/Debian/apt-repo $(lsb_release -cs) main" -u && \
+      apt-get update -y && \
+      apt install librealsense2-dev=2.55.1-0~realsense.12422 \
+                       librealsense2=2.55.1-0~realsense.12422 \
+                       librealsense2-utils=2.55.1-0~realsense.12422 \
+                       librealsense2-dbg=2.55.1-0~realsense.12422 \
+                       librealsense2-gl=2.55.1-0~realsense.12422 -y  && \
+      apt-mark hold librealsense2 librealsense2-dev librealsense2-utils librealsense2-dbg
+
+# Install MAVROS
+RUN   apt-get install -y ros-${ROS_VERSION}-mavros && \
+      cd /opt/ros/${ROS_VERSION}/lib/mavros && \
+      ./install_geographiclib_datasets.sh
+
+# Build Glog
+RUN   apt-get install -y liblapack-dev libsuitesparse-dev libcxsparse3 libgflags-dev libgoogle-glog-dev libgtest-dev && \
+      cd /tmp/glog && \
+      chmod +x autogen.sh configure && ./autogen.sh && ./configure && \
+      make -j${USE_PROC} && make install
+
+# Build Ceres
+RUN   cd /tmp/ceres-solver-2.0.0rc1 && mkdir build && cd build && \
+      cmake -DCMAKE_BUILD_TYPE=Release -DCUDA=OFF .. && make -j${USE_PROC} && make install && \
+      rm -rf ../../ceres-solver-2.0.0rc1
+
+# Install LCM
+RUN   cd /tmp && git clone https://github.com/lcm-proj/lcm && \
+      cd lcm && \
+      git checkout tags/v1.4.0 && \
+      mkdir build && cd build && \
+      cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF -DBUILD_BENCHMARKS=OFF .. && \
+      make -j${USE_PROC} && make install
+
+# Install onnxruntime
+RUN   apt install python3-pip -y && \
+      /usr/bin/pip3 install onnxruntime -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+# Install dependencies for gscam
+RUN   apt update && apt install -y gstreamer1.0-tools libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-good1.0-dev && \
+      apt install -y ros-${ROS_VERSION}-camera-calibration-parsers \
+      ros-${ROS_VERSION}-camera-info-manager
+
+# Build OpenCV3.4.16
+COPY  ./opencv-3.4.16.zip /tmp
+COPY  ./opencv_contrib-3.4.16.zip /tmp
+RUN   cd /tmp && unzip opencv-3.4.16.zip && unzip opencv_contrib-3.4.16.zip && \
+      cd /tmp/opencv-3.4.16 && mkdir build && cd build && \
+      cmake -D CMAKE_BUILD_TYPE=RELEASE \
+      -D CMAKE_INSTALL_PREFIX=/usr/local/opencv-3.4.16 \
+      -D OPENCV_EXTRA_MODULES_PATH=/tmp/opencv_contrib-3.4.16/modules \
+      -D WITH_CUDA=ON \
+      -D CUDA_ARCH_BIN=${CUDA_ARCH_BIN} \
+      -D CUDNN_VERSION='8.9.6' \
+      -D CUDNN_INCLUDE_DIR=/usr/include/ \
+      -D CUDA_ARCH_PTX="" \
+      -D ENABLE_FAST_MATH=ON \
+      -D CUDA_FAST_MATH=ON \
+      -D WITH_CUBLAS=ON \
+      -D WITH_LIBV4L=ON \
+      -D WITH_GSTREAMER=ON \
+      -D WITH_GSTREAMER_0_10=OFF \
+      -D WITH_QT=ON \
+      -D WITH_OPENGL=ON \
+      -D CUDA_NVCC_FLAGS="--expt-relaxed-constexpr" \
+      -D WITH_TBB=ON \
+      .. && \
+      make -j${USE_PROC} && \
+      make install
+
+# TensorRT
+WORKDIR  /tmp
+COPY     ./TensorRT-8.6.1.6.Linux.x86_64-gnu.cuda-11.8.tar.gz /tmp
+RUN      mkdir -p /usr/local/TensorRT-8.6.1.6
+RUN      tar -xzvf TensorRT-8.6.1.6.Linux.x86_64-gnu.cuda-11.8.tar.gz -C /usr/local/TensorRT-8.6.1.6 --strip-components=1
+RUN      cd /usr/local && ln -sf /usr/local/TensorRT-8.6.1.6 tensorrt
+RUN      cd /usr/local/include && ln -sf /usr/local/TensorRT-8.6.1.6/include tensorrt
+RUN      echo 'export LD_LIBRARY_PATH=/usr/local/tensorrt/lib:$LD_LIBRARY_PATH' >> /root/.bashrc
+RUN      cp /usr/local/tensorrt/bin/trtexec /bin
+
+# Other Config
+RUN   /usr/bin/pip3 install scikit-image
+
+# Config SSH
+RUN  mkdir /var/run/sshd && \
+echo 'root:123456' | chpasswd && \
+sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+EXPOSE 22
+
+# Clean up all temp files
+RUN apt clean && rm -rf  /var/tmp/* /var/lib/apt/lists/* /var/cache/apt/* /tmp/*
+WORKDIR /root
