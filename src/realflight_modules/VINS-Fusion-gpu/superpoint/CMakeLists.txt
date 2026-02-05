@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   image_transport
   thread_pool
   line_descriptor
+  message_generation
 )
 add_subdirectory(${PROJECT_SOURCE_DIR}/3rdparty/tensorrtbuffer)
 
@@ -34,10 +35,20 @@ find_package(Boost REQUIRED)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 find_package(Eigen3 REQUIRED)
 
+add_message_files(
+  FILES
+  GlobalFeature.msg
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
+
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES ${PROJECT_NAME}_lib
-  CATKIN_DEPENDS roscpp rospy std_msgs sensor_msgs geometry_msgs image_transport
+  CATKIN_DEPENDS roscpp rospy std_msgs sensor_msgs geometry_msgs image_transport message_runtime
 )
 
 include_directories(
@@ -61,6 +72,9 @@ add_library(${PROJECT_NAME}_lib SHARED
     src/utils.cpp
     src/xfeat.cpp
     src/line_feature_tracker.cpp
+    src/netvlad.cpp
+    src/vlad_extractor.cpp
+    src/feature_predictor.cpp
 )
 
 # cuda_add_library(custom_layernorm SHARED

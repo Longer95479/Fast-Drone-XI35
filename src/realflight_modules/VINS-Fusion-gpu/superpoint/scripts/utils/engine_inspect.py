@@ -22,7 +22,7 @@ def print_model_info(engine):
         print(f"Tensor {i}: {'Input' if is_input else 'Output'}, Name: {name}, Shape: {shape}, Type: {type}")
 
 def main():
-    engine_path = '/home/nx05/Fast-Drone-XI35/src/realflight_modules/VINS-Fusion-gpu/superpoint/model/xfeat.engine'
+    engine_path = 'netvlad_layer.engine'
     engine = load_engine(engine_path)
     print_model_info(engine)
  

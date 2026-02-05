@@ -4,7 +4,7 @@ import onnxruntime
 from time import time
 
 # 加载 ONNX 模型
-model_path = "/home/nx05/Fast-Drone-XI35/src/realflight_modules/VINS-Fusion-gpu/superpoint/model/plnet_s1.onnx" #  superpoint_lightglue.onnx
+model_path = "/home/nx05/soa-vlad/soa_attnvlad.onnx" #  superpoint_lightglue.onnx  /home/nx05/xfeat-vlad/netvlad_layer.onnx
 model = onnx.load(model_path)
 onnx.checker.check_model(model)
 

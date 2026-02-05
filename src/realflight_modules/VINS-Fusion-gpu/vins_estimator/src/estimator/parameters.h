@@ -1,8 +1,9 @@
 /*******************************************************
- * Copyright (C) 2019, Aerial Robotics Group, Hong Kong University of Science and Technology
- * 
+ * Copyright (C) 2019, Aerial Robotics Group, Hong Kong University of Science
+ *and Technology
+ *
  * This file is part of VINS.
- * 
+ *
  * Licensed under the GNU General Public License v3.0;
  * you may not use this file except in compliance with the License.
  *******************************************************/
@@ -10,13 +11,15 @@
 #pragma once
 
 #include <ros/ros.h>
-#include <vector>
+
 #include <eigen3/Eigen/Dense>
-#include "../utility/utility.h"
-#include <opencv2/opencv.hpp>
-#include <opencv2/core/eigen.hpp>
 #include <fstream>
 #include <map>
+#include <opencv2/core/eigen.hpp>
+#include <opencv2/opencv.hpp>
+#include <vector>
+
+#include "../utility/utility.h"
 
 using namespace std;
 
@@ -106,29 +109,15 @@ extern double INITIAL_YAW;
 
 void readParameters(std::string config_file);
 
-enum SIZE_PARAMETERIZATION
-{
-    SIZE_POSE = 7,
-    SIZE_SPEEDBIAS = 9,
-    SIZE_FEATURE = 1,
-    SIZE_LINE = 4,
-    SIZE_STRUCT_LINE = 2,
-    SIZE_MHT = 1
+enum SIZE_PARAMETERIZATION {
+  SIZE_POSE = 7,
+  SIZE_SPEEDBIAS = 9,
+  SIZE_FEATURE = 1,
+  SIZE_LINE = 4,
+  SIZE_STRUCT_LINE = 2,
+  SIZE_MHT = 1
 };
 
-enum StateOrder
-{
-    O_P = 0,
-    O_R = 3,
-    O_V = 6,
-    O_BA = 9,
-    O_BG = 12
-};
+enum StateOrder { O_P = 0, O_R = 3, O_V = 6, O_BA = 9, O_BG = 12 };
 
-enum NoiseOrder
-{
-    O_AN = 0,
-    O_GN = 3,
-    O_AW = 6,
-    O_GW = 9
-};
+enum NoiseOrder { O_AN = 0, O_GN = 3, O_AW = 6, O_GW = 9 };

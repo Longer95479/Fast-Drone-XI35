@@ -74,7 +74,7 @@ td: -0.001                           # -0.001 initial value of time offset. unit
 
 #loop closure parameters
 load_previous_pose_graph: 0        # load and reuse previous pose graph; load from 'pose_graph_save_path'
-pose_graph_save_path: "/home/orin02/savedfiles/output/pose_graph/" # save and load path
+pose_graph_save_path: "/home/nx05/vins_output/loop_image_ori/" # save and load path
 save_image: 1                   # save image in pose graph for visualization prupose; you can close this function by setting 0 
 
 odometry_type: 0 #0为原始里程计，1为加了偏置后的里程计
@@ -90,7 +90,7 @@ set_initial_yaw: 0 #设置初始yaw，单位：° 155
 
 use_external_front_end: 1 #0：前端使用自带的光流跟踪，1：使用外部特征跟踪器
 
-record_csv: 0 #记录滑窗优化最新帧的时间戳、滑窗内可用的特征点数目、xyz、td
+record_csv: 1 #记录滑窗优化最新帧的时间戳、滑窗内可用的特征点数目、xyz、td
 csv_file_path: "/home/nx05/csv/vins_backend/xp_opticalflow_retrack.csv" #sp_opticalflow.csv, sp_lg_version.csv, original_version.csv, xp_opticalflow.csv
 
 #superpoint & light glue
@@ -101,7 +101,7 @@ plnet:
     max_keypoints: 300  #200 250 sp或xfeat提取特征点数量上限
     keypoint_threshold: 0.1 #0.004 0.001 for superpoint 0.05 ~ 0.1for xfeat
     remove_borders: 4
-    dist_thresh: 30 #nms dist for extracting new points
+    dist_thresh: 20 #nms dist for extracting new points
     line_threshold: 0.75
     line_length_threshold: 50
     pub_freq: 10 #前端处理频率
@@ -112,15 +112,15 @@ plnet:
     csv_file_path: "/home/nx05/csv/vins-frontend/xp_opticalflow_retrack.csv" # xp_opticalflow.csv
 
     of_max_cnt: 150 # max feature number in feature tracking for opticalflow 200
-    of_min_dist: 30 # min distance between two features for opticalflow 光流nms半径 20
+    of_min_dist: 20 # min distance between two features for opticalflow 光流nms半径 20
 
     resized_width: 640   #神经网络输入图像尺寸
     resized_height: 480
 
     superpoint_onnx_model: "superpoint_v1_sim_int32.onnx"
     superpoint_trt_model: "superpoint_v1_sim_int32.engine"
-    xfeat_onnx_model: "xfeat.onnx"
-    xfeat_trt_model: "xfeat.engine"
+    xfeat_onnx_model: "xfeat.onnx" #xfeat.onnx
+    xfeat_trt_model: "xfeat.engine" #xfeat.engine
     plnet_s0_onnx_model: "plnet_s0.onnx"
     plnet_s0_trt_model: "plnet_s0.engine"
     plnet_s1_onnx_model: "plnet_s1.onnx"
@@ -132,6 +132,7 @@ xfeat_opticalflow:
     max_roi_len: 40 #预测点的最大ROI边长
     min_match_dist: 0.9 #匹配成功的最小余弦距离
     roi_pts_threshold: 0.1 #roi内视为特征点的heatmap阈值
+    ratio_test_threshold: 1
     
 point_matcher:
     matcher: 0   # 0 for lightglue
@@ -166,3 +167,8 @@ line_config:
     associate_points_to_lines: 1 #将线与点进行关联以辅助三角化
     struct_line_sqrt_info: 10 #结构线约束项权重
     enable_struct_line_margin: 0 #结构线加入边缘化信息
+
+vlad_extractor:
+    use_netvlad: 1
+    onnx_file: "netvlad_layer.onnx"
+    engine_file: "netvlad_layer.engine"
