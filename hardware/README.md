@@ -20,6 +20,12 @@
 
 设计by 陈庆东
 
+### FC_anti_vibration_bottom_plat 飞控减震底板
+
+<img src="../images/FC_anti_vibration_bottom_plat.png" width = 50% height = 50% div align=center />
+
+设计by 刘亦茗
+
 ### bottom_plate 无人机底板
 
 <img src="../images/bottom_plate.png" width = 50% height = 50% div align=center />
